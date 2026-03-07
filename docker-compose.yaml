@@ -1,0 +1,108 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=-1  # -1 means "never unload"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - ai-network
+
+  model-loader:
+    image: ollama/ollama:latest
+    container_name: model-loader
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Ollama API..."
+        until ollama list > /dev/null 2>&1; do
+          echo "Ollama not ready, retrying in 5s..."
+          sleep 5
+        done
+        echo "Ollama is ready. Pulling qwen2.5-coder:14b..."
+        ollama pull qwen2.5-coder:14b
+        echo "Model qwen2.5-coder:14b pulled successfully."
+        echo "Pulling gpt-oss:20b..."
+        ollama pull gpt-oss:20b
+        echo "Model gpt-oss:20b pulled successfully."
+        echo "Pulling ServiceNow-AI/Apriel-1.6-15b-Thinker..."
+        ollama pull ServiceNow-AI/Apriel-1.6-15b-Thinker
+        echo "Model ServiceNow-AI/Apriel-1.6-15b-Thinker pulled successfully."
+        echo "Pre-loading gpt-oss:20b into memory..."
+        curl -s http://ollama:11434/api/generate -d '{"model":"gpt-oss:20b","prompt":"","keep_alive":-1}' > /dev/null
+        echo "Model gpt-oss:20b loaded into memory."
+    restart: "no"
+    networks:
+      - ai-network
+
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:2026.3.2
+    #latest once stable
+    #image: image: ghcr.io/openclaw/openclaw:latest
+    container_name: openclaw
+    restart: unless-stopped
+    depends_on:
+      model-loader:
+        condition: service_completed_successfully
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
+    ports:
+      - "18789:18789"
+      - "18791:18791"
+    volumes:
+      - ./openclaw-state:/home/node/.openclaw
+    environment:
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OLLAMA_API_KEY=ollama-local
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+    networks:
+      - ai-network
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    depends_on:
+      model-loader:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    volumes:
+      - openwebui_data:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-network
+
+volumes:
+  ollama_data:
+  openwebui_data:
+
+networks:
+  ai-network:
+    driver: bridge
