@@ -12,3 +12,4 @@ openclaw-state/identity/
 openclaw-state/canvas/
 openclaw-state/cron/
 openclaw-state/devices/
+openclaw-state/agents/main/sessions/

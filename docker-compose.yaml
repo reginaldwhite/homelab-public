@@ -59,9 +59,7 @@ services:
       - ai-network
 
   openclaw:
-    image: ghcr.io/openclaw/openclaw:2026.3.2
-    #latest once stable
-    #image: image: ghcr.io/openclaw/openclaw:latest
+    image: ghcr.io/openclaw/openclaw:latest
     container_name: openclaw
     restart: unless-stopped
     depends_on:
@@ -73,11 +71,13 @@ services:
       - "18791:18791"
     volumes:
       - ./openclaw-state:/home/node/.openclaw
+      - /home/robby/.ssh:/home/node/.ssh:ro
     environment:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OLLAMA_API_KEY=ollama-local
       - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
     networks:
       - ai-network
 
