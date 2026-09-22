@@ -12,7 +12,12 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
+      # One model at a time, held in VRAM indefinitely. The 16 GB card can
+      # only fit one of these models, so loading a second is never wanted:
+      # MAX_LOADED_MODELS=1 makes ollama evict the resident model instead of
+      # trying to co-locate and spilling layers to CPU.
       - OLLAMA_KEEP_ALIVE=-1  # -1 means "never unload"
+      - OLLAMA_MAX_LOADED_MODELS=1
     deploy:
       resources:
         reservations:

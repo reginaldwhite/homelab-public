@@ -60,7 +60,7 @@ AI and automation server with NVIDIA GPU. Docker compose: [forge/docker-compose.
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `ollama` | `ollama/ollama:latest` | 11434 | Local LLM inference, GPU-accelerated. `OLLAMA_KEEP_ALIVE=-1`, so a loaded model is never unloaded |
+| `ollama` | `ollama/ollama:latest` | 11434 | Local LLM inference, GPU-accelerated. One model resident at a time, held indefinitely (see below) |
 | `model-loader` | `ollama/ollama:latest` | — | One-shot init: pulls the models below, then pre-loads `gpt-oss:20b` into VRAM. Exits non-zero if any step fails |
 | `openclaw` | `ghcr.io/openclaw/openclaw:latest` | 18789, 18791 | AI agent gateway with Slack integration and Brave search |
 | `open-webui` | `ghcr.io/open-webui/open-webui:main` | 8080 | Web UI for Ollama models |
@@ -69,12 +69,34 @@ AI and automation server with NVIDIA GPU. Docker compose: [forge/docker-compose.
 
 | Model | Size | Source |
 |---|---|---|
-| `gpt-oss:20b` | 13 GB | ollama registry — pre-loaded into VRAM at startup |
+| `gpt-oss:20b` | 13 GB | ollama registry — the default, pre-loaded into VRAM at startup |
 | `qwen2.5-coder:14b` | 9.0 GB | ollama registry |
 | `hf.co/ServiceNow-AI/Apriel-1.6-15b-Thinker-GGUF:Q4_K_M` | 9.7 GB | Hugging Face — the upstream `ServiceNow-AI/Apriel-1.6-15b-Thinker` repo ships safetensors only, so the vendor's GGUF build is used |
 
-With a 16 GB card and `gpt-oss:20b` pinned at ~14 GB, only one model fits in VRAM at a time —
-requesting another evicts it or spills to CPU. `docker exec ollama ollama ps` shows what is resident.
+#### One model in VRAM at a time — by design
+
+All three models are kept on disk, but the GPU only ever holds one. This is deliberate, not a
+workaround: each model is 9–14 GB against a 16 GB card, so two can never usefully coexist, and
+letting ollama try would push layers onto the CPU and collapse throughput.
+
+Two settings on the `ollama` service enforce it:
+
+| Setting | Effect |
+|---|---|
+| `OLLAMA_MAX_LOADED_MODELS=1` | Ollama evicts the resident model before loading another, instead of co-locating them |
+| `OLLAMA_KEEP_ALIVE=-1` | The resident model is never unloaded on idle — no cold starts between requests |
+
+`gpt-oss:20b` is the intended resident model: `model-loader` pre-loads it at startup and
+OpenClaw's `primary` model is `ollama/gpt-oss:20b`. Switching to another model is supported —
+it simply evicts `gpt-oss:20b` and takes a one-time ~40 s load, after which the new model stays
+resident until something else is requested.
+
+```bash
+docker exec ollama ollama ps    # what is resident right now
+```
+
+Because model ids must match exactly, both `openclaw.json` and the agent's `models.json` register
+the Apriel model under its full `hf.co/...:Q4_K_M` id.
 
 `openclaw` and `open-webui` depend on `ollama` being healthy, not on `model-loader` completing,
 so a failed model pull doesn't keep the gateway down on boot.
