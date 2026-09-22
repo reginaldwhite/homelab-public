@@ -39,24 +39,47 @@ services:
       - OLLAMA_HOST=ollama:11434
     entrypoint: ["/bin/sh", "-c"]
     command:
+      # Note: "$$" escapes Compose's own variable interpolation, so the shell
+      # sees a single "$". The ollama image ships no curl/wget/python, so every
+      # step here goes through the ollama CLI.
       - |
         echo "Waiting for Ollama API..."
         until ollama list > /dev/null 2>&1; do
           echo "Ollama not ready, retrying in 5s..."
           sleep 5
         done
-        echo "Ollama is ready. Pulling qwen2.5-coder:14b..."
-        ollama pull qwen2.5-coder:14b
-        echo "Model qwen2.5-coder:14b pulled successfully."
-        echo "Pulling gpt-oss:20b..."
-        ollama pull gpt-oss:20b
-        echo "Model gpt-oss:20b pulled successfully."
-        echo "Pulling ServiceNow-AI/Apriel-1.6-15b-Thinker..."
-        ollama pull ServiceNow-AI/Apriel-1.6-15b-Thinker
-        echo "Model ServiceNow-AI/Apriel-1.6-15b-Thinker pulled successfully."
+        echo "Ollama is ready."
+
+        failed=""
+        for model in \
+          qwen2.5-coder:14b \
+          gpt-oss:20b \
+          hf.co/ServiceNow-AI/Apriel-1.6-15b-Thinker-GGUF:Q4_K_M
+        do
+          echo "Pulling $$model..."
+          if ollama pull "$$model"; then
+            echo "Model $$model pulled successfully."
+          else
+            echo "ERROR: failed to pull $$model" >&2
+            failed="$$failed $$model"
+          fi
+        done
+
+        # Preload into VRAM so the first real request isn't a cold start.
+        # OLLAMA_KEEP_ALIVE=-1 on the ollama service keeps it resident.
         echo "Pre-loading gpt-oss:20b into memory..."
-        curl -s http://ollama:11434/api/generate -d '{"model":"gpt-oss:20b","prompt":"","keep_alive":-1}' > /dev/null
-        echo "Model gpt-oss:20b loaded into memory."
+        if ollama run gpt-oss:20b "" > /dev/null 2>&1; then
+          echo "Model gpt-oss:20b loaded into memory."
+        else
+          echo "ERROR: failed to pre-load gpt-oss:20b" >&2
+          failed="$$failed preload:gpt-oss:20b"
+        fi
+
+        if [ -n "$$failed" ]; then
+          echo "model-loader finished with failures:$$failed" >&2
+          exit 1
+        fi
+        echo "model-loader completed successfully."
     restart: "no"
     networks:
       - ai-network
@@ -65,9 +88,11 @@ services:
     image: ghcr.io/openclaw/openclaw:latest
     container_name: openclaw
     restart: unless-stopped
+    # Depends on ollama itself, not model-loader: a failed model pull should
+    # not keep the Slack gateway down on every boot.
     depends_on:
-      model-loader:
-        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
     command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
     ports:
       - "18789:18789"
@@ -88,9 +113,10 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
     restart: unless-stopped
+    # As with openclaw: ollama being up is what matters, not the model pulls.
     depends_on:
-      model-loader:
-        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
     ports:
       - "8080:8080"
     volumes:

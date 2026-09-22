@@ -55,14 +55,29 @@ Dedicated Plex Media Server. Woken via WoL by OpenClaw agent on `forge` when nee
 AI and automation server with NVIDIA GPU. Docker compose: [forge/docker-compose.yaml](forge/docker-compose.yaml) (Compose project `forge`)
 
 - **MAC:** `88:d7:f6:13:14:3a`
+- **GPU:** NVIDIA RTX 5060 Ti, 16 GB
 - **Power:** Woken/slept by `bastion` cron; on-demand control via OpenClaw `forge-power.py`
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `ollama` | `ollama/ollama:latest` | 11434 | Local LLM inference, GPU-accelerated, models kept loaded indefinitely |
-| `model-loader` | `ollama/ollama:latest` | — | One-shot init: pulls `qwen2.5-coder:14b`, `gpt-oss:20b`, `ServiceNow-AI/Apriel-1.6-15b-Thinker`; pre-loads `gpt-oss:20b` into memory |
+| `ollama` | `ollama/ollama:latest` | 11434 | Local LLM inference, GPU-accelerated. `OLLAMA_KEEP_ALIVE=-1`, so a loaded model is never unloaded |
+| `model-loader` | `ollama/ollama:latest` | — | One-shot init: pulls the models below, then pre-loads `gpt-oss:20b` into VRAM. Exits non-zero if any step fails |
 | `openclaw` | `ghcr.io/openclaw/openclaw:latest` | 18789, 18791 | AI agent gateway with Slack integration and Brave search |
 | `open-webui` | `ghcr.io/open-webui/open-webui:main` | 8080 | Web UI for Ollama models |
+
+**Models pulled by `model-loader`:**
+
+| Model | Size | Source |
+|---|---|---|
+| `gpt-oss:20b` | 13 GB | ollama registry — pre-loaded into VRAM at startup |
+| `qwen2.5-coder:14b` | 9.0 GB | ollama registry |
+| `hf.co/ServiceNow-AI/Apriel-1.6-15b-Thinker-GGUF:Q4_K_M` | 9.7 GB | Hugging Face — the upstream `ServiceNow-AI/Apriel-1.6-15b-Thinker` repo ships safetensors only, so the vendor's GGUF build is used |
+
+With a 16 GB card and `gpt-oss:20b` pinned at ~14 GB, only one model fits in VRAM at a time —
+requesting another evicts it or spills to CPU. `docker exec ollama ollama ps` shows what is resident.
+
+`openclaw` and `open-webui` depend on `ollama` being healthy, not on `model-loader` completing,
+so a failed model pull doesn't keep the gateway down on boot.
 
 ---
 
