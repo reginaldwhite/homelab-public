@@ -220,3 +220,11 @@ git config --local credential.helper '!scripts/git-credential-homelab'
 `.secrets.env` is gitignored. The helper also accepts an already-exported
 `$GITHUB_TOKEN` in preference to the file.
 
+The helper only supplies credentials for push/fetch — the commit author comes from
+git config. On a host with no global identity (e.g. `cinema`), set it for this clone:
+
+```bash
+git config --local user.name 'Reginald White'
+git config --local user.email 'robbywhite.public@gmail.com'
+```
+
