@@ -95,6 +95,18 @@ resident until something else is requested.
 docker exec ollama ollama ps    # what is resident right now
 ```
 
+#### Context length is 4096
+
+Ollama picks a default context based on available VRAM, and on this box it lands on **4096 tokens
+for all three models** (confirmed with `ollama ps` after loading each one). OpenClaw's model
+definitions declare `contextWindow: 4096` / `maxTokens: 2048` to match, so the agent budgets
+prompts against what is really served rather than silently overflowing and being truncated.
+
+Raising it means setting `OLLAMA_CONTEXT_LENGTH` on the `ollama` service *and* having the VRAM for
+a larger KV cache — with `gpt-oss:20b` already at ~14 GB of 16 GB, that would mean dropping to a
+smaller resident model. If you change it, update `contextWindow` in both `openclaw.json` and
+`agents/main/agent/models.json` to match, and keep `maxTokens` well under it to leave room for input.
+
 Because model ids must match exactly, both `openclaw.json` and the agent's `models.json` register
 the Apriel model under its full `hf.co/...:Q4_K_M` id.
 
