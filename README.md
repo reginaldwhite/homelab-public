@@ -6,7 +6,7 @@
 |---|---|
 | ATT Fiber Router | `192.168.0.1` |
 | `bastion` (file) | `192.168.0.10` |
-| `cinema` (plex-7700t) | `192.168.0.13` |
+| `cinema` (plex-7600t) | `192.168.0.13` |
 | `forge` (7700k) | `192.168.0.12` |
 | `vault` (tower) | `192.168.0.212` |
 
@@ -45,8 +45,17 @@ Scripts: [bastion/scripts/](bastion/scripts/)
 ### `cinema` — 192.168.0.13 (Ubuntu) — On Demand
 
 Dedicated Plex Media Server. Woken via WoL by OpenClaw agent on `forge` when needed.
+Docker compose: [cinema/docker-compose.yml](cinema/docker-compose.yml) (Compose project `plex`)
 
 - **MAC:** `d0:17:c2:dd:c1:c2`
+
+| Container | Image | Port(s) | Notes |
+|---|---|---|---|
+| `plex` | `plexinc/pms-docker:latest` | host network (32400) | Config in `/root/plex/config`, media in `/mnt/storage/plex` → `/data` |
+
+The stack was first started with `sudo`, so the config/transcode bind mounts live under
+`/root/plex/` and the compose file uses absolute paths to keep pointing at them.
+`PLEX_CLAIM` is only needed when claiming a fresh server — put it in `cinema/.env`.
 
 ---
 
@@ -149,6 +158,10 @@ Homelab/
 │   │   └── backup-to-tower.sh
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
 │                                       (vw-data/ is live data, gitignored)
+│
+├── cinema/                           — 192.168.0.13 (plex)
+│   ├── docker-compose.yml            — Compose project `plex`
+│   └── .env.example                  — optional PLEX_CLAIM for first-time setup
 │
 └── forge/                            — 192.168.0.12 (runs from this folder)
     ├── docker-compose.yaml           — Compose project `forge` (ollama, openclaw, open-webui)

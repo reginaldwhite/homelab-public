@@ -1,6 +1,9 @@
 # GitHub PAT used by scripts/git-credential-homelab — never commit
 .secrets.env
 
+# Per-host secrets - copy .env.example to .env and fill in values
+.env
+
 # Live Vaultwarden data: sqlite DB + rsa_key.pem (JWT signing key).
 # Lives on bastion; backed up to vault. Local copies stay out of git.
 vw-data/
