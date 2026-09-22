@@ -22,9 +22,33 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `vaultwarden` | `vaultwarden/server:latest` | 8080→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled |
+| `vaultwarden` | `vaultwarden/server:1.37.3` | 8080→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below |
 | `caddy` | `caddy:latest` | 80, 443 | Reverse proxy / TLS termination |
 | `adguardhome` | `adguard/adguardhome` | host network | DNS-level ad & tracker blocking |
+
+#### Vaultwarden version is pinned
+
+Bitwarden client compatibility is version-sensitive: clients refuse to sync against a server
+that is too old, and the failure surfaces as an opaque decoding error rather than a version
+warning. Vaultwarden **1.37.2+** is required for clients **2026.8.0** and newer.
+
+`:latest` is misleading here — it only moves when something runs `docker compose pull`, which
+nothing does on a schedule, so the server sat on 1.35.3 for seven months while the tag said
+"latest". The tag is pinned so the deployed version is visible in git.
+
+To upgrade: bump the tag in [bastion/vaultwarden/docker-compose.yml](bastion/vaultwarden/docker-compose.yml),
+copy it to `/home/robby/vaultwarden/` on bastion, then:
+
+```bash
+# back up first — Vaultwarden's DB migrations are not reversible
+docker compose stop vaultwarden
+docker run --rm -v /home/robby/vaultwarden/vw-data:/d:ro -v /home/robby/vw-backups:/out \
+  alpine tar czf /out/vw-data-$(date +%F).tgz -C /d .
+docker compose pull vaultwarden && docker compose up -d vaultwarden
+docker logs vaultwarden | grep Version
+```
+
+Backups land in `/home/robby/vw-backups/` on bastion.
 
 **Cron schedule** (controls all other servers):
 
