@@ -1,3 +1,6 @@
+# Project name is pinned so volume names don't depend on this folder's path.
+name: forge
+
 services:
   ollama:
     image: ollama/ollama:latest

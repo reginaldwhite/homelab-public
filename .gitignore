@@ -1,15 +1,15 @@
-# Secrets - copy .env.example to .env and fill in values
-.env
+# GitHub PAT used by scripts/git-credential-homelab — never commit
+.secrets.env
 
-# Raw credential files
-slack token
+# Live Vaultwarden data: sqlite DB + rsa_key.pem (JWT signing key).
+# Lives on bastion; backed up to vault. Local copies stay out of git.
+vw-data/
 
-# OpenClaw runtime state - exclude everything except tracked config files
-openclaw-state/update-check.json
-openclaw-state/workspace/
-openclaw-state/memory/
-openclaw-state/identity/
-openclaw-state/canvas/
-openclaw-state/cron/
-openclaw-state/devices/
-openclaw-state/agents/main/sessions/
+# AdGuard Home runtime state (lives on bastion)
+agh-work/
+agh-conf/
+adguard-work/
+adguard-conf/
+
+# Editor / tooling local state
+.claude/settings.local.json

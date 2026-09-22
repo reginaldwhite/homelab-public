@@ -1,0 +1,24 @@
+vault.robbywhite.net {
+  reverse_proxy vaultwarden:80
+  encode gzip
+}
+dns.robbywhite.net {
+    reverse_proxy 127.0.0.1:8080
+}
+192.168.0.13 {
+    # This tells Caddy to generate a self-signed cert for local use
+    tls internal
+
+    # Proxy traffic to your GPU server's OpenClaw port
+    reverse_proxy 192.168.0.13:18789 {
+        # Critical for WebSockets in OpenClaw 2026
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+    }
+}
+
+# Optional: Add a block for the WebUI too
+ai-chat.local {
+    tls internal
+    reverse_proxy 192.168.0.13:3000
+}
