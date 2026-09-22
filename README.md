@@ -50,6 +50,38 @@ docker logs vaultwarden | grep Version
 
 Backups land in `/home/robby/vw-backups/` on bastion.
 
+#### Staleness alert
+
+Pinning means nothing upgrades on its own, so
+[forge/scripts/vaultwarden-version-check.sh](forge/scripts/vaultwarden-version-check.sh)
+compares the tag bastion is actually running against the newest GitHub release and DMs
+you in Slack through OpenClaw when it's behind. It reports the *deployed* tag
+(`docker inspect`), not the one the repo intends, so drift between the two shows up too.
+
+It runs on **forge**, from the user crontab at boot:
+
+```cron
+@reboot /home/robby/Documents/Github/Homelab/forge/scripts/vaultwarden-version-check.sh
+```
+
+Forge is the right host even though the service lives on bastion: OpenClaw sends the
+Slack message and only runs on forge, so firing the check from bastion could alert at a
+time when nothing can deliver it. Since bastion wakes forge at 5am daily, "at boot" gives
+a once-a-day check for free, always at a moment the sender is up. The script waits up to
+ten minutes for the OpenClaw container before giving up.
+
+A check that *fails* also alerts — an unreachable bastion or GitHub is reported rather
+than silently skipped, since a silently broken notifier is the exact failure being guarded
+against. To re-verify delivery at any time:
+
+```bash
+forge/scripts/vaultwarden-version-check.sh --test    # sends a sample Slack DM
+```
+
+The script never upgrades anything by itself. Restarting a container does **not** update
+it — only `docker compose pull` fetches a new image — and Vaultwarden's migrations are
+one-way, so upgrades stay manual and backed up.
+
 **Cron schedule** (controls all other servers):
 
 | Time | Job |
@@ -177,6 +209,8 @@ Homelab/
 └── forge/                            — 192.168.0.12 (runs from this folder)
     ├── docker-compose.yaml           — Compose project `forge` (ollama, openclaw, open-webui)
     ├── .env.example                  — copy to .env (gitignored) and fill in tokens
+    ├── scripts/
+    │   └── vaultwarden-version-check.sh  — @reboot; Slacks you when bastion's Vaultwarden is stale
     └── openclaw-state/               — openclaw runtime state, bind-mounted into the container
         ├── scripts/
         │   ├── plex-power.py         — cinema (plex) wake/sleep agent tool
