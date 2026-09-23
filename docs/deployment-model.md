@@ -115,7 +115,7 @@ for every machine here.
 
 Details that matter:
 
-- **Poll, don't sleep a fixed amount.** Retry SSH every 5s for ~120s, then fail with a clear
+- **Poll, don't sleep a fixed amount.** Retry SSH every 5s for ~180s, then fail with a clear
   message. Boot time varies.
 - **Wait for Docker too.** A just-woken host will accept SSH before `dockerd` is ready, so
   `apply.sh` should retry `docker info` briefly rather than failing on a race. This is the same
