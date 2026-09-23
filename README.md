@@ -177,6 +177,19 @@ AI and automation server with NVIDIA GPU. Docker compose: [forge/docker-compose.
 - **GPU:** NVIDIA RTX 5060 Ti, 16 GB
 - **Power:** Woken/slept by `bastion` cron; on-demand control via OpenClaw `forge-power.py`
 
+**Wake-on-LAN has to be armed on forge itself.** Without it the NIC stops listening at
+shutdown and every magic packet is dropped. The 5am wake failed this way from at least
+March until 2026-09-23, while the log still said "WoL sent". Needs, on forge:
+
+```bash
+sudo nmcli c modify netplan-enp0s31f6 802-3-ethernet.wake-on-lan magic   # persists via netplan
+sudo ethtool enp0s31f6 | grep Wake-on                                   # expect "Wake-on: g"
+```
+
+and in the BIOS (ASUS Maximus IX Hero): **ErP Ready = Disabled**, **Power On By PCI-E = Enabled**.
+`wake-forge.sh` and `sleep-forge.sh` now confirm by ping that forge actually came up or
+went down, and log `ERROR` in `~/logs/power.log` on bastion when it didn't.
+
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
 | `ollama` | `ollama/ollama:latest` | 11434 | Local LLM inference, GPU-accelerated. One model resident at a time, held indefinitely (see below) |
