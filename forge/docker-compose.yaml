@@ -109,7 +109,12 @@ services:
       - "18791:18791"
     volumes:
       - ./openclaw-state:/home/node/.openclaw
-      - /home/robby/.ssh:/home/node/.ssh:ro
+      # Only the agent's own key, not all of ~/.ssh. The power scripts use
+      # openclaw_ed25519 exclusively (and pass StrictHostKeyChecking=no /
+      # UserKnownHostsFile=/dev/null, so no known_hosts is needed). Mounting the
+      # whole directory also exposed id_ed25519, which authenticates as root on
+      # vault — a prompt-injected agent could read it straight off disk.
+      - /home/robby/.ssh/openclaw_ed25519:/home/node/.ssh/openclaw_ed25519:ro
     environment:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OLLAMA_API_KEY=ollama-local

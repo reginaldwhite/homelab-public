@@ -252,6 +252,37 @@ the Apriel model under its full `hf.co/...:Q4_K_M` id.
 `openclaw` and `open-webui` depend on `ollama` being healthy, not on `model-loader` completing,
 so a failed model pull doesn't keep the gateway down on boot.
 
+#### Agent credential scope
+
+The `openclaw` container gets **only** `~/.ssh/openclaw_ed25519`, mounted as a single file —
+not the whole `~/.ssh` directory:
+
+```yaml
+- /home/robby/.ssh/openclaw_ed25519:/home/node/.ssh/openclaw_ed25519:ro
+```
+
+`forge-power.py` and `plex-power.py` reference that key explicitly at every call site and pass
+`StrictHostKeyChecking=no` / `UserKnownHostsFile=/dev/null`, so nothing else from `~/.ssh` is
+needed. Mounting the whole directory additionally exposed `id_ed25519` — the key
+`backup-to-tower.sh` uses for `root@192.168.0.212` — to a process running an LLM with web
+access. Reading a file is the easiest thing for a prompt-injected agent to be talked into, so
+that key should never be inside this container.
+
+OpenClaw's own audit suggests `agents.defaults.sandbox.mode="all"` for small models with web
+tools. **That is not usable here:** the container has no Docker socket and no Docker CLI
+(`openclaw sandbox explain` reports `runtime: direct`), so it cannot create sandbox containers.
+Granting it `/var/run/docker.sock` to fix that would hand the agent host-root-equivalent access,
+which is worse than the risk being mitigated. Keeping credentials out of the container is the
+useful control at this scale.
+
+If the key set ever changes, re-verify with:
+
+```bash
+docker exec openclaw ls -l /home/node/.ssh/
+docker exec openclaw python3 /home/node/.openclaw/scripts/forge-power.py status
+docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
+```
+
 ---
 
 ### `vault` — 192.168.0.212 (Unraid) — Sunday 2am–5am
