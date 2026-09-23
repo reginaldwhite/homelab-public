@@ -61,6 +61,29 @@ Live data is **not** in the repo: `vw-data`, `agh-work` and `agh-conf` stay in
 Don't run `docker compose` from `~/vaultwarden/` any more. The old compose file there was
 retired so it can't quietly reapply stale config.
 
+#### Reverse proxy ([Caddyfile](bastion/vaultwarden/Caddyfile))
+
+| Hostname | Upstream | TLS |
+|---|---|---|
+| `vault.robbywhite.net` | `vaultwarden:80` (compose network) | Let's Encrypt |
+| `dns.robbywhite.net` | `192.168.0.10:8888` (AdGuard admin) | `tls internal` |
+
+Two things to know when editing it:
+
+- **`127.0.0.1` inside the Caddy container is the container**, not the host. Anything running
+  with `network_mode: host` (AdGuard) or reached via a published port must be addressed by the
+  host's LAN IP. Services on the same compose network are reachable by container name.
+- **LAN-only hostnames need `tls internal`.** `dns.robbywhite.net` has no public DNS record, so
+  public ACME validation can never succeed; Caddy retried indefinitely and was pushed onto the
+  Let's Encrypt staging CA, which risks the renewal of `vault.robbywhite.net` alongside it.
+
+Apply changes with a reload rather than a restart, so the vault never drops:
+
+```bash
+docker exec caddy caddy validate --config /etc/caddy/Caddyfile   # check first
+docker exec caddy caddy reload   --config /etc/caddy/Caddyfile
+```
+
 #### Vaultwarden version is pinned
 
 Bitwarden client compatibility is version-sensitive: clients refuse to sync against a server

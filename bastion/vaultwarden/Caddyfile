@@ -2,8 +2,14 @@ vault.robbywhite.net {
   reverse_proxy vaultwarden:80
   encode gzip
 }
+# AdGuard Home admin UI. LAN-only: there is no public DNS record for this name, so
+# public ACME can never validate it — `tls internal` issues a local cert instead and
+# stops Caddy retrying Let's Encrypt forever (which had pushed it to the staging CA).
+# AdGuard runs with network_mode: host, so it is reached on the host's LAN address:
+# 127.0.0.1 from inside this container is the container itself, not the host.
 dns.robbywhite.net {
-    reverse_proxy 127.0.0.1:8080
+    tls internal
+    reverse_proxy 192.168.0.10:8888
 }
 192.168.0.13 {
     # This tells Caddy to generate a self-signed cert for local use
