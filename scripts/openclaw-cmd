@@ -1,0 +1,61 @@
+#!/bin/bash
+# openclaw-cmd — the only command OpenClaw's SSH key is allowed to run on this host.
+#
+# Wired up as a forced command in ~/.ssh/authorized_keys, e.g. on bastion:
+#   command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema",restrict ssh-ed25519 AAAA... openclaw
+#
+# The verbs this host permits are passed as arguments; the verb the agent asked for
+# arrives in $SSH_ORIGINAL_COMMAND. Anything else is refused. The key still
+# authenticates as robby, so without this it could run any command that user can —
+# and on bastion robby is in the docker group, which is root-equivalent.
+#
+# Verbs, and where each is granted:
+#   wake-forge   bastion  — WoL magic packet (no sudo needed)
+#   wake-cinema  bastion  — WoL magic packet
+#   shutdown     forge    — sudo NOPASSWD: /usr/sbin/shutdown
+#   suspend      cinema   — sudo NOPASSWD: /bin/systemctl suspend
+#
+# Deliberately NOT granted: `shutdown` on bastion. bastion runs DNS and the vault
+# for the whole house; a prompt-injected agent should not be able to halt it.
+
+set -euo pipefail
+
+FORGE_MAC="88:d7:f6:13:14:3a"
+CINEMA_MAC="d0:17:c2:dd:c1:c2"
+BROADCAST="192.168.0.255"
+
+requested="${SSH_ORIGINAL_COMMAND:-}"
+
+permitted=1
+if [[ $# -gt 0 ]]; then
+    for verb in "$@"; do
+        [[ "$verb" == "$requested" ]] && permitted=0 && break
+    done
+fi
+if [[ $permitted -ne 0 ]]; then
+    echo "openclaw-cmd: refused '${requested:-<none>}' (this host allows: ${*:-none})" >&2
+    exit 126
+fi
+
+wol() {
+    python3 - "$1" "$BROADCAST" <<'PY'
+import socket, sys
+mac = sys.argv[1].replace(":", "").replace("-", "")
+if len(mac) != 12:
+    raise SystemExit(f"bad MAC: {sys.argv[1]}")
+packet = bytes.fromhex("ff" * 6 + mac * 16)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+for dest in (sys.argv[2], "255.255.255.255"):
+    sock.sendto(packet, (dest, 9))
+print("sent")
+PY
+}
+
+case "$requested" in
+    wake-forge)  wol "$FORGE_MAC" ;;
+    wake-cinema) wol "$CINEMA_MAC" ;;
+    shutdown)    sudo -n /usr/sbin/shutdown -h now ;;
+    suspend)     sudo -n /bin/systemctl suspend ;;
+    *)           echo "openclaw-cmd: unknown verb '$requested'" >&2; exit 126 ;;
+esac

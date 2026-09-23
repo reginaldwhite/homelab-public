@@ -16,3 +16,6 @@ adguard-conf/
 
 # Editor / tooling local state
 .claude/settings.local.json
+
+# Python bytecode
+__pycache__/

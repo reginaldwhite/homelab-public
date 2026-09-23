@@ -261,6 +261,33 @@ Granting it `/var/run/docker.sock` to fix that would hand the agent host-root-eq
 which is worse than the risk being mitigated. Keeping credentials out of the container is the
 useful control at this scale.
 
+The key is further restricted by a **forced command** in each host's `authorized_keys`, so it can
+only run the specific operations the agent needs — it cannot run arbitrary commands even though it
+authenticates as `robby`:
+
+| Host | Verbs the key may run |
+|---|---|
+| bastion | `wake-forge`, `wake-cinema` (Wake-on-LAN packets; no sudo) |
+| forge | `shutdown` |
+| cinema | `suspend` |
+
+```
+command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema",restrict ssh-ed25519 AAAA... openclaw
+```
+
+[scripts/openclaw-cmd](scripts/openclaw-cmd) is the wrapper; the verbs a host permits are its
+arguments, and the requested verb arrives in `$SSH_ORIGINAL_COMMAND`. This matters because `robby`
+is in bastion's `docker` group, so an unrestricted shell there is root-equivalent. `shutdown` is
+deliberately **not** granted on bastion — it runs DNS and the vault for the whole house.
+
+Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/openclaw-cmd`, then add
+the forced command to that host's `authorized_keys`.
+
+> **Your own key must be authorized separately.** `~/.ssh/config` on forge used to set
+> `openclaw_ed25519` as the default identity for `Host *`, so admin SSH to bastion and cinema was
+> silently using the *agent's* key. Once that key is restricted, only a separate admin key works —
+> make sure `id_ed25519` is in each host's `authorized_keys` before restricting anything.
+
 If the key set ever changes, re-verify with:
 
 ```bash
