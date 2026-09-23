@@ -24,7 +24,20 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 |---|---|---|---|
 | `vaultwarden` | `vaultwarden/server:1.37.3` | 8080→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below |
 | `caddy` | `caddy:latest` | 80, 443 | Reverse proxy / TLS termination |
-| `adguardhome` | `adguard/adguardhome` | host network (53, UI on 8888) | DNS-level ad & tracker blocking |
+| `adguardhome` | `adguard/adguardhome` | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
+
+> **Most clients never reach AdGuard.** The BGW320-500 advertises *itself* as the DNS server
+> over DHCP and resolves publicly rather than forwarding to AdGuard, so only hosts with DNS set
+> statically to `192.168.0.10` (forge) are filtered.
+>
+> This also breaks Bitwarden sync on WiFi. Clients resolve `vault.robbywhite.net` to the public
+> IP, and the gateway's NAT loopback stalls on transfers beyond a few KB — so a first sync never
+> completes, while later delta syncs squeak through. Quick fix for any device: set its DNS
+> manually to `192.168.0.10`; the AdGuard rewrite for that name already exists.
+>
+> [bastion/adguard-dhcp-runbook.md](bastion/adguard-dhcp-runbook.md) is the plan to fix it for
+> every client by making AdGuard the DHCP server. **Not yet executed** — it has real costs,
+> chiefly that bastion becomes required to join the network.
 
 #### Deploying changes
 
