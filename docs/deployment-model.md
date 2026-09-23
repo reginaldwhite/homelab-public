@@ -59,7 +59,7 @@ live copy → `apply.sh`.
 **Against**
 
 - Requires reaching the host. cinema is asleep most of the time and forge is down 11pm–5am, so
-  `deploy.sh all` will fail for them; you redeploy when they are up.
+  `deploy.sh all` fails for them today — addressed by waking them, below.
 - The repo has to live somewhere, and today that is forge — so forge deploys are a local rsync,
   but a *bastion-initiated* deploy would need a clone on bastion.
 - No automatic convergence: a host that missed a deploy stays on its last deployed copy until
@@ -90,10 +90,45 @@ Each host keeps a clone; deploying means `git pull --ff-only` on the host and ru
 copy has no branch to switch. Model B needs discipline enforced by guards to avoid an incident
 that model A cannot have. The staging-and-validate ordering is a real second win.
 
-The sleeping-host gap is worth accepting rather than solving: forge is up 18 hours a day and you
-deploy *from* forge (a local operation, no SSH), and cinema is woken deliberately when you touch
-it. Adding a bastion-side clone purely to retry deploys would put a branchable tree back on the
-network to solve a problem that is a minor inconvenience.
+The sleeping-host gap is model A's one real weakness, and it is better closed than accepted:
+deploy should wake the host it is deploying to (next section). That removes the main argument for
+model B without putting a branchable tree back on the network.
+
+## Waking hosts on deploy
+
+`deploy.sh` currently gives up on an unreachable host (`"$host is unreachable (asleep?)"`). Since
+forge and cinema are asleep by design for much of the day, it should wake them instead.
+
+Add a MAC per host and, when SSH fails, send a Wake-on-LAN magic packet and poll for SSH:
+
+| Host | MAC | Wakeable |
+|---|---|---|
+| `forge` | `88:d7:f6:13:14:3a` | yes |
+| `cinema` | `d0:17:c2:dd:c1:c2` | yes |
+| `bastion` | — | always on |
+| `vault` | — | **no** — no WoL support; powered by a smart plug on a fixed schedule |
+
+Reuse the approach already in [bastion/scripts/wake-forge.sh](../bastion/scripts/wake-forge.sh):
+try `wakeonlan`/`etherwake`, fall back to a short Python broadcast, so nothing extra needs
+installing. The magic packet is layer 2, so this only works from a host on the same LAN — true
+for every machine here.
+
+Details that matter:
+
+- **Poll, don't sleep a fixed amount.** Retry SSH every 5s for ~120s, then fail with a clear
+  message. Boot time varies.
+- **Wait for Docker too.** A just-woken host will accept SSH before `dockerd` is ready, so
+  `apply.sh` should retry `docker info` briefly rather than failing on a race. This is the same
+  boot-race the version-check script already handles.
+- **Leave the host awake, and say so.** Sleeping it again would be surprising and risky — someone
+  may be using it. Print an explicit note instead: *"cinema was asleep; woken for deploy and left
+  running — sleep it with `plex-power.py sleep`"*. forge will shut itself down at 11pm via
+  bastion's cron regardless.
+- **`--no-wake` to opt out**, for when you do not want a 3am deploy powering on the living room
+  Plex box.
+
+This turns `deploy.sh all` from "fails for anything asleep" into "converges everything", which is
+the property model B was attractive for.
 
 ## Migrating forge
 
@@ -200,6 +235,51 @@ sudo for `docker compose`, or moving the config out of `/root`. cinema is also a
 time, so deploys must be timed with a wake.
 
 Recommend deferring until after forge is proven, then deciding whether it earns the sudo grant.
+
+## Running deploys from OpenClaw
+
+Short answer: **not as it stands, and the interesting question is whether it should.**
+
+The container is missing the machinery:
+
+| Needed | In the container? |
+|---|---|
+| `git`, `ssh`, `python3`, `curl` | yes |
+| `rsync` | **no** — it is the core of how deploy copies files |
+| `docker` CLI / socket | **no** — `apply.sh` runs `docker compose` |
+| the repo itself | **no** — only `/home/node/.openclaw` is mounted, no host filesystem |
+
+Mounting the repo and installing rsync would still leave Docker, and solving that means mounting
+`/var/run/docker.sock` — host-root-equivalent access for a process running an LLM with web
+tools. That is the same trade rejected when sandboxing came up, and it should be rejected here
+for the same reason.
+
+### If you want it anyway, do it as a trigger
+
+Have the agent SSH to a host that already has the repo and run a **fixed** command, restricted in
+`authorized_keys` with a forced command so the key cannot run anything else:
+
+```
+command="/home/robby/bin/deploy-trigger",restrict ssh-ed25519 AAAA... openclaw
+```
+
+The containment property is real: `deploy.sh` refuses anything but a clean checkout of
+`origin/main`, so a triggered deploy can only ever apply **merged** config. The agent gains
+"force convergence to main", not "change the homelab".
+
+The honest caveat: that holds only as long as pushing to `main` is harder than triggering a
+deploy. The GitHub PAT sits in `.secrets.env` on forge, so anything with a shell on forge can
+push and then deploy. Treat the trigger as convenience, not as a security boundary.
+
+### Related finding: the agent's key is not low-privilege
+
+Narrowing the SSH mount removed `id_ed25519` (root on vault) from the container, but
+`openclaw_ed25519` is itself authorized as `robby` on **both forge and bastion**, and `robby` is
+in bastion's `docker` group — so SSH there is container control, which is root-equivalent.
+
+Worth fixing independently of any deploy trigger: give that key forced commands and `restrict` in
+each host's `authorized_keys`, limited to the power scripts it actually needs. That is the same
+mechanism the trigger would use, so both can land together.
 
 ## Closing the class of bug
 
