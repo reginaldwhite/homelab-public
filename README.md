@@ -58,10 +58,19 @@ compares the tag bastion is actually running against the newest GitHub release a
 you in Slack through OpenClaw when it's behind. It reports the *deployed* tag
 (`docker inspect`), not the one the repo intends, so drift between the two shows up too.
 
-It runs on **forge**, from the user crontab at boot:
+It runs on **forge**, from the user crontab at boot. Note it runs the *deployed* copy, not
+the one in this repo — same pattern as `bastion/scripts/`: the repo is the source of truth,
+and a copy is deployed to `~/scripts/`. Pointing cron into the git working tree means a
+branch switch can make the script vanish and silently break the job.
 
 ```cron
-@reboot /home/robby/Documents/Github/Homelab/forge/scripts/vaultwarden-version-check.sh
+@reboot /home/robby/scripts/vaultwarden-version-check.sh
+```
+
+After changing the script, redeploy it:
+
+```bash
+cp forge/scripts/vaultwarden-version-check.sh ~/scripts/
 ```
 
 Forge is the right host even though the service lives on bastion: OpenClaw sends the
@@ -160,17 +169,29 @@ resident until something else is requested.
 docker exec ollama ollama ps    # what is resident right now
 ```
 
-#### Context length is 4096
+#### Context length is 16384
 
-Ollama picks a default context based on available VRAM, and on this box it lands on **4096 tokens
-for all three models** (confirmed with `ollama ps` after loading each one). OpenClaw's model
-definitions declare `contextWindow: 4096` / `maxTokens: 2048` to match, so the agent budgets
-prompts against what is really served rather than silently overflowing and being truncated.
+Ollama's own default lands on **4096** here. That is below OpenClaw's hard minimum of 16000, and
+an agent turn fails outright with `Model context window too small (4096 tokens)` — so the server
+has to be told explicitly. `OLLAMA_CONTEXT_LENGTH=16384` on the `ollama` service does that, and
+OpenClaw's model definitions declare `contextWindow: 16384` / `maxTokens: 4096` to match.
 
-Raising it means setting `OLLAMA_CONTEXT_LENGTH` on the `ollama` service *and* having the VRAM for
-a larger KV cache — with `gpt-oss:20b` already at ~14 GB of 16 GB, that would mean dropping to a
-smaller resident model. If you change it, update `contextWindow` in both `openclaw.json` and
-`agents/main/agent/models.json` to match, and keep `maxTokens` well under it to leave room for input.
+Both numbers have to agree. If the server serves less than OpenClaw declares, prompts are
+silently truncated; if it serves less than 16000, the agent refuses to run at all.
+
+**16384 is the ceiling that keeps every model fully on the GPU.** Measured on the 16 GB card by
+loading each model at a forced `num_ctx` and reading `ollama ps`:
+
+| Model | at 16384 | at 32768 |
+|---|---|---|
+| `gpt-oss:20b` (MoE) | 14 GB, **100% GPU** | 14 GB, **100% GPU** |
+| `qwen2.5-coder:14b` (dense) | 13 GB, **100% GPU** | 18 GB, 15% CPU / 85% GPU |
+| `Apriel-1.6-15b-Thinker` (dense) | 12 GB, **100% GPU** | 17 GB, 9% CPU / 91% GPU |
+
+`gpt-oss:20b` alone would run at 32768, but `OLLAMA_CONTEXT_LENGTH` is a single server-wide
+default, so raising it past 16384 would push the two dense models into CPU offload. If you ever
+change it, update `contextWindow` in both `openclaw.json` and `agents/main/agent/models.json`
+together, and keep `maxTokens` well under it to leave room for input.
 
 Because model ids must match exactly, both `openclaw.json` and the agent's `models.json` register
 the Apriel model under its full `hf.co/...:Q4_K_M` id.
@@ -241,6 +262,25 @@ cd forge && docker compose up -d
 The Compose project name is pinned to `forge` in `docker-compose.yaml`, so the
 `forge_ollama_data` and `forge_openwebui_data` volumes stay attached even if this
 directory is moved.
+
+> **This working tree is live configuration.** `forge/openclaw-state/` is bind-mounted
+> straight into the running `openclaw` container, and `forge/docker-compose.yaml` defines
+> the running stack. A `git switch` or `git checkout` therefore **rewrites production
+> config on disk** — checking out a branch without a change here silently reverts it, and
+> the next container restart picks up the old values.
+>
+> In practice: keep branches that touch `forge/openclaw-state/` or `forge/docker-compose.yaml`
+> short-lived, and after switching branches confirm what is actually on disk before
+> restarting anything:
+>
+> ```bash
+> grep -m1 contextWindow forge/openclaw-state/openclaw.json
+> grep OLLAMA_CONTEXT_LENGTH forge/docker-compose.yaml
+> docker exec openclaw node openclaw.mjs status | grep -i sessions   # what is loaded now
+> ```
+>
+> The `bastion/` and `cinema/` files don't have this problem — they're source copies that
+> get deployed to another host, so a branch switch here changes nothing running.
 
 ### Pushing to GitHub
 
