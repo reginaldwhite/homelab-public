@@ -336,7 +336,10 @@ after changing it.
 `⚠️` with what it found, or `❌` when the check itself couldn't run. A missing post therefore
 means the monitor didn't run. `health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped
-containers, and filesystems at 80% or more. Each section prints `none` when clean and `CHECK FAILED` when the
+containers, and filesystems at 80% or more. Known-harmless journal entries (GDM's login-screen
+assertion, BIOS CPU-feature notes at boot, desktop-session apps, keyring handling at login, and
+`sudo -n` probes) are filtered by the `NOISE` list in the script, so a healthy bastion reads
+`all clear`. Keep new patterns just as narrow: name the process and the exact message. Each section prints `none` when clean and `CHECK FAILED` when the
 check itself errors, so the agent can tell "healthy" from "couldn't look". The job lives in
 `~/openclaw-state/cron/jobs.json` on forge, which is agent state rather than deployed config;
 change it with `docker exec openclaw openclaw cron edit` while the gateway is running.
