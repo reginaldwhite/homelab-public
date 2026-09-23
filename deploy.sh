@@ -20,7 +20,8 @@
 #
 # Deploys only a clean checkout of origin/main (--force overrides), so what runs
 # is what's merged. Needs SSH key auth to each remote host; the host this runs
-# on is deployed locally. `.env` files are never pushed and survive deploys.
+# on is deployed locally. Secrets and anything git ignores are never pushed, and
+# the copies on the host survive deploys.
 
 set -euo pipefail
 
@@ -71,9 +72,23 @@ done
 
 say() { echo "==> $*"; }
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5)
-# Per-host secrets stay on the host. .secrets.env is the GitHub PAT, which has no
-# business on a deployed host at all.
-RSYNC_EXCLUDES=(--exclude=.env --exclude=.secrets.env)
+# What a deploy must never carry. .env holds per-host secrets and .secrets.env the
+# GitHub PAT, which has no business on a deployed host at all; both survive on the
+# host because they are also protected from --delete.
+#
+# Everything git ignores inside the host folder is excluded too, because deploy
+# copies the WORKING TREE and not the git index: an ignored path that exists on
+# disk gets pushed. bastion/vaultwarden/vw-data/ is the case that found this — a
+# months-old copy of the Vaultwarden database and its JWT signing key, sitting in
+# the working tree, which a deploy would have rsynced onto bastion and a backup
+# then copied to vault. Those paths are gitignored precisely because they are live
+# data, so "git ignores it" is exactly the right test.
+host_excludes() {
+    local host=$1 path
+    printf '%s\n' --exclude=.env --exclude=.secrets.env
+    git -C "$REPO_DIR" ls-files --others --ignored --exclude-standard --directory -- "$host/" \
+        | while IFS= read -r path; do printf -- '--exclude=/%s\n' "${path#"$host/"}"; done
+}
 
 WOKEN=()
 
@@ -135,7 +150,7 @@ PY
 deploy_host() {
     local host=$1
     local live="$DEST/$host" staging="$DEST/.staging/$host"
-    local rsync_dest
+    local rsync_dest excludes=() exclude_str
 
     if [[ -z "${HOST_SSH[$host]:-}" ]]; then
         echo "unknown host: $host (known: ${!HOST_SSH[*]})" >&2; return 1
@@ -165,17 +180,20 @@ deploy_host() {
         rsync_dest="${HOST_SSH[$host]}:$staging/"
     fi
 
+    mapfile -t excludes < <(host_excludes "$host")
+    exclude_str=$(printf '%q ' "${excludes[@]}")
+
     # set -e doesn't apply inside a function called from `||`, hence the explicit returns.
     on_host "$host" "mkdir -p '$staging' '$live'" || return 1
-    rsync -a --delete "${RSYNC_EXCLUDES[@]}" -e "ssh ${SSH_OPTS[*]}" "$REPO_DIR/$host/" "$rsync_dest" || return 1
+    rsync -a --delete "${excludes[@]}" -e "ssh ${SSH_OPTS[*]}" "$REPO_DIR/$host/" "$rsync_dest" || return 1
 
     on_host "$host" "'$staging/apply.sh' --validate" || { echo "$host: validation failed, nothing applied" >&2; return 1; }
 
     echo "    files that would change in $live:"
-    on_host "$host" "rsync -ani --delete ${RSYNC_EXCLUDES[*]} '$staging/' '$live/' | sed 's/^/      /'" || return 1
+    on_host "$host" "rsync -ani --delete $exclude_str '$staging/' '$live/' | sed 's/^/      /'" || return 1
     [[ $CHECK -eq 1 ]] && return 0
 
-    on_host "$host" "rsync -a --delete ${RSYNC_EXCLUDES[*]} '$staging/' '$live/' && '$live/apply.sh'" || return 1
+    on_host "$host" "rsync -a --delete $exclude_str '$staging/' '$live/' && '$live/apply.sh'" || return 1
 }
 
 failed=()
