@@ -1,0 +1,23 @@
+# bastion (file) — homelab power & backup scheduling
+
+# Wake forge (7700k) at 5:00am daily (Mon-Sat; Sun handled below)
+0 5 * * 1-6 /home/robby/scripts/wake-forge.sh
+
+# Shut down forge at 11:00pm daily
+0 23 * * * /home/robby/scripts/sleep-forge.sh
+
+# === Sunday backup window ===
+# Push bastion data to tower at 2:30am (30min after smart plug powers tower on)
+30 2 * * 0 /home/robby/scripts/backup-to-tower.sh
+
+# Wake forge for backup at 2:45am Sunday
+45 2 * * 0 /home/robby/scripts/wake-forge.sh
+
+# Sync forge data to tower at 3:00am Sunday (script waits for forge to boot)
+0 3 * * 0 /home/robby/scripts/sync-forge.sh
+
+# Sleep forge after backup at 3:45am Sunday
+45 3 * * 0 /home/robby/scripts/sleep-forge.sh
+
+# Wake forge again at 5:00am Sunday (normal waking hours)
+0 5 * * 0 /home/robby/scripts/wake-forge.sh

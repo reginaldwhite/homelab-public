@@ -1,6 +1,7 @@
 #!/bin/bash
 # sleep-forge.sh — Gracefully shut down forge (7700k) via SSH
-# Runs on bastion (file). Requires SSH key auth: ssh-copy-id robby@192.168.0.13
+# Runs on bastion (file). Requires SSH key auth: ssh-copy-id robby@192.168.0.12
+# Needs passwordless sudo for shutdown on forge.
 
 FORGE_IP="192.168.0.12"
 FORGE_USER="robby"

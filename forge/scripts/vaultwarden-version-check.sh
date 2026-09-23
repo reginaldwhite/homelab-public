@@ -87,8 +87,8 @@ if [[ "$deployed" != "$latest" ]]; then
 
 Bitwarden clients refuse to sync against a server that is too old, and fail with an opaque decoding error rather than a version warning.
 
-To upgrade: bump the tag in Homelab/bastion/vaultwarden/docker-compose.yml, copy it to /home/robby/vaultwarden/ on bastion, back up vw-data, then:
-docker compose pull vaultwarden && docker compose up -d vaultwarden"
+To upgrade: bump the tag in Homelab/bastion/vaultwarden/docker-compose.yml and merge to main, then on bastion:
+git pull && bastion/deploy.sh    (backs up vw-data before upgrading)"
 else
     log "up to date: $deployed"
 fi

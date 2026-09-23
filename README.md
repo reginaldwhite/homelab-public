@@ -18,15 +18,50 @@ Subnet: `192.168.0.0/24`
 
 ### `bastion` — 192.168.0.10 (Ubuntu) — Always On
 
-General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker-compose.yml](bastion/vaultwarden/docker-compose.yml)
+General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker-compose.yml](bastion/vaultwarden/docker-compose.yml) (Compose project `vaultwarden`)
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
 | `vaultwarden` | `vaultwarden/server:1.37.3` | 8080→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below |
 | `caddy` | `caddy:latest` | 80, 443 | Reverse proxy / TLS termination |
-| `adguardhome` | `adguard/adguardhome` | host network | DNS-level ad & tracker blocking |
+| `adguardhome` | `adguard/adguardhome` | host network (53, UI on 8888) | DNS-level ad & tracker blocking |
 
-#### Reverse proxy ([Caddyfile](bastion/vaultwarden/Caddyfile))
+#### Deploying changes
+
+bastion has its own clone of this repo at `/home/robby/Documents/Github/homelab`, and the
+stack runs straight from it. To apply a change, merge it to `main`, then from **any** clone:
+
+```bash
+bastion/deploy.sh --check    # optional: show what would change
+bastion/deploy.sh
+```
+
+Run anywhere but bastion, the script SSHes to `robby@192.168.0.10`, fast-forwards bastion's
+clone to `origin/main`, and runs itself there, so what gets deployed is what's merged, not
+your local tree. That pull needs the git credential helper set up on bastion (see
+[Pushing to GitHub](#pushing-to-github); a read-only PAT is enough). Run on bastion itself, it
+deploys the clone as it stands, so `git pull` first.
+
+[bastion/deploy.sh](bastion/deploy.sh) applies all of `bastion/`:
+
+| Source | Applied to |
+|---|---|
+| `bastion/vaultwarden/` | `docker compose up -d`, run in place, then `caddy reload` (validated first) |
+| `bastion/scripts/*.sh` | copied to `~/scripts/` (cron runs these copies) |
+| `bastion/crontab` | installed as the user crontab |
+
+It refuses to run from anything but a clean `main` (`--force` overrides), and if the
+Vaultwarden tag changed it backs up `vw-data` before upgrading.
+
+Live data is **not** in the repo: `vw-data`, `agh-work` and `agh-conf` stay in
+`/home/robby/vaultwarden/`, referenced by absolute path, which is also what
+`backup-to-tower.sh` pushes to `vault`. Caddy's certificates live in the
+`vaultwarden_caddy_data` volume; the pinned project name keeps it attached.
+
+Don't run `docker compose` from `~/vaultwarden/` any more. The old compose file there was
+retired so it can't quietly reapply stale config.
+
+#### Reverse proxy ([Caddyfile](bastion/vaultwarden/caddy/Caddyfile))
 
 | Hostname | Upstream | TLS |
 |---|---|---|
@@ -42,12 +77,11 @@ Two things to know when editing it:
   public ACME validation can never succeed; Caddy retried indefinitely and was pushed onto the
   Let's Encrypt staging CA, which risks the renewal of `vault.robbywhite.net` alongside it.
 
-Apply changes with a reload rather than a restart, so the vault never drops:
-
-```bash
-docker exec caddy caddy validate --config /etc/caddy/Caddyfile   # check first
-docker exec caddy caddy reload   --config /etc/caddy/Caddyfile
-```
+`bastion/deploy.sh` applies Caddyfile changes by validating them in a throwaway container
+and then running `caddy reload`, never a restart, so the vault never drops. The `caddy/`
+directory is bind-mounted rather than the file itself. A single-file mount pins the inode,
+and git replaces files rather than editing them, so after a pull or branch switch the old
+setup kept serving the previous Caddyfile, and a reload silently reapplied stale config.
 
 #### Vaultwarden version is pinned
 
@@ -60,18 +94,13 @@ nothing does on a schedule, so the server sat on 1.35.3 for seven months while t
 "latest". The tag is pinned so the deployed version is visible in git.
 
 To upgrade: bump the tag in [bastion/vaultwarden/docker-compose.yml](bastion/vaultwarden/docker-compose.yml),
-copy it to `/home/robby/vaultwarden/` on bastion, then:
+merge to `main`, and run `bastion/deploy.sh` on bastion (see above). Vaultwarden's DB
+migrations are not reversible, so when the tag changes the script stops the container and
+tars `vw-data` into `/home/robby/vw-backups/` before starting the new version. Confirm with:
 
 ```bash
-# back up first — Vaultwarden's DB migrations are not reversible
-docker compose stop vaultwarden
-docker run --rm -v /home/robby/vaultwarden/vw-data:/d:ro -v /home/robby/vw-backups:/out \
-  alpine tar czf /out/vw-data-$(date +%F).tgz -C /d .
-docker compose pull vaultwarden && docker compose up -d vaultwarden
 docker logs vaultwarden | grep Version
 ```
-
-Backups land in `/home/robby/vw-backups/` on bastion.
 
 #### Staleness alert
 
@@ -114,7 +143,7 @@ The script never upgrades anything by itself. Restarting a container does **not*
 it — only `docker compose pull` fetches a new image — and Vaultwarden's migrations are
 one-way, so upgrades stay manual and backed up.
 
-**Cron schedule** (controls all other servers):
+**Cron schedule** (controls all other servers), from [bastion/crontab](bastion/crontab):
 
 | Time | Job |
 |---|---|
@@ -126,7 +155,8 @@ one-way, so upgrades stay manual and backed up.
 | 3:00am Sunday | Sync forge data → `vault` (`sync-forge.sh`) |
 | 3:45am Sunday | Sleep `forge` after backup |
 
-Scripts: [bastion/scripts/](bastion/scripts/)
+Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
+installed by `bastion/deploy.sh`, so edit them here rather than with `crontab -e` on bastion.
 
 ---
 
@@ -269,9 +299,9 @@ Motherboard set to boot on power restore (WoL not supported). SSH user: `root`.
 
 ## Repository Structure
 
-One folder per server. Everything lives on `forge` at
-`/home/robby/Documents/Github/Homelab/`; the `bastion/` files are the source-of-truth
-copies of what is deployed to `192.168.0.10`.
+One folder per server. `forge` and `bastion` each run their stack from their own clone:
+forge at `/home/robby/Documents/Github/Homelab/`, bastion at
+`/home/robby/Documents/Github/homelab/` (applied with `bastion/deploy.sh`).
 
 ```
 Homelab/
@@ -281,14 +311,16 @@ Homelab/
 ├── scripts/
 │   └── git-credential-homelab        — git credential helper; reads .secrets.env
 │
-├── bastion/                          — 192.168.0.10 (deployed via scp)
-│   ├── scripts/                      — cron scripts
+├── bastion/                          — 192.168.0.10 (runs from its clone)
+│   ├── deploy.sh                     — applies everything below; works from any host over ssh
+│   ├── crontab                       — installed as robby's crontab
+│   ├── scripts/                      — cron scripts, copied to ~/scripts/
 │   │   ├── wake-forge.sh
 │   │   ├── sleep-forge.sh
 │   │   ├── sync-forge.sh
 │   │   └── backup-to-tower.sh
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
-│                                       (vw-data/ is live data, gitignored)
+│                                       (live data stays in /home/robby/vaultwarden/)
 │
 ├── cinema/                           — 192.168.0.13 (plex)
 │   ├── docker-compose.yml            — Compose project `plex`
@@ -333,8 +365,11 @@ directory is moved.
 > docker exec openclaw node openclaw.mjs status | grep -i sessions   # what is loaded now
 > ```
 >
-> The `bastion/` and `cinema/` files don't have this problem — they're source copies that
-> get deployed to another host, so a branch switch here changes nothing running.
+> bastion's clone is live in the same way, but only partly: nothing changes until
+> `bastion/deploy.sh` runs, except that `caddy` rereads the Caddyfile on any reload or
+> restart (including a reboot). Keep bastion's clone on `main`. `deploy.sh` refuses anything else.
+> The `cinema/` files are source copies deployed to another host, so a branch switch here
+> changes nothing running there.
 
 ### Pushing to GitHub
 

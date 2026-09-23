@@ -1,9 +1,9 @@
 #!/bin/bash
 # sync-forge.sh — Sync backup data from forge (7700k) directly to tower (vault)
-# Runs at 10pm daily (before sleep-forge.sh at 11pm).
+# Runs Sunday 3:00am, 15min after wake-forge.sh (see bastion/crontab); waits for forge to boot.
 # Requires SSH key auth to both forge and tower:
-#   ssh-copy-id robby@192.168.0.13
-#   ssh-copy-id robby@192.168.0.212
+#   ssh-copy-id robby@192.168.0.12
+#   ssh-copy-id root@192.168.0.212
 
 FORGE_IP="192.168.0.12"
 FORGE_USER="robby"
@@ -56,7 +56,7 @@ echo "$(date -Iseconds) [sync-forge] Starting forge -> tower sync (forge pushes 
 
 # SSH into forge and have it rsync directly to tower.
 # Requires forge to have SSH key auth to tower set up:
-#   On forge: ssh-copy-id robby@192.168.0.212
+#   On forge: ssh-copy-id root@192.168.0.212
 SSH_CMD="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_KEY"
 REMOTE_SSH="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 

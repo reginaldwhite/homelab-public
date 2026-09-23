@@ -1,13 +1,23 @@
+# Runs straight from the repo clone on bastion — apply changes with bastion/deploy.sh.
+#
+# Pinned so the caddy_data/caddy_config volumes (TLS certs) stay attached as
+# vaultwarden_caddy_* no matter where this file is run from.
+name: vaultwarden
+
+# Live data stays outside the git working tree, at the path backup-to-tower.sh
+# pushes to vault. Absolute paths mean a branch switch or a fresh clone can
+# never point a container at an empty data directory.
+
 services:
   vaultwarden:
     # Pinned deliberately: client compatibility is version-sensitive.
     # 1.37.2+ is required for Bitwarden clients 2026.8.0 and newer.
-    # Bump this tag to upgrade, then: docker compose pull vaultwarden && docker compose up -d vaultwarden
+    # Bump this tag to upgrade, then run bastion/deploy.sh (it backs up vw-data first).
     image: vaultwarden/server:1.37.3
     container_name: vaultwarden
     restart: unless-stopped
     volumes:
-      - ./vw-data:/data
+      - /home/robby/vaultwarden/vw-data:/data
     environment:
       - DOMAIN=https://vault.robbywhite.net
       - SIGNUPS_ALLOWED=false
@@ -21,7 +31,11 @@ services:
       - 80:80
       - 443:443
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      # Mount the directory, not the file: a single-file bind mount pins the
+      # inode, and git replaces files rather than editing them in place, so after
+      # a pull or branch switch the container kept serving the old Caddyfile and
+      # `caddy reload` silently reloaded stale config.
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
   adguardhome:
@@ -30,10 +44,9 @@ services:
     restart: unless-stopped
     network_mode: "host"
     volumes:
-      - ./agh-work:/opt/adguardhome/work
-      - ./agh-conf:/opt/adguardhome/conf
+      - /home/robby/vaultwarden/agh-work:/opt/adguardhome/work
+      - /home/robby/vaultwarden/agh-conf:/opt/adguardhome/conf
 
 volumes:
   caddy_data:
   caddy_config:
-
