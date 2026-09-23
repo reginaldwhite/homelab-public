@@ -331,10 +331,12 @@ Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/opencla
 the forced command to that host's `authorized_keys`. Nothing deploys it, so reinstall by hand
 after changing it.
 
-`health` exists for OpenClaw's `server-log-monitor` cron job, which runs every 15 minutes and
-posts to `#homelab-status` only when something is wrong. It runs a fixed set of read-only checks:
-journal errors and critical kernel events from the last 15 minutes, stopped containers, and
-filesystems at 80% or more. Each section prints `none` when clean and `CHECK FAILED` when the
+`health` exists for OpenClaw's `server-log-monitor` cron job, which runs at 7am and 9pm Central
+(inside forge's waking hours) and posts every result to `#homelab-status`: `✅ all clear`,
+`⚠️` with what it found, or `❌` when the check itself couldn't run. A missing post therefore
+means the monitor didn't run. `health` runs a fixed set of read-only checks: journal errors and
+critical kernel events from the last 14 hours (the longer gap between runs), stopped
+containers, and filesystems at 80% or more. Each section prints `none` when clean and `CHECK FAILED` when the
 check itself errors, so the agent can tell "healthy" from "couldn't look". The job lives in
 `~/openclaw-state/cron/jobs.json` on forge, which is agent state rather than deployed config;
 change it with `docker exec openclaw openclaw cron edit` while the gateway is running.

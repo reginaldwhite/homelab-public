@@ -71,11 +71,15 @@ section() {
 
 full_disks() { df -h --output=source,size,used,avail,pcent,target | awk 'NR > 1 && int($5) >= 80'; }
 
+# The monitor runs at 7am and 9pm; 14 hours covers the longer gap between runs, so
+# nothing logged in between is missed (the shorter overnight gap is checked twice).
+WINDOW="14 hours"
+
 health() {
-    section "system journal errors, last 15 min" journalctl -p err --since '15 minutes ago' --no-pager -q
+    section "system journal errors, last $WINDOW" journalctl -p err --since "$WINDOW ago" --no-pager -q
     section "stopped containers" docker ps --filter status=exited --format '{{.Names}}\t{{.Status}}'
     section "filesystems at 80% or more" full_disks
-    section "critical kernel events, last 15 min" journalctl -k -p crit --since '15 minutes ago' --no-pager -q
+    section "critical kernel events, last $WINDOW" journalctl -k -p crit --since "$WINDOW ago" --no-pager -q
 }
 
 case "$requested" in
