@@ -61,8 +61,14 @@ SSH_CMD="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH
 REMOTE_SSH="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 # Documents/ covers the repo and everything developed on forge.
+#
+# --mkpath (rsync 3.2.3+) creates the whole destination path, not just its last
+# component. Without it both of these transfers fail with
+# `mkdir "/mnt/user/backups/forge/Documents" failed: No such file or directory`
+# whenever the parent forge/ directory is missing — which is how the very first
+# forge backup would always have failed, on a target nothing had provisioned.
 $SSH_CMD "$FORGE_USER@$FORGE_IP" \
-    "rsync -az --delete \
+    "rsync -az --delete --mkpath \
         -e '$REMOTE_SSH' \
         /home/robby/Documents/ \
         $TOWER_USER@$TOWER_IP:/mnt/user/backups/forge/Documents/" >> "$LOG" 2>&1
@@ -73,7 +79,7 @@ RC1=$?
 # credentials exist nowhere else — without this they would silently stop being
 # backed up the moment they moved out of the git tree.
 $SSH_CMD "$FORGE_USER@$FORGE_IP" \
-    "rsync -az --delete \
+    "rsync -az --delete --mkpath \
         -e '$REMOTE_SSH' \
         /home/robby/openclaw-state/ \
         $TOWER_USER@$TOWER_IP:/mnt/user/backups/forge/openclaw-state/" >> "$LOG" 2>&1

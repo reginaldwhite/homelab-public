@@ -13,8 +13,9 @@
 #   wake-forge   bastion  — WoL magic packet (no sudo needed)
 #   wake-cinema  bastion  — WoL magic packet
 #   health       bastion  — read-only checks for the server-log-monitor cron job: journal
-#                           errors, stopped containers, full disks. Fixed commands, no
-#                           arguments from the agent.
+#                cinema     errors, stopped containers, full disks, and (bastion only, where
+#                           the log exists) the outcome of the weekly backup to vault.
+#                           Fixed commands, no arguments from the agent.
 #   shutdown     forge    — sudo NOPASSWD: /usr/sbin/shutdown
 #   suspend      cinema   — sudo NOPASSWD: /bin/systemctl suspend
 #
@@ -71,6 +72,43 @@ section() {
 
 full_disks() { df -h --output=source,size,used,avail,pcent,target | awk 'NR > 1 && int($5) >= 80'; }
 
+# The Sunday backup jobs to vault each log one result line, and until this existed
+# nothing ever read it: they failed every single week from May to September 2026 —
+# wake-forge reported success without checking, and rsync could not create the
+# nested destination path — while the logs sat unread on bastion. A backup that
+# fails silently is the same as no backup, so its outcome rides out with the health
+# check that already reaches Slack twice a day.
+#
+# Prints nothing when both jobs are recent and clean, and nothing on a host with no
+# backup log (only bastion pushes to vault), so "none" stays the healthy reading.
+BACKUP_LOG="/home/robby/logs/backup.log"
+BACKUP_MAX_AGE_DAYS=8   # weekly job; 8 gives a late or skipped Sunday one grace day
+
+backup_status() {
+    [[ -f "$BACKUP_LOG" ]] || return 0
+    local now line ts secs age
+    now=$(date +%s)
+    for job in backup-to-tower sync-forge; do
+        line=$(grep -F "[$job]" "$BACKUP_LOG" | grep -E 'complete|ERROR' | tail -1) || true
+        if [[ -z "$line" ]]; then
+            echo "$job: no run has ever finished (nothing in $BACKUP_LOG)"
+            continue
+        fi
+        ts=${line%% *}
+        if ! secs=$(date -d "$ts" +%s 2>/dev/null); then
+            echo "$job: could not read the timestamp on its last log line"
+            continue
+        fi
+        age=$(( (now - secs) / 86400 ))
+        if [[ "$line" == *ERROR* ]]; then
+            echo "$job: last run (${age}d ago) FAILED -- ${line#* }"
+        elif (( age > BACKUP_MAX_AGE_DAYS )); then
+            echo "$job: last success was ${age}d ago, expected weekly"
+        fi
+    done
+    return 0
+}
+
 # The monitor runs at 7am and 9pm; 14 hours covers the longer gap between runs, so
 # nothing logged in between is missed (the shorter overnight gap is checked twice).
 WINDOW="14 hours"
@@ -105,6 +143,7 @@ health() {
     section "stopped containers" docker ps --filter status=exited --format '{{.Names}}\t{{.Status}}'
     section "filesystems at 80% or more" full_disks
     section "critical kernel events, last $WINDOW" journal -k -p crit
+    section "weekly backup to vault" backup_status
 }
 
 case "$requested" in
