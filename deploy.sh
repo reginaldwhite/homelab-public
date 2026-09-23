@@ -31,8 +31,8 @@ declare -A HOST_SSH=(
     [cinema]="robby@192.168.0.13"
 )
 # Hosts whose folder has an apply.sh and a stack that runs from $DEST.
-# forge and cinema still run from hand-managed copies; see README.
-MIGRATED=(bastion)
+# cinema still runs from a hand-managed copy; see README.
+MIGRATED=(bastion forge)
 
 CHECK=0
 FORCE=0

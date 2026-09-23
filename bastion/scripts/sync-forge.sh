@@ -60,18 +60,30 @@ echo "$(date -Iseconds) [sync-forge] Starting forge -> tower sync (forge pushes 
 SSH_CMD="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_KEY"
 REMOTE_SSH="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-# Documents/ covers everything that used to be synced separately: forge's compose
-# stack and openclaw state now live in Documents/Github/Homelab/forge/.
+# Documents/ covers the repo and everything developed on forge.
 $SSH_CMD "$FORGE_USER@$FORGE_IP" \
     "rsync -az --delete \
         -e '$REMOTE_SSH' \
         /home/robby/Documents/ \
         $TOWER_USER@$TOWER_IP:/mnt/user/backups/forge/Documents/" >> "$LOG" 2>&1
-EXIT=$?
+RC1=$?
+
+# The agent's live state deliberately lives outside the repo (see forge/apply.sh),
+# so it is NOT covered by Documents/. Sessions, memory, workspace, identity and
+# credentials exist nowhere else — without this they would silently stop being
+# backed up the moment they moved out of the git tree.
+$SSH_CMD "$FORGE_USER@$FORGE_IP" \
+    "rsync -az --delete \
+        -e '$REMOTE_SSH' \
+        /home/robby/openclaw-state/ \
+        $TOWER_USER@$TOWER_IP:/mnt/user/backups/forge/openclaw-state/" >> "$LOG" 2>&1
+RC2=$?
+
+EXIT=$(( RC1 | RC2 ))
 
 if [[ $EXIT -eq 0 ]]; then
     echo "$(date -Iseconds) [sync-forge] Forge -> tower sync complete" >> "$LOG"
 else
-    echo "$(date -Iseconds) [sync-forge] ERROR: rsync failed (rc=$EXIT)" >> "$LOG"
+    echo "$(date -Iseconds) [sync-forge] ERROR: rsync failed (documents=$RC1 openclaw-state=$RC2)" >> "$LOG"
     exit $EXIT
 fi

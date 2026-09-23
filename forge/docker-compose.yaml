@@ -108,7 +108,10 @@ services:
       - "18789:18789"
       - "18791:18791"
     volumes:
-      - ./openclaw-state:/home/node/.openclaw
+      # Live agent state lives outside the repo and the deployed copy, like bastion's
+      # vw-data. A relative path would resolve against whichever copy of this file
+      # started the stack, and a deploy would then hand the agent an empty state dir.
+      - /home/robby/openclaw-state:/home/node/.openclaw
       # Only the agent's own key, not all of ~/.ssh. The power scripts use
       # openclaw_ed25519 exclusively (and pass StrictHostKeyChecking=no /
       # UserKnownHostsFile=/dev/null, so no known_hosts is needed). Mounting the

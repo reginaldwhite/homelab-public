@@ -96,19 +96,12 @@ compares the tag bastion is actually running against the newest GitHub release a
 you in Slack through OpenClaw when it's behind. It reports the *deployed* tag
 (`docker inspect`), not the one the repo intends, so drift between the two shows up too.
 
-It runs on **forge**, from the user crontab at boot. Note it runs the *deployed* copy in
-`~/scripts/`, not the one in this repo. Pointing cron into the git working tree means a
-branch switch can make the script vanish and silently break the job. (forge isn't on
-`deploy.sh` yet, so this copy is still made by hand.)
+It runs on **forge**, from the crontab in [forge/crontab](forge/crontab), installed by
+`./deploy.sh forge`. Cron runs the *deployed* copy, never the git tree — pointing it into a
+working tree means a branch switch can make the script vanish and silently break the job.
 
 ```cron
-@reboot /home/robby/scripts/vaultwarden-version-check.sh
-```
-
-After changing the script, redeploy it:
-
-```bash
-cp forge/scripts/vaultwarden-version-check.sh ~/scripts/
+@reboot /home/robby/homelab-deployed/forge/scripts/vaultwarden-version-check.sh
 ```
 
 Forge is the right host even though the service lives on bastion: OpenClaw sends the
@@ -238,6 +231,34 @@ the Apriel model under its full `hf.co/...:Q4_K_M` id.
 `openclaw` and `open-webui` depend on `ollama` being healthy, not on `model-loader` completing,
 so a failed model pull doesn't keep the gateway down on boot.
 
+#### Deploying changes
+
+`./deploy.sh forge` pushes `forge/` to `/home/robby/homelab-deployed/forge/` and runs
+[forge/apply.sh](forge/apply.sh) there:
+
+| Source | Applied as |
+|---|---|
+| `forge/docker-compose.yaml` | `docker compose up -d` from the deployed copy |
+| `forge/openclaw/` | copied into `/home/robby/openclaw-state/`, then `openclaw` is restarted |
+| `forge/crontab` | installed as robby's crontab |
+| `forge/scripts/*.sh` | run by cron straight from the deployed copy |
+
+**The agent's live state is not in the repo or the deployed copy.** It lives at
+`/home/robby/openclaw-state/`, bind-mounted by absolute path. Only a config subset is tracked —
+`openclaw.json`, `models.json` and the power scripts — and deploy **copies those in and never
+deletes**. Sessions, memory, `workspace/` (its own git repo), identity, devices and credentials
+exist only there; an `rsync --delete` of the whole directory would destroy the agent.
+
+That split is also why `sync-forge.sh` backs up `/home/robby/openclaw-state/` separately: it used
+to be covered by the `Documents/` sync, and moving it out would otherwise have dropped it from the
+weekly backup silently.
+
+`apply.sh` restarts `openclaw` whenever one of those config files changes, because OpenClaw reads
+its config at startup — without that, a config-only deploy would succeed and take effect never.
+
+Because nothing running reads from a git working tree, `git switch` on forge no longer changes
+live configuration. That was previously the cause of repeated silent reverts.
+
 #### Agent credential scope
 
 The `openclaw` container gets **only** `~/.ssh/openclaw_ed25519`, mounted as a single file —
@@ -260,6 +281,33 @@ tools. **That is not usable here:** the container has no Docker socket and no Do
 Granting it `/var/run/docker.sock` to fix that would hand the agent host-root-equivalent access,
 which is worse than the risk being mitigated. Keeping credentials out of the container is the
 useful control at this scale.
+
+The key is further restricted by a **forced command** in each host's `authorized_keys`, so it can
+only run the specific operations the agent needs — it cannot run arbitrary commands even though it
+authenticates as `robby`:
+
+| Host | Verbs the key may run |
+|---|---|
+| bastion | `wake-forge`, `wake-cinema` (Wake-on-LAN packets; no sudo) |
+| forge | `shutdown` |
+| cinema | `suspend` |
+
+```
+command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema",restrict ssh-ed25519 AAAA... openclaw
+```
+
+[scripts/openclaw-cmd](scripts/openclaw-cmd) is the wrapper; the verbs a host permits are its
+arguments, and the requested verb arrives in `$SSH_ORIGINAL_COMMAND`. This matters because `robby`
+is in bastion's `docker` group, so an unrestricted shell there is root-equivalent. `shutdown` is
+deliberately **not** granted on bastion — it runs DNS and the vault for the whole house.
+
+Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/openclaw-cmd`, then add
+the forced command to that host's `authorized_keys`.
+
+> **Your own key must be authorized separately.** `~/.ssh/config` on forge used to set
+> `openclaw_ed25519` as the default identity for `Host *`, so admin SSH to bastion and cinema was
+> silently using the *agent's* key. Once that key is restricted, only a separate admin key works —
+> make sure `id_ed25519` is in each host's `authorized_keys` before restricting anything.
 
 If the key set ever changes, re-verify with:
 
