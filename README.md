@@ -301,12 +301,12 @@ authenticates as `robby`:
 
 | Host | Verbs the key may run |
 |---|---|
-| bastion | `wake-forge`, `wake-cinema` (Wake-on-LAN packets; no sudo) |
+| bastion | `wake-forge`, `wake-cinema` (Wake-on-LAN packets; no sudo), `health` (read-only checks, below) |
 | forge | `shutdown` |
 | cinema | `suspend` |
 
 ```
-command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema",restrict ssh-ed25519 AAAA... openclaw
+command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema health",restrict ssh-ed25519 AAAA... openclaw
 ```
 
 [scripts/openclaw-cmd](scripts/openclaw-cmd) is the wrapper; the verbs a host permits are its
@@ -315,7 +315,16 @@ is in bastion's `docker` group, so an unrestricted shell there is root-equivalen
 deliberately **not** granted on bastion — it runs DNS and the vault for the whole house.
 
 Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/openclaw-cmd`, then add
-the forced command to that host's `authorized_keys`.
+the forced command to that host's `authorized_keys`. Nothing deploys it, so reinstall by hand
+after changing it.
+
+`health` exists for OpenClaw's `server-log-monitor` cron job, which runs every 15 minutes and
+posts to `#homelab-status` only when something is wrong. It runs a fixed set of read-only checks:
+journal errors and critical kernel events from the last 15 minutes, stopped containers, and
+filesystems at 80% or more. Each section prints `none` when clean and `CHECK FAILED` when the
+check itself errors, so the agent can tell "healthy" from "couldn't look". The job lives in
+`~/openclaw-state/cron/jobs.json` on forge, which is agent state rather than deployed config;
+change it with `docker exec openclaw openclaw cron edit` while the gateway is running.
 
 > **Your own key must be authorized separately.** `~/.ssh/config` on forge used to set
 > `openclaw_ed25519` as the default identity for `Host *`, so admin SSH to bastion and cinema was

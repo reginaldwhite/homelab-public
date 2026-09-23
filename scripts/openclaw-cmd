@@ -2,7 +2,7 @@
 # openclaw-cmd — the only command OpenClaw's SSH key is allowed to run on this host.
 #
 # Wired up as a forced command in ~/.ssh/authorized_keys, e.g. on bastion:
-#   command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema",restrict ssh-ed25519 AAAA... openclaw
+#   command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema health",restrict ssh-ed25519 AAAA... openclaw
 #
 # The verbs this host permits are passed as arguments; the verb the agent asked for
 # arrives in $SSH_ORIGINAL_COMMAND. Anything else is refused. The key still
@@ -12,6 +12,9 @@
 # Verbs, and where each is granted:
 #   wake-forge   bastion  — WoL magic packet (no sudo needed)
 #   wake-cinema  bastion  — WoL magic packet
+#   health       bastion  — read-only checks for the server-log-monitor cron job: journal
+#                           errors, stopped containers, full disks. Fixed commands, no
+#                           arguments from the agent.
 #   shutdown     forge    — sudo NOPASSWD: /usr/sbin/shutdown
 #   suspend      cinema   — sudo NOPASSWD: /bin/systemctl suspend
 #
@@ -52,10 +55,34 @@ print("sent")
 PY
 }
 
+# Each section prints "none" when empty, so an empty section can't be mistaken for
+# output that went missing.
+section() {
+    local title=$1 out; shift
+    echo "== $title"
+    if ! out=$("$@" 2>&1); then
+        echo "CHECK FAILED: $out"
+    elif [[ -z "$out" ]]; then
+        echo "none"
+    else
+        echo "$out"
+    fi
+}
+
+full_disks() { df -h --output=source,size,used,avail,pcent,target | awk 'NR > 1 && int($5) >= 80'; }
+
+health() {
+    section "system journal errors, last 15 min" journalctl -p err --since '15 minutes ago' --no-pager -q
+    section "stopped containers" docker ps --filter status=exited --format '{{.Names}}\t{{.Status}}'
+    section "filesystems at 80% or more" full_disks
+    section "critical kernel events, last 15 min" journalctl -k -p crit --since '15 minutes ago' --no-pager -q
+}
+
 case "$requested" in
     wake-forge)  wol "$FORGE_MAC" ;;
     wake-cinema) wol "$CINEMA_MAC" ;;
     shutdown)    sudo -n /usr/sbin/shutdown -h now ;;
     suspend)     sudo -n /bin/systemctl suspend ;;
+    health)      health ;;
     *)           echo "openclaw-cmd: unknown verb '$requested'" >&2; exit 126 ;;
 esac
