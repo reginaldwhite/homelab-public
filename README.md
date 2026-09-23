@@ -95,17 +95,29 @@ resident until something else is requested.
 docker exec ollama ollama ps    # what is resident right now
 ```
 
-#### Context length is 4096
+#### Context length is 16384
 
-Ollama picks a default context based on available VRAM, and on this box it lands on **4096 tokens
-for all three models** (confirmed with `ollama ps` after loading each one). OpenClaw's model
-definitions declare `contextWindow: 4096` / `maxTokens: 2048` to match, so the agent budgets
-prompts against what is really served rather than silently overflowing and being truncated.
+Ollama's own default lands on **4096** here. That is below OpenClaw's hard minimum of 16000, and
+an agent turn fails outright with `Model context window too small (4096 tokens)` — so the server
+has to be told explicitly. `OLLAMA_CONTEXT_LENGTH=16384` on the `ollama` service does that, and
+OpenClaw's model definitions declare `contextWindow: 16384` / `maxTokens: 4096` to match.
 
-Raising it means setting `OLLAMA_CONTEXT_LENGTH` on the `ollama` service *and* having the VRAM for
-a larger KV cache — with `gpt-oss:20b` already at ~14 GB of 16 GB, that would mean dropping to a
-smaller resident model. If you change it, update `contextWindow` in both `openclaw.json` and
-`agents/main/agent/models.json` to match, and keep `maxTokens` well under it to leave room for input.
+Both numbers have to agree. If the server serves less than OpenClaw declares, prompts are
+silently truncated; if it serves less than 16000, the agent refuses to run at all.
+
+**16384 is the ceiling that keeps every model fully on the GPU.** Measured on the 16 GB card by
+loading each model at a forced `num_ctx` and reading `ollama ps`:
+
+| Model | at 16384 | at 32768 |
+|---|---|---|
+| `gpt-oss:20b` (MoE) | 14 GB, **100% GPU** | 14 GB, **100% GPU** |
+| `qwen2.5-coder:14b` (dense) | 13 GB, **100% GPU** | 18 GB, 15% CPU / 85% GPU |
+| `Apriel-1.6-15b-Thinker` (dense) | 12 GB, **100% GPU** | 17 GB, 9% CPU / 91% GPU |
+
+`gpt-oss:20b` alone would run at 32768, but `OLLAMA_CONTEXT_LENGTH` is a single server-wide
+default, so raising it past 16384 would push the two dense models into CPU offload. If you ever
+change it, update `contextWindow` in both `openclaw.json` and `agents/main/agent/models.json`
+together, and keep `maxTokens` well under it to leave room for input.
 
 Because model ids must match exactly, both `openclaw.json` and the agent's `models.json` register
 the Apriel model under its full `hf.co/...:Q4_K_M` id.

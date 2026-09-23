@@ -18,6 +18,11 @@ services:
       # trying to co-locate and spilling layers to CPU.
       - OLLAMA_KEEP_ALIVE=-1  # -1 means "never unload"
       - OLLAMA_MAX_LOADED_MODELS=1
+      # Ollama's own default lands on 4096 here, which is below OpenClaw's 16000
+      # minimum and stops the agent from running at all. 16384 is the largest
+      # value that keeps all three models at 100% GPU on a 16 GB card: gpt-oss
+      # (MoE) also fits 32768, but the dense models spill to CPU there.
+      - OLLAMA_CONTEXT_LENGTH=16384
     deploy:
       resources:
         reservations:
