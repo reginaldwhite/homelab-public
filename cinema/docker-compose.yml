@@ -1,0 +1,20 @@
+# Pinned so `docker compose` adopts the existing `plex` project regardless of
+# which directory it is run from.
+name: plex
+
+services:
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=America/Chicago
+      # Only needed on first run to claim a new server; see .env.example
+      - PLEX_CLAIM=${PLEX_CLAIM:-}
+    volumes:
+      # Absolute paths: the stack was originally started with sudo, so `~`
+      # resolved to /root. Keep these pointing at the existing library/config.
+      - /root/plex/config:/config
+      - /root/plex/transcode:/transcode
+      - /mnt/storage/plex:/data

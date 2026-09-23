@@ -1,6 +1,9 @@
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    # Pinned deliberately: client compatibility is version-sensitive.
+    # 1.37.2+ is required for Bitwarden clients 2026.8.0 and newer.
+    # Bump this tag to upgrade, then: docker compose pull vaultwarden && docker compose up -d vaultwarden
+    image: vaultwarden/server:1.37.3
     container_name: vaultwarden
     restart: unless-stopped
     volumes:
