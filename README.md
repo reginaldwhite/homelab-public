@@ -58,10 +58,19 @@ compares the tag bastion is actually running against the newest GitHub release a
 you in Slack through OpenClaw when it's behind. It reports the *deployed* tag
 (`docker inspect`), not the one the repo intends, so drift between the two shows up too.
 
-It runs on **forge**, from the user crontab at boot:
+It runs on **forge**, from the user crontab at boot. Note it runs the *deployed* copy, not
+the one in this repo — same pattern as `bastion/scripts/`: the repo is the source of truth,
+and a copy is deployed to `~/scripts/`. Pointing cron into the git working tree means a
+branch switch can make the script vanish and silently break the job.
 
 ```cron
-@reboot /home/robby/Documents/Github/Homelab/forge/scripts/vaultwarden-version-check.sh
+@reboot /home/robby/scripts/vaultwarden-version-check.sh
+```
+
+After changing the script, redeploy it:
+
+```bash
+cp forge/scripts/vaultwarden-version-check.sh ~/scripts/
 ```
 
 Forge is the right host even though the service lives on bastion: OpenClaw sends the
@@ -253,6 +262,25 @@ cd forge && docker compose up -d
 The Compose project name is pinned to `forge` in `docker-compose.yaml`, so the
 `forge_ollama_data` and `forge_openwebui_data` volumes stay attached even if this
 directory is moved.
+
+> **This working tree is live configuration.** `forge/openclaw-state/` is bind-mounted
+> straight into the running `openclaw` container, and `forge/docker-compose.yaml` defines
+> the running stack. A `git switch` or `git checkout` therefore **rewrites production
+> config on disk** — checking out a branch without a change here silently reverts it, and
+> the next container restart picks up the old values.
+>
+> In practice: keep branches that touch `forge/openclaw-state/` or `forge/docker-compose.yaml`
+> short-lived, and after switching branches confirm what is actually on disk before
+> restarting anything:
+>
+> ```bash
+> grep -m1 contextWindow forge/openclaw-state/openclaw.json
+> grep OLLAMA_CONTEXT_LENGTH forge/docker-compose.yaml
+> docker exec openclaw node openclaw.mjs status | grep -i sessions   # what is loaded now
+> ```
+>
+> The `bastion/` and `cinema/` files don't have this problem — they're source copies that
+> get deployed to another host, so a branch switch here changes nothing running.
 
 ### Pushing to GitHub
 
