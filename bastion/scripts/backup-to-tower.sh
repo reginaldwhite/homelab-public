@@ -36,7 +36,7 @@ rsync -az --delete \
     /home/robby/vaultwarden/ \
     "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1
 
-# Note: forge (7700k) data is synced directly to tower nightly by sync-forge.sh
+# Note: forge (7700k) data is synced directly to tower by sync-forge.sh at 3:00am
 
 EXIT=$?
 if [[ $EXIT -eq 0 ]]; then
