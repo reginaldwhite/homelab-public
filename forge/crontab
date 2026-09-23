@@ -1,0 +1,5 @@
+# forge crontab — installed by ../deploy.sh, edit it here not with crontab -e.
+#
+# Alert in Slack when bastion Vaultwarden falls behind. Runs the deployed copy,
+# not a git clone, so a branch switch cannot make it vanish.
+@reboot /home/robby/homelab-deployed/forge/scripts/vaultwarden-version-check.sh

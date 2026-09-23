@@ -1,12 +1,2 @@
 # Raw credential files
 slack token
-
-# OpenClaw runtime state - exclude everything except tracked config files
-openclaw-state/update-check.json
-openclaw-state/workspace/
-openclaw-state/memory/
-openclaw-state/identity/
-openclaw-state/canvas/
-openclaw-state/cron/
-openclaw-state/devices/
-openclaw-state/agents/main/sessions/
