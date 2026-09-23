@@ -54,7 +54,7 @@ fi
 
 # Vaultwarden data and the rest of ~/vaultwarden. The AdGuard dirs are excluded
 # here (and so also protected from --delete) and sent from staging below.
-rsync -az --delete \
+rsync -az --delete --mkpath \
     --exclude=/agh-work/ --exclude=/agh-conf/ \
     -e "$SSH_OPTS" \
     "$DATA_DIR/" \
@@ -62,7 +62,7 @@ rsync -az --delete \
 
 # Only a complete copy may be pushed: a partial one would --delete good data on tower.
 if [[ $STAGED -eq 1 ]]; then
-    rsync -az --delete \
+    rsync -az --delete --mkpath \
         -e "$SSH_OPTS" \
         "$STAGING/agh-work" "$STAGING/agh-conf" \
         "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1 || EXIT=$?

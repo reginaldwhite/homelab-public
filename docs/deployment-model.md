@@ -4,6 +4,11 @@
 damage has actually happened. This documents the failure, compares the two models against it,
 and specifies the migration.
 
+> **Status (2026-09-23): done.** bastion, forge and cinema are all on `deploy.sh`, wake-on-deploy
+> is implemented, and `vault` has been examined and deliberately excluded. The sections below are
+> kept as the record of why; each migration section ends with what actually happened, including
+> where the plan was wrong. Still open: `deploy.sh --audit`.
+
 ## The incident
 
 **A process read its configuration from a git working tree that a human was editing.** On forge,
@@ -96,8 +101,10 @@ model B without putting a branchable tree back on the network.
 
 ## Waking hosts on deploy
 
-`deploy.sh` currently gives up on an unreachable host (`"$host is unreachable (asleep?)"`). Since
-forge and cinema are asleep by design for much of the day, it should wake them instead.
+**Implemented.** `deploy.sh` gave up on an unreachable host (`"$host is unreachable (asleep?)"`).
+Since forge and cinema are asleep by design for much of the day, it now wakes them instead —
+Wake-on-LAN, then SSH polled every 5s for up to 180s, `--no-wake` to opt out, and the woken hosts
+named at the end of the run.
 
 Add a MAC per host and, when SSH fails, send a Wake-on-LAN magic packet and poll for SSH:
 
@@ -229,12 +236,66 @@ old path, or `git revert` the branch and redeploy. Nothing in the deployed copy 
 
 ## Migrating cinema
 
-Lower value, and it has a wrinkle: the Plex stack was first started with `sudo`, so its bind
-mounts live under `/root/plex/` and `apply.sh` would need root on cinema — either passwordless
-sudo for `docker compose`, or moving the config out of `/root`. cinema is also asleep most of the
-time, so deploys must be timed with a wake.
+**Done — and the wrinkle this plan deferred it for did not exist.**
 
-Recommend deferring until after forge is proven, then deciding whether it earns the sudo grant.
+The plan assumed that because the Plex stack was first started with `sudo`, its `/root/plex/`
+bind mounts meant `apply.sh` would need root on cinema, and that the migration therefore had to
+buy a passwordless sudo grant or move the config out of `/root`. That was wrong. Bind mount
+sources are opened by `dockerd`, which already runs as root; `apply.sh` never touches those paths
+itself. `robby` is in cinema's `docker` group, so `docker compose` runs unprivileged. No new sudo
+rule was needed, and cinema's sudoers still contains exactly one NOPASSWD entry,
+`/bin/systemctl suspend`, for the agent's `suspend` verb.
+
+Checking that assumption before deferring would have been one `sudo -n -l` away. The sleeping-host
+half of the objection was real, and is answered by wake-on-deploy.
+
+What cinema was actually doing was worse than the plan assumed: Plex was running out of a **git
+clone** at `~/Documents/Github/homelab/cinema/`, stale at commit `e71c745` — the exact pattern
+that caused the forge incident four times, still live on a third host.
+
+`cinema/apply.sh` adds one check the other hosts don't need: it refuses to deploy when
+`/mnt/storage` is not mounted. Without it `dockerd` would create an empty `/mnt/storage/plex` on
+the root disk and Plex would start with an empty library, which is indistinguishable from having
+lost it.
+
+## vault: examined and deliberately excluded
+
+vault is the fourth host and the one that does **not** join `deploy.sh`. This is a decision, not a
+backlog item, and it rests on three facts checked on the machine rather than assumed:
+
+1. **Nothing to deploy.** The Docker daemon isn't even running on it; it has no crontab of ours,
+   and its own configuration lives on the Unraid flash, managed from the web GUI.
+2. **Its root filesystem is RAM.** `/` is `rootfs` (~8.8 GB). A deployed copy under `/root` or
+   `/home` disappears at the next boot — and vault reboots weekly when the smart plug cycles.
+3. **Its flash cannot hold an executable.** `/boot` is vfat mounted `fmask=0177`. `chmod +x`
+   returns success and the file still fails with `Permission denied`. Verified directly.
+
+So `apply.sh` on vault could neither survive on one filesystem nor run on the other. vault is
+managed from bastion, the always-on host that pushes to it; `./deploy.sh vault` prints that
+reasoning instead of a confusing failure.
+
+### What examining it turned up
+
+The weekly backup to vault had **never once succeeded**. 337 log lines back to 2026-05-17, zero
+successes, two independent causes:
+
+- `sync-forge.sh` failed every week with "forge did not come online". The old `wake-forge.sh`
+  logged the magic packet as success without checking whether forge actually booted, so nothing
+  noticed. (Fixed separately by `verify-forge-power`.)
+- Once forge did wake, rsync failed with
+  `mkdir "/mnt/user/backups/forge/Documents" failed: No such file or directory`. rsync creates
+  only the *last* component of a destination path, and nothing had ever created `forge/`. Fixed
+  with `--mkpath` on every transfer, so the scripts provision their own destination.
+- `backup-to-tower.sh` exited 23 every week on AdGuard's root-owned `agh-work/`/`agh-conf/`,
+  which the staging-container fix now handles.
+
+Both jobs now complete: `forge/Documents/`, `forge/openclaw-state/` (agent memory, sessions,
+credentials) and AdGuard's config are on vault for the first time.
+
+The deeper problem is that all of this was **correctly logged and never read**. A backup that
+fails silently is not a backup. The `health` verb now reports a failed or stale weekly backup, so
+it rides out on the twice-daily Slack check that already exists — the cheapest place to put it,
+and one that needs no new schedule, script or delivery path.
 
 ## Running deploys from OpenClaw
 

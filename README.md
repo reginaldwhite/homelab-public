@@ -150,11 +150,17 @@ one-way, so upgrades stay manual and backed up.
 Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
 installed by `./deploy.sh bastion`, so edit them here rather than with `crontab -e` on bastion.
 
+Every one of these jobs logs its result to `~/logs/backup.log` on bastion, and the twice-daily
+[health check](#agent-credential-scope) reports a failed or stale backup to `#homelab-status`. That
+reporting is the only reason a broken weekly backup gets noticed; see
+[`vault`](#vault--1921680212-unraid--sunday-2am5am) for what lands where.
+
 ---
 
 ### `cinema` — 192.168.0.13 (Ubuntu) — On Demand
 
-Dedicated Plex Media Server. Woken via WoL by OpenClaw agent on `forge` when needed.
+Dedicated Plex Media Server. Woken via WoL by the OpenClaw agent on `forge` when needed,
+and by `deploy.sh` itself when a deploy finds it asleep.
 Docker compose: [cinema/docker-compose.yml](cinema/docker-compose.yml) (Compose project `plex`)
 
 - **MAC:** `d0:17:c2:dd:c1:c2`
@@ -166,6 +172,16 @@ Docker compose: [cinema/docker-compose.yml](cinema/docker-compose.yml) (Compose 
 The stack was first started with `sudo`, so the config/transcode bind mounts live under
 `/root/plex/` and the compose file uses absolute paths to keep pointing at them.
 `PLEX_CLAIM` is only needed when claiming a fresh server — put it in `cinema/.env`.
+
+**Those `/root/` paths do not require sudo to deploy.** They are bind mounts, opened by
+`dockerd` (which is root) and never by `apply.sh`, and `robby` is in cinema's `docker`
+group — so `docker compose` runs unprivileged. The passwordless sudo grant this migration
+was expected to need was never needed; cinema's only sudo rule stays
+`NOPASSWD: /bin/systemctl suspend`, for the agent's `suspend` verb.
+
+[cinema/apply.sh](cinema/apply.sh) refuses to deploy when `/mnt/storage` is not mounted.
+Without that check `dockerd` would create an empty `/mnt/storage/plex` on the root disk and
+Plex would start on an empty library — a failure that looks exactly like losing it.
 
 ---
 
@@ -316,7 +332,7 @@ authenticates as `robby`:
 |---|---|
 | bastion | `wake-forge`, `wake-cinema` (Wake-on-LAN packets; no sudo), `health` (read-only checks, below) |
 | forge | `shutdown` |
-| cinema | `suspend` |
+| cinema | `suspend`, `health` (read-only checks, below) |
 
 ```
 command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema health",restrict ssh-ed25519 AAAA... openclaw
@@ -331,18 +347,39 @@ Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/opencla
 the forced command to that host's `authorized_keys`. Nothing deploys it, so reinstall by hand
 after changing it.
 
-`health` exists for OpenClaw's `server-log-monitor` cron job, which runs at 7am and 9pm Central
-(inside forge's waking hours) and posts every result to `#homelab-status`: `✅ all clear`,
-`⚠️` with what it found, or `❌` when the check itself couldn't run. A missing post therefore
-means the monitor didn't run. `health` runs a fixed set of read-only checks: journal errors and
+`health` exists for OpenClaw's log-monitor cron jobs, which run inside forge's waking hours and
+post every result to `#homelab-status`: `✅ all clear`, `⚠️` with what they found, or `❌` when
+the check itself couldn't run. A missing post therefore means the monitor didn't run.
+
+| Job | Host | Schedule (Central) |
+|---|---|---|
+| `server-log-monitor` | bastion | 7:00am, 9:00pm |
+| `cinema-log-monitor` | cinema | 7:05am, 9:05pm |
+
+They are separate jobs rather than one combined job for two reasons: each prompt stays as
+simple as the one already proven in production, and forge holds a single model in VRAM at a
+time, so two checks five minutes apart don't queue behind each other. cinema is asleep most of
+the day, and that is a normal result — its job replies `💤 cinema: asleep` and never wakes it,
+since waking the living-room Plex box twice a day to confirm it is healthy is not worth it.
+
+`health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped
-containers, and filesystems at 80% or more. Known-harmless journal entries (GDM's login-screen
+containers, filesystems at 80% or more, and the outcome of the weekly backup to vault. Known-harmless journal entries (GDM's login-screen
 assertion, BIOS CPU-feature notes at boot, desktop-session apps, keyring handling at login, and
 `sudo -n` probes) are filtered by the `NOISE` list in the script, so a healthy bastion reads
 `all clear`. Keep new patterns just as narrow: name the process and the exact message. Each section prints `none` when clean and `CHECK FAILED` when the
-check itself errors, so the agent can tell "healthy" from "couldn't look". The job lives in
-`~/openclaw-state/cron/jobs.json` on forge, which is agent state rather than deployed config;
-change it with `docker exec openclaw openclaw cron edit` while the gateway is running.
+check itself errors, so the agent can tell "healthy" from "couldn't look".
+
+The backup section reads bastion's `~/logs/backup.log` and reports a last run that failed, or a
+last success older than 8 days. It exists because the weekly backup to vault failed **every
+week from May to September 2026** and nothing ever said so — the logs were written correctly and
+simply never read. On a host with no backup log (only bastion pushes to vault) it prints `none`.
+
+The jobs live in `~/openclaw-state/cron/jobs.json` on forge, which is agent state rather than
+deployed config; change them with `docker exec openclaw openclaw cron edit` while the gateway is
+running. `scripts/openclaw-cmd` is likewise installed by hand on each host, so **reinstall it
+everywhere after changing it** — a host still running the old copy prints fewer sections, and the
+monitor reports that as a failure.
 
 > **Your own key must be authorized separately.** `~/.ssh/config` on forge used to set
 > `openclaw_ed25519` as the default identity for `Host *`, so admin SSH to bastion and cinema was
@@ -364,10 +401,30 @@ docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
 Cold storage backup server. Powered via smart plug on a fixed schedule (2:00am–5:00am Sunday).
 Motherboard set to boot on power restore (WoL not supported). SSH user: `root`.
 
-**Backup sources:**
-- `bastion`: vaultwarden data, AdGuard config
-- `forge`: `/home/robby/Documents/` (pushed directly from forge; this now includes the
-  compose stack and openclaw state, which live in `Documents/Github/Homelab/forge/`)
+**Backup destinations,** all under `/mnt/user/backups/`:
+
+| Path | Source | Pushed by |
+|---|---|---|
+| `vaultwarden/` | bastion's `~/vaultwarden/` — vw-data, Caddyfile, compose | `backup-to-tower.sh` |
+| `vaultwarden/agh-conf/`, `agh-work/` | bastion's AdGuard state, staged through a root container | `backup-to-tower.sh` |
+| `forge/Documents/` | forge's `~/Documents/` — this repo and everything developed there | `sync-forge.sh` |
+| `forge/openclaw-state/` | forge's `~/openclaw-state/` — agent memory, sessions, credentials | `sync-forge.sh` |
+
+**vault is deliberately not a `deploy.sh` host,** and that is not a to-do:
+
+- There is nothing to deploy. No Docker daemon runs on it, it has no crontab of ours, and
+  its own configuration lives on the Unraid flash and is managed from the web GUI.
+- Its root filesystem is **RAM** (`rootfs`, ~8.8 GB). Anything under `/root` or `/home` is
+  gone at the next boot, and it reboots every week when the smart plug cycles.
+- Its flash (`/boot`) is **vfat mounted `fmask=0177`**, so a file there can never carry an
+  executable bit. `chmod +x` succeeds and the file still refuses to run. A deployed
+  `apply.sh` could neither survive on one filesystem nor execute on the other.
+
+So vault is managed *from bastion*, which is always on and is the host that pushes to it.
+`./deploy.sh vault` prints that reasoning rather than failing obscurely.
+
+The backup scripts create their own destination paths (`rsync --mkpath`), so a fresh or
+re-created share needs no manual preparation.
 
 ---
 
@@ -397,8 +454,9 @@ For each host:
 Guard rails:
 - Deploys only when `HEAD` is `origin/main` and `<host>/` is clean (`--force` overrides),
   so what runs is what's merged.
-- `.env` files are never pushed, and the ones on the host survive deploys.
-- An unreachable host (forge and cinema sleep) fails fast and doesn't stop the others.
+- `.env` and `.secrets.env` are never pushed, and the ones on the host survive deploys.
+- A host that is asleep is **woken** (below) rather than skipped.
+- A host that still can't be reached fails fast and doesn't stop the others.
 
 The host the script runs on is deployed locally; the others go over SSH as `robby`, so
 the machine you deploy from needs key auth to each of them.
@@ -406,19 +464,38 @@ the machine you deploy from needs key auth to each of them.
 | Host | On `deploy.sh` | Runs from |
 |---|---|---|
 | `bastion` | yes | `/home/robby/homelab-deployed/bastion/` |
-| `cinema` | not yet | managed by hand |
-| `forge` | not yet | its git clone (see [Running the forge stack](#running-the-forge-stack)) |
+| `cinema` | yes | `/home/robby/homelab-deployed/cinema/` |
+| `forge` | yes | `/home/robby/homelab-deployed/forge/` |
+| `vault` | no, by design | nothing to deploy — see [`vault`](#vault--1921680212-unraid--sunday-2am5am) |
 
-forge is last on purpose. `forge/openclaw-state/` mixes config the repo owns with state
-OpenClaw writes itself (logs, credentials, pairing), and a push would clobber that state.
-That split has to be decided first.
+### Waking hosts on deploy
+
+forge sleeps overnight and cinema is asleep most of the time, so "deploy everything" used
+to mean "deploy whatever happens to be awake". When a host doesn't answer SSH, `deploy.sh`
+now sends it a Wake-on-LAN magic packet and polls SSH for up to 180 seconds:
+
+| Host | MAC | Wakeable |
+|---|---|---|
+| `forge` | `88:d7:f6:13:14:3a` | yes |
+| `cinema` | `d0:17:c2:dd:c1:c2` | yes |
+| `bastion` | — | always on |
+| `vault` | — | no WoL support; smart plug on a fixed schedule |
+
+The packet is layer 2, so this only works from a machine on the same LAN — true of every
+host here. A woken host is **left running**, because sleeping it again could cut off
+whoever is using it; the run prints which hosts it woke. forge shuts itself down at 11pm
+via bastion's cron anyway; sleep cinema with `plex-power.py sleep`. Pass `--no-wake` to
+opt out, e.g. so a scripted deploy can't power on the living-room Plex box at 3am.
+
+`apply.sh` waits for `dockerd` on each host, since a just-woken machine accepts SSH well
+before Docker is ready.
 
 ---
 
 ## Repository Structure
 
-One folder per server, each deployed by [deploy.sh](deploy.sh) (bastion so far; see
-[Deploying](#deploying)).
+One folder per server, each deployed by [deploy.sh](deploy.sh) — bastion, cinema and
+forge; see [Deploying](#deploying). vault has no folder because nothing is deployed to it.
 
 ```
 Homelab/
@@ -440,51 +517,50 @@ Homelab/
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
 │                                       (live data stays in /home/robby/vaultwarden/)
 │
-├── cinema/                           — 192.168.0.13 (plex)
+├── cinema/                           — 192.168.0.13, deployed to ~/homelab-deployed/cinema/
+│   ├── apply.sh                      — run on cinema by deploy.sh
+│   ├── crontab                       — installed as robby's crontab (deliberately empty)
 │   ├── docker-compose.yml            — Compose project `plex`
 │   └── .env.example                  — optional PLEX_CLAIM for first-time setup
 │
-└── forge/                            — 192.168.0.12 (runs from this folder)
+└── forge/                            — 192.168.0.12, deployed to ~/homelab-deployed/forge/
+    ├── apply.sh                      — run on forge by deploy.sh
+    ├── crontab                       — installed as robby's crontab
     ├── docker-compose.yaml           — Compose project `forge` (ollama, openclaw, open-webui)
     ├── .env.example                  — copy to .env (gitignored) and fill in tokens
     ├── scripts/
     │   └── vaultwarden-version-check.sh  — @reboot; Slacks you when bastion's Vaultwarden is stale
-    └── openclaw-state/               — openclaw runtime state, bind-mounted into the container
-        ├── scripts/
-        │   ├── plex-power.py         — cinema (plex) wake/sleep agent tool
-        │   └── forge-power.py        — forge wake/sleep agent tool
-        └── workspace/                — agent workspace (gitignored)
-            └── TOOLS.md              — server names, IPs, and tool usage notes
+    └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/
+        ├── openclaw.json             — gateway, models, channels
+        ├── models.json               — per-model context windows
+        └── scripts/
+            ├── plex-power.py         — cinema (plex) wake/sleep agent tool
+            └── forge-power.py        — forge wake/sleep agent tool
 ```
 
 ### Running the forge stack
 
+forge runs from `/home/robby/homelab-deployed/forge/`, like every other deployed host:
+
 ```bash
-cd forge && docker compose up -d
+./deploy.sh forge
 ```
 
 The Compose project name is pinned to `forge` in `docker-compose.yaml`, so the
-`forge_ollama_data` and `forge_openwebui_data` volumes stay attached even if this
-directory is moved.
+`forge_ollama_data` and `forge_openwebui_data` volumes stay attached even if the folder
+moves.
 
-> **This working tree is live configuration.** `forge/openclaw-state/` is bind-mounted
-> straight into the running `openclaw` container, and `forge/docker-compose.yaml` defines
-> the running stack. A `git switch` or `git checkout` therefore **rewrites production
-> config on disk** — checking out a branch without a change here silently reverts it, and
-> the next container restart picks up the old values.
+> **This working tree is no longer live configuration.** It used to be: the stack ran
+> straight out of the git tree, so a `git switch` rewrote production config on disk, and
+> it silently reverted OpenClaw's context window four separate times. That is what the
+> deployed-copy model exists to prevent — the live copy has no branch to switch. Config
+> the repo owns is copied into `/home/robby/openclaw-state/` by
+> [forge/apply.sh](forge/apply.sh), which never deletes from it, so the agent's sessions,
+> memory, credentials and workspace are untouched by a deploy.
 >
-> In practice: keep branches that touch `forge/openclaw-state/` or `forge/docker-compose.yaml`
-> short-lived, and after switching branches confirm what is actually on disk before
-> restarting anything:
->
-> ```bash
-> grep -m1 contextWindow forge/openclaw-state/openclaw.json
-> grep OLLAMA_CONTEXT_LENGTH forge/docker-compose.yaml
-> docker exec openclaw node openclaw.mjs status | grep -i sessions   # what is loaded now
-> ```
->
-> This goes away once forge moves to `deploy.sh`. bastion no longer has the problem: it
-> runs from its deployed copy, so a branch switch in its clone changes nothing running.
+> Because OpenClaw caches its config at startup, `apply.sh` restarts the container
+> whenever one of those files actually changed — otherwise a config-only deploy would
+> look successful and change nothing.
 
 ### Pushing to GitHub
 
