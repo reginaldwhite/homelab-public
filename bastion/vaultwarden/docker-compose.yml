@@ -1,4 +1,4 @@
-# Runs straight from the repo clone on bastion — apply changes with bastion/deploy.sh.
+# Deployed to bastion by ../../deploy.sh and run from /home/robby/homelab-deployed/bastion/vaultwarden.
 #
 # Pinned so the caddy_data/caddy_config volumes (TLS certs) stay attached as
 # vaultwarden_caddy_* no matter where this file is run from.
@@ -12,7 +12,7 @@ services:
   vaultwarden:
     # Pinned deliberately: client compatibility is version-sensitive.
     # 1.37.2+ is required for Bitwarden clients 2026.8.0 and newer.
-    # Bump this tag to upgrade, then run bastion/deploy.sh (it backs up vw-data first).
+    # Bump this tag to upgrade, then ./deploy.sh bastion (it backs up vw-data first).
     image: vaultwarden/server:1.37.3
     container_name: vaultwarden
     restart: unless-stopped

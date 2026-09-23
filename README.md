@@ -28,38 +28,24 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 
 #### Deploying changes
 
-bastion has its own clone of this repo at `/home/robby/Documents/Github/homelab`, and the
-stack runs straight from it. To apply a change, merge it to `main`, then from **any** clone:
+`./deploy.sh bastion` (see [Deploying](#deploying)) pushes `bastion/` to
+`/home/robby/homelab-deployed/bastion/` and runs [bastion/apply.sh](bastion/apply.sh) there:
 
-```bash
-bastion/deploy.sh --check    # optional: show what would change
-bastion/deploy.sh
-```
-
-Run anywhere but bastion, the script SSHes to `robby@192.168.0.10`, fast-forwards bastion's
-clone to `origin/main`, and runs itself there, so what gets deployed is what's merged, not
-your local tree. That pull needs the git credential helper set up on bastion (see
-[Pushing to GitHub](#pushing-to-github); a read-only PAT is enough). Run on bastion itself, it
-deploys the clone as it stands, so `git pull` first.
-
-[bastion/deploy.sh](bastion/deploy.sh) applies all of `bastion/`:
-
-| Source | Applied to |
+| Source | Applied as |
 |---|---|
-| `bastion/vaultwarden/` | `docker compose up -d`, run in place, then `caddy reload` (validated first) |
-| `bastion/scripts/*.sh` | copied to `~/scripts/` (cron runs these copies) |
-| `bastion/crontab` | installed as the user crontab |
+| `bastion/vaultwarden/` | `docker compose up -d` from the deployed copy, then `caddy reload` (validated first) |
+| `bastion/crontab` | installed as robby's crontab |
+| `bastion/scripts/*.sh` | run by cron straight from the deployed copy |
 
-It refuses to run from anything but a clean `main` (`--force` overrides), and if the
-Vaultwarden tag changed it backs up `vw-data` before upgrading.
+If the Vaultwarden tag changed, `apply.sh` backs up `vw-data` before upgrading.
 
-Live data is **not** in the repo: `vw-data`, `agh-work` and `agh-conf` stay in
-`/home/robby/vaultwarden/`, referenced by absolute path, which is also what
+Live data is **not** in the repo or the deployed copy: `vw-data`, `agh-work` and `agh-conf`
+stay in `/home/robby/vaultwarden/`, referenced by absolute path, which is also what
 `backup-to-tower.sh` pushes to `vault`. Caddy's certificates live in the
 `vaultwarden_caddy_data` volume; the pinned project name keeps it attached.
 
-Don't run `docker compose` from `~/vaultwarden/` any more. The old compose file there was
-retired so it can't quietly reapply stale config.
+Don't run `docker compose` from `~/vaultwarden/` or from a git clone. Both would reapply
+whatever config happens to be on disk there.
 
 #### Reverse proxy ([Caddyfile](bastion/vaultwarden/caddy/Caddyfile))
 
@@ -77,11 +63,11 @@ Two things to know when editing it:
   public ACME validation can never succeed; Caddy retried indefinitely and was pushed onto the
   Let's Encrypt staging CA, which risks the renewal of `vault.robbywhite.net` alongside it.
 
-`bastion/deploy.sh` applies Caddyfile changes by validating them in a throwaway container
-and then running `caddy reload`, never a restart, so the vault never drops. The `caddy/`
+The deploy validates Caddyfile changes in a throwaway container before they reach the live
+copy, then runs `caddy reload`, never a restart, so the vault never drops. The `caddy/`
 directory is bind-mounted rather than the file itself. A single-file mount pins the inode,
-and git replaces files rather than editing them, so after a pull or branch switch the old
-setup kept serving the previous Caddyfile, and a reload silently reapplied stale config.
+and rsync and git both replace files rather than editing them, so the container would keep
+serving the previous Caddyfile and a reload would silently reapply stale config.
 
 #### Vaultwarden version is pinned
 
@@ -94,7 +80,7 @@ nothing does on a schedule, so the server sat on 1.35.3 for seven months while t
 "latest". The tag is pinned so the deployed version is visible in git.
 
 To upgrade: bump the tag in [bastion/vaultwarden/docker-compose.yml](bastion/vaultwarden/docker-compose.yml),
-merge to `main`, and run `bastion/deploy.sh` on bastion (see above). Vaultwarden's DB
+merge to `main`, and run `./deploy.sh bastion`. Vaultwarden's DB
 migrations are not reversible, so when the tag changes the script stops the container and
 tars `vw-data` into `/home/robby/vw-backups/` before starting the new version. Confirm with:
 
@@ -110,10 +96,10 @@ compares the tag bastion is actually running against the newest GitHub release a
 you in Slack through OpenClaw when it's behind. It reports the *deployed* tag
 (`docker inspect`), not the one the repo intends, so drift between the two shows up too.
 
-It runs on **forge**, from the user crontab at boot. Note it runs the *deployed* copy, not
-the one in this repo — same pattern as `bastion/scripts/`: the repo is the source of truth,
-and a copy is deployed to `~/scripts/`. Pointing cron into the git working tree means a
-branch switch can make the script vanish and silently break the job.
+It runs on **forge**, from the user crontab at boot. Note it runs the *deployed* copy in
+`~/scripts/`, not the one in this repo. Pointing cron into the git working tree means a
+branch switch can make the script vanish and silently break the job. (forge isn't on
+`deploy.sh` yet, so this copy is still made by hand.)
 
 ```cron
 @reboot /home/robby/scripts/vaultwarden-version-check.sh
@@ -156,7 +142,7 @@ one-way, so upgrades stay manual and backed up.
 | 3:45am Sunday | Sleep `forge` after backup |
 
 Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
-installed by `bastion/deploy.sh`, so edit them here rather than with `crontab -e` on bastion.
+installed by `./deploy.sh bastion`, so edit them here rather than with `crontab -e` on bastion.
 
 ---
 
@@ -297,24 +283,68 @@ Motherboard set to boot on power restore (WoL not supported). SSH user: `root`.
 
 ---
 
+## Deploying
+
+One script deploys every host from any clone of this repo:
+
+```bash
+git pull
+./deploy.sh --check bastion    # validate and list changed files, apply nothing
+./deploy.sh bastion            # or: ./deploy.sh all
+```
+
+Hosts never run from a git clone. [deploy.sh](deploy.sh) rsyncs `<host>/` to
+`/home/robby/homelab-deployed/<host>/` on that host and runs the host's `apply.sh` there.
+A `git switch` in any clone, including one on the host itself, changes nothing running;
+only a deploy does. Hosts need no GitHub access.
+
+For each host:
+
+1. Copy `<host>/` to a staging dir on the host.
+2. Run `apply.sh --validate` against the staged copy (compose file, Caddyfile, …).
+   A change that fails never reaches the live copy.
+3. List the files that would change. `--check` stops here.
+4. Replace the live copy with the staged one and run its `apply.sh`.
+
+Guard rails:
+- Deploys only when `HEAD` is `origin/main` and `<host>/` is clean (`--force` overrides),
+  so what runs is what's merged.
+- `.env` files are never pushed, and the ones on the host survive deploys.
+- An unreachable host (forge and cinema sleep) fails fast and doesn't stop the others.
+
+The host the script runs on is deployed locally; the others go over SSH as `robby`, so
+the machine you deploy from needs key auth to each of them.
+
+| Host | On `deploy.sh` | Runs from |
+|---|---|---|
+| `bastion` | yes | `/home/robby/homelab-deployed/bastion/` |
+| `cinema` | not yet | managed by hand |
+| `forge` | not yet | its git clone (see [Running the forge stack](#running-the-forge-stack)) |
+
+forge is last on purpose. `forge/openclaw-state/` mixes config the repo owns with state
+OpenClaw writes itself (logs, credentials, pairing), and a push would clobber that state.
+That split has to be decided first.
+
+---
+
 ## Repository Structure
 
-One folder per server. `forge` and `bastion` each run their stack from their own clone:
-forge at `/home/robby/Documents/Github/Homelab/`, bastion at
-`/home/robby/Documents/Github/homelab/` (applied with `bastion/deploy.sh`).
+One folder per server, each deployed by [deploy.sh](deploy.sh) (bastion so far; see
+[Deploying](#deploying)).
 
 ```
 Homelab/
 ├── README.md                         — this file
 ├── homelab.code-workspace
 ├── .secrets.env.example              — template for the GitHub PAT (see below)
+├── deploy.sh                         — pushes <host>/ to that host and runs its apply.sh
 ├── scripts/
 │   └── git-credential-homelab        — git credential helper; reads .secrets.env
 │
-├── bastion/                          — 192.168.0.10 (runs from its clone)
-│   ├── deploy.sh                     — applies everything below; works from any host over ssh
+├── bastion/                          — 192.168.0.10, deployed to ~/homelab-deployed/bastion/
+│   ├── apply.sh                      — run on bastion by deploy.sh
 │   ├── crontab                       — installed as robby's crontab
-│   ├── scripts/                      — cron scripts, copied to ~/scripts/
+│   ├── scripts/                      — cron scripts, run from the deployed copy
 │   │   ├── wake-forge.sh
 │   │   ├── sleep-forge.sh
 │   │   ├── sync-forge.sh
@@ -365,11 +395,8 @@ directory is moved.
 > docker exec openclaw node openclaw.mjs status | grep -i sessions   # what is loaded now
 > ```
 >
-> bastion's clone is live in the same way, but only partly: nothing changes until
-> `bastion/deploy.sh` runs, except that `caddy` rereads the Caddyfile on any reload or
-> restart (including a reboot). Keep bastion's clone on `main`. `deploy.sh` refuses anything else.
-> The `cinema/` files are source copies deployed to another host, so a branch switch here
-> changes nothing running there.
+> This goes away once forge moves to `deploy.sh`. bastion no longer has the problem: it
+> runs from its deployed copy, so a branch switch in its clone changes nothing running.
 
 ### Pushing to GitHub
 
