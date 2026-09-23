@@ -46,7 +46,7 @@ deploys the clone as it stands, so `git pull` first.
 
 | Source | Applied to |
 |---|---|
-| `bastion/vaultwarden/` | `docker compose up -d`, run in place; restarts `caddy` if the Caddyfile changed |
+| `bastion/vaultwarden/` | `docker compose up -d`, run in place, then `caddy reload` (validated first) |
 | `bastion/scripts/*.sh` | copied to `~/scripts/` (cron runs these copies) |
 | `bastion/crontab` | installed as the user crontab |
 
@@ -61,7 +61,7 @@ Live data is **not** in the repo: `vw-data`, `agh-work` and `agh-conf` stay in
 Don't run `docker compose` from `~/vaultwarden/` any more. The old compose file there was
 retired so it can't quietly reapply stale config.
 
-#### Reverse proxy ([Caddyfile](bastion/vaultwarden/Caddyfile))
+#### Reverse proxy ([Caddyfile](bastion/vaultwarden/caddy/Caddyfile))
 
 | Hostname | Upstream | TLS |
 |---|---|---|
@@ -77,12 +77,11 @@ Two things to know when editing it:
   public ACME validation can never succeed; Caddy retried indefinitely and was pushed onto the
   Let's Encrypt staging CA, which risks the renewal of `vault.robbywhite.net` alongside it.
 
-Apply changes with a reload rather than a restart, so the vault never drops:
-
-```bash
-docker exec caddy caddy validate --config /etc/caddy/Caddyfile   # check first
-docker exec caddy caddy reload   --config /etc/caddy/Caddyfile
-```
+`bastion/deploy.sh` applies Caddyfile changes by validating them in a throwaway container
+and then running `caddy reload`, never a restart, so the vault never drops. The `caddy/`
+directory is bind-mounted rather than the file itself. A single-file mount pins the inode,
+and git replaces files rather than editing them, so after a pull or branch switch the old
+setup kept serving the previous Caddyfile, and a reload silently reapplied stale config.
 
 #### Vaultwarden version is pinned
 
@@ -336,8 +335,8 @@ directory is moved.
 > ```
 >
 > bastion's clone is live in the same way, but only partly: nothing changes until
-> `bastion/deploy.sh` runs, except that `caddy` rereads the Caddyfile whenever it restarts
-> (including a reboot). Keep bastion's clone on `main`. `deploy.sh` refuses anything else.
+> `bastion/deploy.sh` runs, except that `caddy` rereads the Caddyfile on any reload or
+> restart (including a reboot). Keep bastion's clone on `main`. `deploy.sh` refuses anything else.
 > The `cinema/` files are source copies deployed to another host, so a branch switch here
 > changes nothing running there.
 

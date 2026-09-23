@@ -89,24 +89,19 @@ cd "$STACK_DIR"
 docker compose config --quiet
 
 caddy_image=$(docker compose config --images | grep '^caddy' | head -1)
-docker run --rm -v "$STACK_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" "$caddy_image" \
-    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
-    || { echo "Caddyfile failed validation:" >&2
-         docker run --rm -v "$STACK_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" "$caddy_image" \
-             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >&2 || true
-         exit 1; }
+if ! out=$(docker run --rm -v "$STACK_DIR/caddy:/etc/caddy:ro" "$caddy_image" \
+        caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1); then
+    echo "Caddyfile failed validation:" >&2
+    echo "$out" >&2
+    exit 1
+fi
 
 want_vw=$(docker compose config --images | grep '^vaultwarden/' | head -1)
 have_vw=$(docker inspect vaultwarden --format '{{.Config.Image}}' 2>/dev/null || true)
-caddy_stale=0
-if docker inspect caddy >/dev/null 2>&1 \
-   && ! docker exec caddy cat /etc/caddy/Caddyfile 2>/dev/null | cmp -s - Caddyfile; then
-    caddy_stale=1
-fi
 
 if [[ $CHECK -eq 1 ]]; then
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] && echo "    vaultwarden: $have_vw -> $want_vw (would back up vw-data first)"
-    [[ $caddy_stale -eq 1 ]] && echo "    caddy: Caddyfile changed (would restart caddy)"
+    echo "    caddy: Caddyfile valid (would reload; a no-op if unchanged)"
     docker compose up -d --dry-run 2>&1 | sed 's/^/    /'
     exit 0
 fi
@@ -125,12 +120,15 @@ fi
 
 docker compose up -d
 
-# `up` leaves caddy alone when only the Caddyfile's contents changed, and the
-# running container still sees the old file (see the note in docker-compose.yml).
-if docker exec caddy cat /etc/caddy/Caddyfile 2>/dev/null | cmp -s - Caddyfile; then :; else
-    say "Caddyfile changed: restarting caddy"
-    docker compose restart caddy
-fi
+# `up` leaves caddy running when only the Caddyfile's contents changed. A reload
+# applies it without dropping connections, and is a no-op when nothing changed.
+say "Reloading caddy config"
+for i in $(seq 1 10); do
+    # If `up` just recreated caddy, its admin API may take a moment to come up.
+    docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile && break
+    [[ $i -eq 10 ]] && { echo "caddy reload failed" >&2; exit 1; }
+    sleep 2
+done
 
 docker compose ps
 [[ "$have_vw" != "$want_vw" ]] && docker logs vaultwarden 2>&1 | grep -m1 -i 'version' || true

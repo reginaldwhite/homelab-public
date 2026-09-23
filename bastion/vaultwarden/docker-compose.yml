@@ -31,10 +31,11 @@ services:
       - 80:80
       - 443:443
     volumes:
-      # A single-file bind mount pins the inode, and git replaces files rather
-      # than editing them in place — so Caddy only sees a new Caddyfile after the
-      # container restarts. deploy.sh does that when the file changes.
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Mount the directory, not the file: a single-file bind mount pins the
+      # inode, and git replaces files rather than editing them in place, so after
+      # a pull or branch switch the container kept serving the old Caddyfile and
+      # `caddy reload` silently reloaded stale config.
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
   adguardhome:
