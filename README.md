@@ -142,7 +142,8 @@ one-way, so upgrades stay manual and backed up.
 | 5:00am daily (Mon–Sat) | Wake `forge` via WoL |
 | 5:00am Sunday | Wake `forge` via WoL (after backup window) |
 | 11:00pm daily | Shut down `forge` via SSH |
-| 8:00am daily | Post bastion's own health to `#homelab-status` (`health-report.sh`) |
+| 7:00am daily | Report bastion's own health to `#homelab-logs` (`health-report.py`) |
+| 9:00am daily | Check the digest is still being posted (`digest-watchdog.py`) |
 | 2:30am Sunday | Push bastion data → `vault` (`backup-to-tower.sh`) |
 | 2:45am Sunday | Wake `forge` for backup |
 | 3:00am Sunday | Sync forge data → `vault` (`sync-forge.sh`) |
@@ -151,55 +152,67 @@ one-way, so upgrades stay manual and backed up.
 Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
 installed by `./deploy.sh bastion`, so edit them here rather than with `crontab -e` on bastion.
 
-#### Daily self-check
+#### Daily self-report
 
-[bastion/scripts/health-report.sh](bastion/scripts/health-report.sh) posts bastion's own health
-to `#homelab-status` at 8:00am, straight from bastion with no agent involved.
+bastion posts a structured report about itself to `#homelab-logs` at 7:00am, straight from
+bastion with no agent involved — [bastion/scripts/health-report.py](bastion/scripts/health-report.py).
 
-This exists because the other monitor runs on **forge**, which is down 11pm–5am by design and
-was down for two months in mid-2026. A check that only runs while forge is up cannot say
-anything about bastion during the hours forge is asleep — and bastion is the host running DNS
-and the vault for the house.
+It reports **facts and does not decide what is urgent**. Severity is judged once, by the digester
+on forge, which can correlate across hosts and across days in a way no single reporter can. The
+full design and its trade-offs are in [docs/health-digest.md](docs/health-digest.md).
 
-It does **not** replace forge's check, and the overlap is deliberate. They fail differently:
+```
+<@openclaw> bastion health: ok (0 findings)
+```json
+{"host":"bastion","kind":"health","status":"ok","ts":"…",
+ "findings":[], "metrics":{"fs_max_pct":68,"journal_errors":0,"stopped_containers":0}}
+```
+```
 
-| Failure | Caught by |
-|---|---|
-| bastion unhealthy but running | either |
-| bastion down, wedged, or its cron not running | **only forge's**, because a host that can't run cron can't self-report, and silence is not an alert |
-| forge down or asleep | **only bastion's** |
+`metrics` exists so trends are possible at all: a digester can only notice "climbing 3% a day"
+if the number is in the report rather than buried in prose.
 
-The script runs the same `health` verb the agent's monitor runs, rather than reimplementing the
-checks, so the two reports can never disagree about what "healthy" means. Output is posted
-verbatim in a code block — no model summarises it. It refuses to call a truncated run healthy:
-fewer than five sections is reported as a failure, not an all clear.
+It runs the same `health` verb the agent's monitor runs rather than reimplementing the checks, so
+the two can never disagree about what healthy means, and it refuses to call a truncated run
+healthy — fewer than five sections is reported as `status: error`.
 
-Credentials come from `.env` on the deployed copy, which `deploy.sh` never pushes and never
-overwrites — see [bastion/.env.example](bastion/.env.example):
+**Two conditions bypass the digester** and tag Robby directly in `#homelab-status`, because they
+cannot wait for forge to wake up: any filesystem at **95%** or more, and the weekly backup to
+vault having **failed** on its last run. Both are deterministic and rare. Everything else waits
+for the digester.
+
+#### Digest watchdog
+
+[bastion/scripts/digest-watchdog.py](bastion/scripts/digest-watchdog.py) runs at 9:00am and tags
+Robby if no digest has appeared in `#homelab-status` for 26 hours.
+
+This is not optional. Routing alerts through the agent makes them depend on **forge** — off
+11pm–5am by design, and down for two months in mid-2026. A digester that has stopped cannot
+report that it has stopped, and silence is not an alert. Apart from the two catastrophe
+conditions above, this is the only machine-to-human tag left in the system.
+
+It needs to *read* `#homelab-status`, and a webhook cannot read, so bastion keeps
+`SLACK_BOT_TOKEN` even if posting later moves to webhooks.
+
+#### Credentials
+
+`.env` on the deployed copy, which `deploy.sh` never pushes and never overwrites — see
+[bastion/.env.example](bastion/.env.example):
 
 ```bash
-# on bastion, once:
 umask 077 && vi /home/robby/homelab-deployed/bastion/.env
 ```
 
-Prefer `SLACK_WEBHOOK_URL` over `SLACK_BOT_TOKEN`. A webhook can only post, to one channel; the
-bot token can also read channel history, and this is the host holding the password vault. An
-exported value wins over the file, so a one-off run can be pointed elsewhere without editing it.
-
-Re-verify delivery at any time — worth doing after touching the script, since it is silent for
-months at a stretch, which is how a broken notifier goes unnoticed:
+Re-verify delivery at any time, which is worth doing after touching either script since both are
+silent for long stretches:
 
 ```bash
-/home/robby/homelab-deployed/bastion/scripts/health-report.sh --test
+/home/robby/homelab-deployed/bastion/scripts/health-report.py --test
+/home/robby/homelab-deployed/bastion/scripts/digest-watchdog.py --test
 ```
 
-A post Slack rejects is written to `~/logs/health-report.log` with the reason and exits
-non-zero, rather than being swallowed.
-
-Every one of these jobs logs its result to `~/logs/backup.log` on bastion, and the twice-daily
-[health check](#agent-credential-scope) reports a failed or stale backup to `#homelab-status`. That
-reporting is the only reason a broken weekly backup gets noticed; see
-[`vault`](#vault--1921680212-unraid--sunday-2am5am) for what lands where.
+Both also take `--dry-run`. A post Slack rejects is written to the script's log in `~/logs/` with
+the reason and exits non-zero, rather than being swallowed.
 
 ---
 
@@ -393,39 +406,38 @@ Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/opencla
 the forced command to that host's `authorized_keys`. Nothing deploys it, so reinstall by hand
 after changing it.
 
-`health` exists for OpenClaw's log-monitor cron jobs, which run inside forge's waking hours and
-post every result to `#homelab-status`. A missing post therefore means the monitor didn't run.
+`health` is the read-only check both the reporters and the agent's monitors run. Since the move
+to [reported facts plus one digester](docs/health-digest.md), most results reach Robby through
+the digest rather than directly.
 
-| Result | Posted as | Tags you |
+| Job | Host | Schedule (Central) | Status |
+|---|---|---|---|
+| `cinema-log-monitor` | cinema | 7:05am, 9:05pm | active — still tags Robby directly |
+| `server-log-monitor` | bastion | 7:00am, 9:00pm | **retired** — bastion self-reports, and the digester escalates |
+
+`server-log-monitor` is disabled rather than deleted (`openclaw cron enable server-log-monitor`
+brings it back). It polled bastion from forge and tagged Robby itself, which the new model moves
+into the digester: bastion reports its own health, and a bastion that goes quiet for 26 hours is
+escalated by absence detection instead. cinema cannot self-report — it is asleep most of the
+time — so its job stays as an external check, and converting it to post a report into
+`#homelab-logs` rather than tagging directly is outstanding work.
+
+Its replies are still:
+
+| Result | Posted as | Tags Robby |
 |---|---|---|
-| healthy | `✅ <host>: all clear` | no |
-| cinema powered down | `💤 cinema: asleep` | no |
-| something was found | `<@U01E91JBPPG> ⚠️ <host>: …` | **yes** |
-| the check couldn't run | `<@U01E91JBPPG> ❌ <host> health check failed: …` | **yes** |
+| healthy | `✅ cinema: all clear` | no |
+| powered down | `💤 cinema: asleep` | no |
+| something found | `<@U01E91JBPPG> ⚠️ cinema: …` | yes |
+| check couldn't run | `<@U01E91JBPPG> ❌ cinema health check failed: …` | yes |
 
-Anything that isn't a clear result **@-mentions the owner**, so it raises a Slack notification
-rather than sitting unread in a channel nobody watches. That is the same failure this check
-exists to catch — the weekly backup logged its failure correctly for four months and nothing
-ever looked. Routine all-clears stay silent so the mention keeps meaning something.
-
-`<@U01E91JBPPG>` is `robbywhite`'s Slack member ID in Slack's mention syntax, and it has to
-reach Slack exactly like that, angle brackets included, to be parsed as a mention instead of
-printed as text. Both prompts say so explicitly, because a model asked to notify someone will
-otherwise write `@robbywhite`, which notifies no one. Verified end to end: Slack stores the
-delivered message with a `user` element carrying `U01E91JBPPG`, not escaped text. When changing
-either prompt, re-test the error branch — point a copy of the job at a verb the host refuses,
-which fails the same way a real breakage would.
-
-| Job | Host | Schedule (Central) |
-|---|---|---|
-| `server-log-monitor` | bastion | 7:00am, 9:00pm |
-| `cinema-log-monitor` | cinema | 7:05am, 9:05pm |
-
-They are separate jobs rather than one combined job for two reasons: each prompt stays as
-simple as the one already proven in production, and forge holds a single model in VRAM at a
-time, so two checks five minutes apart don't queue behind each other. cinema is asleep most of
-the day, and that is a normal result — its job replies `💤 cinema: asleep` and never wakes it,
-since waking the living-room Plex box twice a day to confirm it is healthy is not worth it.
+`<@U01E91JBPPG>` is `robbywhite`'s Slack member ID in mention syntax, and it has to reach Slack
+exactly like that — angle brackets included — to be parsed as a mention instead of printed as
+text. The prompt says so explicitly, because a model asked to notify someone will otherwise
+write `@robbywhite`, which notifies no one. Verified end to end: Slack stores the delivered
+message with a `user` element carrying `U01E91JBPPG`, not escaped text. When changing the
+prompt, re-test the error branch — point a copy of the job at a verb the host refuses, which
+fails the same way a real breakage would.
 
 `health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped
@@ -580,7 +592,8 @@ Homelab/
 │   │   ├── sleep-forge.sh
 │   │   ├── sync-forge.sh
 │   │   ├── backup-to-tower.sh
-│   │   └── health-report.sh          — 8am; bastion posts its own health to Slack
+│   │   ├── health-report.py          — 7am; bastion reports itself to #homelab-logs
+│   │   └── digest-watchdog.py        — 9am; tags Robby if the digest goes quiet
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
 │                                       (live data stays in /home/robby/vaultwarden/)
 │
@@ -596,7 +609,8 @@ Homelab/
     ├── docker-compose.yaml           — Compose project `forge` (ollama, openclaw, open-webui)
     ├── .env.example                  — copy to .env (gitignored) and fill in tokens
     ├── scripts/
-    │   └── vaultwarden-version-check.sh  — @reboot; Slacks you when bastion's Vaultwarden is stale
+    │   ├── vaultwarden-version-check.sh  — @reboot; Slacks you when bastion's Vaultwarden is stale
+    │   └── health-digest.py          — hourly triage + daily digest of #homelab-logs
     └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/
         ├── openclaw.json             — gateway, models, channels
         ├── models.json               — per-model context windows

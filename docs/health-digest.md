@@ -1,5 +1,30 @@
 # Health reporting: machines report, the agent digests
 
+> **Status (2026-09-23): phases 1–3 built and running; 4–5 outstanding.**
+> bastion reports to `#homelab-logs`, the digester on forge triages hourly and digests daily,
+> and bastion's watchdog is live. Still to do: forge, vault and cinema as reporters (phase 4),
+> and converting `cinema-log-monitor` so it stops tagging directly (part of phase 5).
+>
+> **Two corrections to the plan below, from building it:**
+>
+> 1. **The separate reporter Slack app turned out not to be needed.** Splitting reports into
+>    `#homelab-logs` and digests into `#homelab-status` already makes loops impossible — the
+>    digester reads only one channel and writes only the other — so identity filtering was
+>    belt-and-braces. It also could not have delivered the security win on its own: the
+>    watchdog has to *read* `#homelab-status`, and a webhook cannot read, so bastion keeps a
+>    token regardless. Webhooks are still supported and preferred for posting
+>    (`SLACK_LOGS_WEBHOOK_URL`, `SLACK_STATUS_WEBHOOK_URL`) — they are now optional hardening
+>    rather than a prerequisite.
+> 2. **The cursor lives in `/home/robby/logs/`, not `~/openclaw-state/`.** That directory is the
+>    *agent's* state; operational cursors belong with the other scripts' logs, and the repo has
+>    been careful about that boundary elsewhere.
+>
+> Two bugs the testing caught, worth knowing about: `df` rejects `-P` alongside `--output`, so
+> `fs_max_pct` silently reported `null`; and Slack drops the `json` language tag from a fenced
+> block when text goes through rich-text conversion, so a regex requiring ` ```json ` would have
+> made some reports invisible to the digester. Both are fixed; the second is why the parser
+> accepts a bare ` ``` ` fence.
+
 ## What this changes
 
 Today every producer decides, by itself, whether to interrupt Robby:

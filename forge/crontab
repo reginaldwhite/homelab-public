@@ -3,3 +3,14 @@
 # Alert in Slack when bastion Vaultwarden falls behind. Runs the deployed copy,
 # not a git clone, so a branch switch cannot make it vanish.
 @reboot /home/robby/homelab-deployed/forge/scripts/vaultwarden-version-check.sh
+
+# Read the hosts' reports from #homelab-logs and decide what deserves a human.
+#
+# Hourly triage posts only when something escalates, so a quiet day is silent.
+# Bounded to forge's waking hours -- reports posted while forge is off are picked up
+# by the cursor on the next run, because Slack Socket Mode has no replay.
+0 6-22 * * * /home/robby/homelab-deployed/forge/scripts/health-digest.py --triage
+
+# The daily digest runs after bastion reports at 7:00 and always posts, so silence is
+# itself the signal bastion's watchdog looks for.
+30 7 * * * /home/robby/homelab-deployed/forge/scripts/health-digest.py --digest

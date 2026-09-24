@@ -36,6 +36,8 @@ if [[ $VALIDATE -eq 1 ]]; then
     for f in openclaw/scripts/*.py; do python3 -m py_compile "$f"; done
     rm -rf openclaw/scripts/__pycache__
     for f in scripts/*.sh; do [[ -e "$f" ]] && bash -n "$f"; done
+    for f in scripts/*.py; do [[ -e "$f" ]] && python3 -m py_compile "$f"; done
+    rm -rf scripts/__pycache__
     say "compose file, JSON config and scripts valid"
 
     # OpenClaw reads its config at startup, so a changed file means a restart.

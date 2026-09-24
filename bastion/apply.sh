@@ -34,7 +34,10 @@ if [[ $VALIDATE -eq 1 ]]; then
         echo "$out" >&2
         exit 1
     fi
-    say "compose file and Caddyfile valid"
+    for f in "$HERE"/scripts/*.sh;  do [[ -e "$f" ]] && bash -n "$f"; done
+    for f in "$HERE"/scripts/*.py;  do [[ -e "$f" ]] && python3 -m py_compile "$f"; done
+    rm -rf "$HERE/scripts/__pycache__"
+    say "compose file, Caddyfile and scripts valid"
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
     crontab -l 2>/dev/null | diff -u --label installed --label repo - "$HERE/crontab" \
