@@ -142,6 +142,7 @@ one-way, so upgrades stay manual and backed up.
 | 5:00am daily (Mon–Sat) | Wake `forge` via WoL |
 | 5:00am Sunday | Wake `forge` via WoL (after backup window) |
 | 11:00pm daily | Shut down `forge` via SSH |
+| 8:00am daily | Post bastion's own health to `#homelab-status` (`health-report.sh`) |
 | 2:30am Sunday | Push bastion data → `vault` (`backup-to-tower.sh`) |
 | 2:45am Sunday | Wake `forge` for backup |
 | 3:00am Sunday | Sync forge data → `vault` (`sync-forge.sh`) |
@@ -149,6 +150,51 @@ one-way, so upgrades stay manual and backed up.
 
 Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
 installed by `./deploy.sh bastion`, so edit them here rather than with `crontab -e` on bastion.
+
+#### Daily self-check
+
+[bastion/scripts/health-report.sh](bastion/scripts/health-report.sh) posts bastion's own health
+to `#homelab-status` at 8:00am, straight from bastion with no agent involved.
+
+This exists because the other monitor runs on **forge**, which is down 11pm–5am by design and
+was down for two months in mid-2026. A check that only runs while forge is up cannot say
+anything about bastion during the hours forge is asleep — and bastion is the host running DNS
+and the vault for the house.
+
+It does **not** replace forge's check, and the overlap is deliberate. They fail differently:
+
+| Failure | Caught by |
+|---|---|
+| bastion unhealthy but running | either |
+| bastion down, wedged, or its cron not running | **only forge's**, because a host that can't run cron can't self-report, and silence is not an alert |
+| forge down or asleep | **only bastion's** |
+
+The script runs the same `health` verb the agent's monitor runs, rather than reimplementing the
+checks, so the two reports can never disagree about what "healthy" means. Output is posted
+verbatim in a code block — no model summarises it. It refuses to call a truncated run healthy:
+fewer than five sections is reported as a failure, not an all clear.
+
+Credentials come from `.env` on the deployed copy, which `deploy.sh` never pushes and never
+overwrites — see [bastion/.env.example](bastion/.env.example):
+
+```bash
+# on bastion, once:
+umask 077 && vi /home/robby/homelab-deployed/bastion/.env
+```
+
+Prefer `SLACK_WEBHOOK_URL` over `SLACK_BOT_TOKEN`. A webhook can only post, to one channel; the
+bot token can also read channel history, and this is the host holding the password vault. An
+exported value wins over the file, so a one-off run can be pointed elsewhere without editing it.
+
+Re-verify delivery at any time — worth doing after touching the script, since it is silent for
+months at a stretch, which is how a broken notifier goes unnoticed:
+
+```bash
+/home/robby/homelab-deployed/bastion/scripts/health-report.sh --test
+```
+
+A post Slack rejects is written to `~/logs/health-report.log` with the reason and exits
+non-zero, rather than being swallowed.
 
 Every one of these jobs logs its result to `~/logs/backup.log` on bastion, and the twice-daily
 [health check](#agent-credential-scope) reports a failed or stale backup to `#homelab-status`. That
@@ -509,11 +555,13 @@ Homelab/
 ├── bastion/                          — 192.168.0.10, deployed to ~/homelab-deployed/bastion/
 │   ├── apply.sh                      — run on bastion by deploy.sh
 │   ├── crontab                       — installed as robby's crontab
+│   ├── .env.example                  — copy to .env on the host: Slack creds for the self-check
 │   ├── scripts/                      — cron scripts, run from the deployed copy
 │   │   ├── wake-forge.sh
 │   │   ├── sleep-forge.sh
 │   │   ├── sync-forge.sh
-│   │   └── backup-to-tower.sh
+│   │   ├── backup-to-tower.sh
+│   │   └── health-report.sh          — 8am; bastion posts its own health to Slack
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
 │                                       (live data stays in /home/robby/vaultwarden/)
 │

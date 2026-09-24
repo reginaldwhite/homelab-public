@@ -8,6 +8,11 @@
 # Shut down forge at 11:00pm daily
 0 23 * * * /home/robby/homelab-deployed/bastion/scripts/sleep-forge.sh
 
+# Post bastion's own health to #homelab-status at 8:00am daily. Separate from the
+# agent's monitor on forge on purpose: forge is down 11pm-5am, so a check that
+# lives there cannot speak for bastion overnight.
+0 8 * * * /home/robby/homelab-deployed/bastion/scripts/health-report.sh
+
 # === Sunday backup window ===
 # Push bastion data to tower at 2:30am (30min after smart plug powers tower on)
 30 2 * * 0 /home/robby/homelab-deployed/bastion/scripts/backup-to-tower.sh
