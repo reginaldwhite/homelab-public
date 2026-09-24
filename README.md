@@ -522,8 +522,17 @@ docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
 
 ### `vault` — 192.168.0.212 (Unraid) — Sunday 2am–5am
 
-Cold storage backup server. Powered via smart plug on a fixed schedule (2:00am–5:00am Sunday).
-Motherboard set to boot on power restore (WoL not supported). SSH user: `root`.
+Cold storage backup server. Powered via smart plug on a fixed schedule (2:00am–5:00am Sunday);
+the motherboard is set to boot on power restore, which is what makes that work. SSH user: `root`.
+
+**Wake-on-LAN is supported by the hardware but currently unusable, and both halves matter.**
+Both NICs (Marvell 88E8056, `sky2`) report `Supports Wake-on: pg` and
+`PME(D0+,D1+,D2+,D3hot+,D3cold+)` — D3cold being the state that allows a wake from full
+soft-off. But it is disabled at every layer (`Wake-on: d`, `PME-Enable-`,
+`power/wakeup = disabled`), and more fundamentally **the smart plug cuts mains, so there is no
+standby power for the NIC to listen on.** WoL only becomes useful if the plug stays on
+permanently and vault is shut down in software instead — see
+[docs/vault-power.md](docs/vault-power.md).
 
 **Backup destinations,** all under `/mnt/user/backups/`:
 
@@ -615,7 +624,7 @@ now sends it a Wake-on-LAN magic packet and polls SSH for up to 180 seconds:
 | `forge` | `88:d7:f6:13:14:3a` | yes |
 | `cinema` | `d0:17:c2:dd:c1:c2` | yes |
 | `bastion` | — | always on |
-| `vault` | — | no WoL support; smart plug on a fixed schedule |
+| `vault` | `e0:cb:4e:80:92:3d` | not today — no standby power while the smart plug is off; see [docs/vault-power.md](docs/vault-power.md) |
 
 The packet is layer 2, so this only works from a machine on the same LAN — true of every
 host here. A woken host is **left running**, because sleeping it again could cut off
