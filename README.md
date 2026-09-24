@@ -348,8 +348,27 @@ the forced command to that host's `authorized_keys`. Nothing deploys it, so rein
 after changing it.
 
 `health` exists for OpenClaw's log-monitor cron jobs, which run inside forge's waking hours and
-post every result to `#homelab-status`: `✅ all clear`, `⚠️` with what they found, or `❌` when
-the check itself couldn't run. A missing post therefore means the monitor didn't run.
+post every result to `#homelab-status`. A missing post therefore means the monitor didn't run.
+
+| Result | Posted as | Tags you |
+|---|---|---|
+| healthy | `✅ <host>: all clear` | no |
+| cinema powered down | `💤 cinema: asleep` | no |
+| something was found | `<@U01E91JBPPG> ⚠️ <host>: …` | **yes** |
+| the check couldn't run | `<@U01E91JBPPG> ❌ <host> health check failed: …` | **yes** |
+
+Anything that isn't a clear result **@-mentions the owner**, so it raises a Slack notification
+rather than sitting unread in a channel nobody watches. That is the same failure this check
+exists to catch — the weekly backup logged its failure correctly for four months and nothing
+ever looked. Routine all-clears stay silent so the mention keeps meaning something.
+
+`<@U01E91JBPPG>` is `robbywhite`'s Slack member ID in Slack's mention syntax, and it has to
+reach Slack exactly like that, angle brackets included, to be parsed as a mention instead of
+printed as text. Both prompts say so explicitly, because a model asked to notify someone will
+otherwise write `@robbywhite`, which notifies no one. Verified end to end: Slack stores the
+delivered message with a `user` element carrying `U01E91JBPPG`, not escaped text. When changing
+either prompt, re-test the error branch — point a copy of the job at a verb the host refuses,
+which fails the same way a real breakage would.
 
 | Job | Host | Schedule (Central) |
 |---|---|---|
