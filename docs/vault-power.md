@@ -1,7 +1,36 @@
 # Plan: replace vault's smart plug with Wake-on-LAN
 
-Not implemented, and it cannot be started while vault is powered off — every step below needs it
-running. This is what it would take, what is already known, and the two things that decide it.
+> **Tested 2026-09-24: it does not work today.** The NIC was armed (`Wake-on: g` confirmed on
+> both interfaces), the setting was persisted in `/boot/config/go`, vault was shut down cleanly
+> with `powerdown`, and magic packets were sent from bastion to **both** candidate MACs. Neither
+> woke it.
+>
+> That narrows the cause to firmware or standby power, because everything on the OS side was
+> verified before the shutdown. In order of likelihood:
+>
+> 1. **`ErP Ready` is Enabled** in the BIOS. It cuts +5VSB in S5 to meet standby-power limits and
+>    disables WoL as a side effect. It is enabled by default on many ASUS boards of this era, and
+>    it is the first thing to check.
+> 2. **`Power On By PCIE Devices` is Disabled** — the wake source itself.
+> 3. The smart plug was switched off during the test, leaving no standby power at all. This is
+>    the one assumption the test could not verify remotely.
+>
+> **A five-second diagnostic that separates these:** with vault powered off, look at the link
+> LED on its network port (or the switch port it feeds). Lit means standby power is reaching the
+> NIC and the link is being maintained — so the problem is the wake source, item 2. Dark means
+> no standby power — item 1 or 3, and no amount of OS configuration will help.
+>
+> The `ethtool` lines are left in `/boot/config/go`; they cost nothing and mean a retry after a
+> BIOS change needs only the shutdown and the packet. **Until then the smart plug stays.**
+>
+> One thing the test did establish: the MAC to target is genuinely ambiguous. `eth1` carries the
+> cable but is programmed with the *bond's* address (`e0:cb:4e:9d:02:6a`, which is eth0's
+> permanent one) while its own permanent address is `e0:cb:4e:80:92:3d`. The `sky2` driver
+> programs the wake filter from the interface's current address at suspend, so `fc:c2` is the
+> more likely target — but since nothing woke, that remains untested. Send both on any retry.
+
+The rest of this document is the original plan, kept because it is still the shape of the work
+if the BIOS turns out to be the blocker.
 
 ## The question
 

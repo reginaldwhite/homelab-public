@@ -525,7 +525,7 @@ docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
 Cold storage backup server. Powered via smart plug on a fixed schedule (2:00am–5:00am Sunday);
 the motherboard is set to boot on power restore, which is what makes that work. SSH user: `root`.
 
-**Wake-on-LAN is supported by the hardware but currently unusable, and both halves matter.**
+**Wake-on-LAN is supported by the hardware but does not work — tested 2026-09-24.**
 Both NICs (Marvell 88E8056, `sky2`) report `Supports Wake-on: pg` and
 `PME(D0+,D1+,D2+,D3hot+,D3cold+)` — D3cold being the state that allows a wake from full
 soft-off. But it is disabled at every layer (`Wake-on: d`, `PME-Enable-`,
