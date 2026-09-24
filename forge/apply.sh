@@ -17,6 +17,8 @@ STATE="/home/robby/openclaw-state"
 VALIDATE=0
 [[ "${1:-}" == "--validate" ]] && VALIDATE=1
 
+OPENCLAW_CMD="/home/robby/bin/openclaw-cmd"
+
 say() { echo "    $*"; }
 
 # Config files that deploy owns, as "source:destination-under-$STATE".
@@ -38,6 +40,9 @@ if [[ $VALIDATE -eq 1 ]]; then
     for f in scripts/*.sh; do [[ -e "$f" ]] && bash -n "$f"; done
     for f in scripts/*.py; do [[ -e "$f" ]] && python3 -m py_compile "$f"; done
     rm -rf scripts/__pycache__
+    # openclaw-cmd has no extension, so the globs above miss it, and it is the one
+    # script whose breakage locks the agent out rather than just failing a job.
+    if [[ -e "$HERE/scripts/openclaw-cmd" ]]; then bash -n "$HERE/scripts/openclaw-cmd"; fi
     say "compose file, JSON config and scripts valid"
 
     # OpenClaw reads its config at startup, so a changed file means a restart.
@@ -55,6 +60,15 @@ cd "$HERE"
 
 crontab "$HERE/crontab"
 say "crontab installed"
+
+# The agent's forced command in ~/.ssh/authorized_keys points at ~/bin/openclaw-cmd,
+# not at the deployed copy, so a host that has never been deployed to still has a
+# working health verb rather than an SSH key that fails closed. Deploy keeps it in
+# sync; before this, it was hand-copied to three hosts and drifted.
+if ! cmp -s "$HERE/scripts/openclaw-cmd" "$OPENCLAW_CMD"; then
+    install -D -m 755 "$HERE/scripts/openclaw-cmd" "$OPENCLAW_CMD"
+    say "openclaw-cmd updated at $OPENCLAW_CMD"
+fi
 
 # A just-woken host accepts SSH before dockerd is ready.
 for i in $(seq 1 30); do

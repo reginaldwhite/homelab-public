@@ -199,14 +199,14 @@ Every host posts a structured report about itself to `#homelab-logs`, with no ag
 
 | Host | When | Script |
 |---|---|---|
-| bastion | 7:00am daily | [bastion/scripts/health-report.py](bastion/scripts/health-report.py) |
-| forge | 7:10am daily | [forge/scripts/health-report.py](forge/scripts/health-report.py) |
-| cinema | every 6h *while awake* | [cinema/scripts/health-report.py](cinema/scripts/health-report.py) |
+| bastion | 7:00am daily | [shared/health-report.py](shared/health-report.py) |
+| forge | 7:10am daily | [shared/health-report.py](shared/health-report.py) |
+| cinema | every 6h *while awake* | [shared/health-report.py](shared/health-report.py) |
 | vault | Sunday 3:30am, **from bastion** | [bastion/scripts/vault-report.py](bastion/scripts/vault-report.py) |
 
-`health-report.py` is **deployed verbatim to bastion, forge and cinema** — it works out which
-host it is from the hostname rather than a per-host constant, so the three copies stay
-byte-identical and any drift shows up as a diff.
+`health-report.py` lives once, in [shared/](shared/), and is merged into every host's
+`scripts/` at deploy time. It works out which host it is from the hostname rather than a
+per-host constant, so one file serves all three.
 
 cinema is suspended most of the time and cron does not replay jobs missed while suspended, so
 it reports whenever it happens to be awake. That is the honest semantic for that host: absence
@@ -454,14 +454,17 @@ authenticates as `robby`:
 command="/home/robby/bin/openclaw-cmd wake-forge wake-cinema health",restrict ssh-ed25519 AAAA... openclaw
 ```
 
-[scripts/openclaw-cmd](scripts/openclaw-cmd) is the wrapper; the verbs a host permits are its
+[shared/openclaw-cmd](shared/openclaw-cmd) is the wrapper; the verbs a host permits are its
 arguments, and the requested verb arrives in `$SSH_ORIGINAL_COMMAND`. This matters because `robby`
 is in bastion's `docker` group, so an unrestricted shell there is root-equivalent. `shutdown` is
 deliberately **not** granted on bastion — it runs DNS and the vault for the whole house.
 
-Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/openclaw-cmd`, then add
-the forced command to that host's `authorized_keys`. Nothing deploys it, so reinstall by hand
-after changing it.
+`deploy.sh` installs it to `~/bin/openclaw-cmd` on every host, so a change only needs a deploy.
+Adding a *new* host still means putting the forced command in that host's `authorized_keys` by
+hand — that line is what constrains the key, and it is deliberately not something a deploy can
+rewrite. The wrapper is installed to `~/bin` rather than run from the deployed copy so that a
+host which has never been deployed to still has a working verb, instead of an agent key that
+fails closed.
 
 `health` is the read-only check every host's reporter runs. Since the move to
 [reported facts plus one digester](docs/health-digest.md), **nothing tags Robby except the
@@ -500,9 +503,7 @@ simply never read. On a host with no backup log (only bastion pushes to vault) i
 
 The jobs live in `~/openclaw-state/cron/jobs.json` on forge, which is agent state rather than
 deployed config; change them with `docker exec openclaw openclaw cron edit` while the gateway is
-running. `scripts/openclaw-cmd` is likewise installed by hand on each host, so **reinstall it
-everywhere after changing it** — a host still running the old copy prints fewer sections, and the
-monitor reports that as a failure.
+running.
 
 > **Your own key must be authorized separately.** `~/.ssh/config` on forge used to set
 > `openclaw_ed25519` as the default identity for `Host *`, so admin SSH to bastion and cinema was
@@ -625,6 +626,62 @@ opt out, e.g. so a scripted deploy can't power on the living-room Plex box at 3a
 `apply.sh` waits for `dockerd` on each host, since a just-woken machine accepts SSH well
 before Docker is ready.
 
+### Deploying from another machine
+
+Nothing here is specific to the machine you deploy from — `deploy.sh` treats a host as local
+only when its IP is one of yours, and otherwise goes over SSH. Running it from a laptop deploys
+every host, forge included, the same way.
+
+This matters because forge does not need a desktop: see
+[GDM takes the GPU away](#gdm-takes-the-gpu-away-from-the-running-container).
+
+**Set this up while you still have working access to the current machine, and verify it before
+relying on it.**
+
+1. **Tools:** `git`, `bash`, `ssh`, `rsync`. On macOS check `rsync --version` first — the system
+   copy is ancient; `brew install rsync` if so.
+2. **SSH key.** Generate one on the new machine and add its public key to
+   `~/.ssh/authorized_keys` on bastion, forge and cinema, as `robby`. Append it — do not
+   overwrite: those files also hold the agent's forced-command line, and replacing them breaks
+   the agent's power and health verbs.
+
+   ```bash
+   ssh-keygen -t ed25519 -C "$(hostname)"
+   ssh-copy-id -i ~/.ssh/id_ed25519.pub robby@192.168.0.10   # and .12, .13
+   ```
+
+   `ssh-copy-id` fails against a host whose only authorized key is a forced command, because its
+   probe runs that command — if that happens, append the key by hand.
+3. **GitHub PAT.** `cp .secrets.env.example .secrets.env && chmod 600 .secrets.env`, then
+   `git config --local credential.helper '!scripts/git-credential-homelab'`. **Issue a separate
+   fine-grained token for each machine** rather than copying one around, so a machine can be
+   revoked without breaking the others.
+4. **Git identity,** since a fresh clone inherits nothing:
+   `git config --local user.name '...'` and `user.email`.
+
+Then verify, before you need it:
+
+```bash
+for h in 10 12 13; do ssh -o BatchMode=yes robby@192.168.0.$h hostname; done
+./deploy.sh --check all        # validates every host, changes nothing
+```
+
+**What you do *not* need to copy:** `.env` files. They hold each host's secrets, live only on
+that host, and are never pushed — `deploy.sh` excludes them, so they survive every deploy and a
+new machine never sees them.
+
+**Wake-on-LAN only works from the LAN.** The magic packet is layer 2, so deploying from outside
+the house cannot wake forge or cinema; the deploy just fails after 180s. bastion is always on and
+can do it for you:
+
+```bash
+ssh robby@192.168.0.10 /home/robby/homelab-deployed/bastion/scripts/wake-forge.sh
+```
+
+**Nothing is hand-installed any more** except the forced-command line in each host's
+`authorized_keys`, and the `.env` files. Scripts, crontabs and the agent's config all arrive by
+deploy, so a second machine needs no setup on the hosts beyond step 2.
+
 ---
 
 ## Repository Structure
@@ -641,6 +698,10 @@ Homelab/
 ├── scripts/
 │   └── git-credential-homelab        — git credential helper; reads .secrets.env
 │
+├── shared/                           — merged into every host's scripts/ by deploy.sh
+│   ├── health-report.py              — each host reports itself to #homelab-logs
+│   └── openclaw-cmd                  — the agent's forced command; installed to ~/bin
+│
 ├── bastion/                          — 192.168.0.10, deployed to ~/homelab-deployed/bastion/
 │   ├── apply.sh                      — run on bastion by deploy.sh
 │   ├── crontab                       — installed as robby's crontab
@@ -650,7 +711,6 @@ Homelab/
 │   │   ├── sleep-forge.sh
 │   │   ├── sync-forge.sh
 │   │   ├── backup-to-tower.sh
-│   │   ├── health-report.py          — 7am; bastion reports itself to #homelab-logs
 │   │   ├── vault-report.py           — Sun 3:30am; reports on vault, which cannot
 │   │   └── digest-watchdog.py        — 9am; tags Robby if the digest goes quiet
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
@@ -659,8 +719,7 @@ Homelab/
 ├── cinema/                           — 192.168.0.13, deployed to ~/homelab-deployed/cinema/
 │   ├── apply.sh                      — run on cinema by deploy.sh
 │   ├── crontab                       — installed as robby's crontab
-│   ├── scripts/
-│   │   └── health-report.py          — every 6h while awake (same file as bastion's)
+│   ├── (scripts/ is created at deploy time from shared/)
 │   ├── docker-compose.yml            — Compose project `plex`
 │   └── .env.example                  — optional PLEX_CLAIM for first-time setup
 │
@@ -672,7 +731,6 @@ Homelab/
     ├── scripts/
     │   ├── vaultwarden-version-check.sh  — @reboot; reports if bastion's Vaultwarden is stale
     │   ├── gpu-guard.sh              — every 15min; restarts ollama when it loses the GPU
-    │   ├── health-report.py          — 7:10am (same file as bastion's)
     │   └── health-digest.py          — hourly triage + daily digest of #homelab-logs
     └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/
         ├── openclaw.json             — gateway, models, channels

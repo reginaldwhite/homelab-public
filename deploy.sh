@@ -12,7 +12,8 @@
 #
 # Per host:
 #   1. wake it if it is asleep and has a MAC below, then wait for SSH
-#   2. rsync <host>/ to $DEST/.staging/<host>/ on the host
+#   2. rsync <host>/ to $DEST/.staging/<host>/ on the host, then merge shared/
+#      into its scripts/ (files that are identical on every host live there once)
 #   3. <staging>/apply.sh --validate           (compose config, Caddyfile, ...)
 #   4. list what would change in $DEST/<host>/  (--check stops here)
 #   5. rsync staging -> $DEST/<host>/, then run its apply.sh
@@ -186,6 +187,15 @@ deploy_host() {
     # set -e doesn't apply inside a function called from `||`, hence the explicit returns.
     on_host "$host" "mkdir -p '$staging' '$live'" || return 1
     rsync -a --delete "${excludes[@]}" -e "ssh ${SSH_OPTS[*]}" "$REPO_DIR/$host/" "$rsync_dest" || return 1
+
+    # Scripts that must be identical on every host live in shared/ and are merged
+    # into the host's scripts/ afterwards, so the --delete above cannot remove them.
+    # One copy in the repo means they cannot drift apart -- which they had already
+    # started to, with three copies of health-report.py -- while the paths on the
+    # host are unchanged, so crontabs and authorized_keys do not care.
+    if [[ -d "$REPO_DIR/shared" ]]; then
+        rsync -a -e "ssh ${SSH_OPTS[*]}" "$REPO_DIR/shared/" "${rsync_dest%/}/scripts/" || return 1
+    fi
 
     on_host "$host" "'$staging/apply.sh' --validate" || { echo "$host: validation failed, nothing applied" >&2; return 1; }
 
