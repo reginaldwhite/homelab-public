@@ -28,6 +28,11 @@
 # Sync forge data to tower at 3:00am Sunday (script waits for forge to boot)
 0 3 * * 0 /home/robby/homelab-deployed/bastion/scripts/sync-forge.sh
 
+# Report on what the backup window actually left on vault, at 3:30am Sunday -- after
+# both syncs and before the smart plug cuts power at 5:00. Run from bastion, not from
+# vault: a reporter on vault could not report vault failing to power on.
+30 3 * * 0 /home/robby/homelab-deployed/bastion/scripts/vault-report.py
+
 # Sleep forge after backup at 3:45am Sunday
 45 3 * * 0 /home/robby/homelab-deployed/bastion/scripts/sleep-forge.sh
 

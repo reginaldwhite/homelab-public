@@ -38,6 +38,9 @@ if [[ $VALIDATE -eq 1 ]]; then
     [[ -d "$MEDIA_DIR" ]] || { echo "$MEDIA_DIR does not exist" >&2; exit 1; }
     say "media volume mounted: $MEDIA_DIR"
 
+    for f in "$HERE"/scripts/*.py; do [[ -e "$f" ]] && python3 -m py_compile "$f"; done
+    rm -rf "$HERE/scripts/__pycache__"
+
     want=$(docker compose config --images | head -1)
     have=$(docker inspect plex --format '{{.Config.Image}}' 2>/dev/null || true)
     [[ -n "$have" && "$have" != "$want" ]] && say "plex: $have -> $want"

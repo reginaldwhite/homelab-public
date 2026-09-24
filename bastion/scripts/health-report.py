@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""health-report.py — bastion reports its own health as a structured message.
+"""health-report.py — a host reports its own health as a structured message.
 
     health-report.py            run the checks and post the report
     health-report.py --test     post a sample report, to prove delivery works
@@ -19,24 +19,39 @@ because they cannot wait for forge to wake up (it is off 11pm-5am):
 Both are deterministic, both are rare, and both are things you want to know about
 at 3am rather than at 7:30. Everything else goes to the digester.
 
-Why bastion reports at all, rather than being polled: the other monitor runs on
-forge, which is down 11pm-5am by design and was down for two months in mid-2026.
-A check that only runs while forge is up cannot speak for bastion overnight.
+Why hosts report rather than being polled: a poller has to be somewhere, and the
+only candidate was forge, which is down 11pm-5am by design and was down for two
+months in mid-2026. A check that only runs while forge is up cannot speak for
+anything overnight.
+
+**This file is deployed verbatim to bastion, forge and cinema.** It identifies
+itself from the hostname rather than a per-host constant, so the copies stay
+byte-identical and drift between them is a diff away from being visible. Keep it
+that way: anything host-specific belongs in the report, not in the script.
+
+vault is the exception and is reported on by bastion instead — see
+bastion/scripts/vault-report.py for why.
 
 Credentials come from ../.env on the deployed copy, which deploy.sh never pushes
-and never overwrites. See bastion/.env.example.
+and never overwrites. See <host>/.env.example.
 """
 
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
-HOST = "bastion"
+# Machine hostnames are not the names used anywhere else in this repo, so map them.
+# REPORT_HOST overrides, which is what makes a one-off test run possible.
+ROLE_BY_HOSTNAME = {"file": "bastion", "7700k": "forge", "plex-7600t": "cinema"}
+HOST = os.environ.get("REPORT_HOST") or ROLE_BY_HOSTNAME.get(
+    socket.gethostname(), socket.gethostname())
+
 HEALTH_CMD = "/home/robby/bin/openclaw-cmd"
 EXPECTED_SECTIONS = 5
 LOG = "/home/robby/logs/health-report.log"

@@ -123,12 +123,19 @@ time when nothing can deliver it. Since bastion wakes forge at 5am daily, "at bo
 a once-a-day check for free, always at a moment the sender is up. The script waits up to
 ten minutes for the OpenClaw container before giving up.
 
-A check that *fails* also alerts — an unreachable bastion or GitHub is reported rather
-than silently skipped, since a silently broken notifier is the exact failure being guarded
-against. To re-verify delivery at any time:
+It posts a `vaultwarden-version` report to `#homelab-logs` like every other producer, and the
+digester escalates when it isn't `ok`. It used to DM Robby directly, which made it one more
+thing deciding severity for itself.
+
+A check that *fails* still reports — an unreachable bastion or GitHub becomes `status: error`
+rather than being silently skipped, since a silently broken notifier is the exact failure being
+guarded against. It also no longer needs the OpenClaw container: it posts to Slack directly, so
+the ten-minute wait for the container at boot is gone, replaced by a bounded wait for the
+network, which is the real dependency. To re-verify delivery at any time:
 
 ```bash
-forge/scripts/vaultwarden-version-check.sh --test    # sends a sample Slack DM
+forge/scripts/vaultwarden-version-check.sh --test      # posts a sample report
+forge/scripts/vaultwarden-version-check.sh --dry-run   # prints it, sends nothing
 ```
 
 The script never upgrades anything by itself. Restarting a container does **not** update
@@ -147,15 +154,30 @@ one-way, so upgrades stay manual and backed up.
 | 2:30am Sunday | Push bastion data → `vault` (`backup-to-tower.sh`) |
 | 2:45am Sunday | Wake `forge` for backup |
 | 3:00am Sunday | Sync forge data → `vault` (`sync-forge.sh`) |
+| 3:30am Sunday | Report on what the backup left on `vault` (`vault-report.py`) |
 | 3:45am Sunday | Sleep `forge` after backup |
 
 Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
 installed by `./deploy.sh bastion`, so edit them here rather than with `crontab -e` on bastion.
 
-#### Daily self-report
+#### Self-reports
 
-bastion posts a structured report about itself to `#homelab-logs` at 7:00am, straight from
-bastion with no agent involved — [bastion/scripts/health-report.py](bastion/scripts/health-report.py).
+Every host posts a structured report about itself to `#homelab-logs`, with no agent involved.
+
+| Host | When | Script |
+|---|---|---|
+| bastion | 7:00am daily | [bastion/scripts/health-report.py](bastion/scripts/health-report.py) |
+| forge | 7:10am daily | [forge/scripts/health-report.py](forge/scripts/health-report.py) |
+| cinema | every 6h *while awake* | [cinema/scripts/health-report.py](cinema/scripts/health-report.py) |
+| vault | Sunday 3:30am, **from bastion** | [bastion/scripts/vault-report.py](bastion/scripts/vault-report.py) |
+
+`health-report.py` is **deployed verbatim to bastion, forge and cinema** — it works out which
+host it is from the hostname rather than a per-host constant, so the three copies stay
+byte-identical and any drift shows up as a diff.
+
+cinema is suspended most of the time and cron does not replay jobs missed while suspended, so
+it reports whenever it happens to be awake. That is the honest semantic for that host: absence
+is normal and is never escalated.
 
 It reports **facts and does not decide what is urgent**. Severity is judged once, by the digester
 on forge, which can correlate across hosts and across days in a way no single reporter can. The
@@ -406,45 +428,34 @@ Install it on a new host with `install -m 755 scripts/openclaw-cmd ~/bin/opencla
 the forced command to that host's `authorized_keys`. Nothing deploys it, so reinstall by hand
 after changing it.
 
-`health` is the read-only check both the reporters and the agent's monitors run. Since the move
-to [reported facts plus one digester](docs/health-digest.md), most results reach Robby through
-the digest rather than directly.
+`health` is the read-only check every host's reporter runs. Since the move to
+[reported facts plus one digester](docs/health-digest.md), **nothing tags Robby except the
+digester**, plus two catastrophe conditions on bastion and the digest watchdog.
 
-| Job | Host | Schedule (Central) | Status |
-|---|---|---|---|
-| `cinema-log-monitor` | cinema | 7:05am, 9:05pm | active — still tags Robby directly |
-| `server-log-monitor` | bastion | 7:00am, 9:00pm | **retired** — bastion self-reports, and the digester escalates |
+Both agent-driven log monitors are therefore **retired** — disabled rather than deleted, so
+`openclaw cron enable <id>` brings either back:
 
-`server-log-monitor` is disabled rather than deleted (`openclaw cron enable server-log-monitor`
-brings it back). It polled bastion from forge and tagged Robby itself, which the new model moves
-into the digester: bastion reports its own health, and a bastion that goes quiet for 26 hours is
-escalated by absence detection instead. cinema cannot self-report — it is asleep most of the
-time — so its job stays as an external check, and converting it to post a report into
-`#homelab-logs` rather than tagging directly is outstanding work.
+| Job | Replaced by |
+|---|---|
+| `server-log-monitor` | bastion self-reports; a host that goes quiet for 26h is escalated by absence detection |
+| `cinema-log-monitor` | cinema self-reports whenever it is awake |
 
-Its replies are still:
-
-| Result | Posted as | Tags Robby |
-|---|---|---|
-| healthy | `✅ cinema: all clear` | no |
-| powered down | `💤 cinema: asleep` | no |
-| something found | `<@U01E91JBPPG> ⚠️ cinema: …` | yes |
-| check couldn't run | `<@U01E91JBPPG> ❌ cinema health check failed: …` | yes |
-
-`<@U01E91JBPPG>` is `robbywhite`'s Slack member ID in mention syntax, and it has to reach Slack
-exactly like that — angle brackets included — to be parsed as a mention instead of printed as
-text. The prompt says so explicitly, because a model asked to notify someone will otherwise
-write `@robbywhite`, which notifies no one. Verified end to end: Slack stores the delivered
-message with a `user` element carrying `U01E91JBPPG`, not escaped text. When changing the
-prompt, re-test the error branch — point a copy of the job at a verb the host refuses, which
-fails the same way a real breakage would.
+Both polled a host from forge and decided for themselves whether to interrupt. That judgement
+now happens once, in the digester. `cinema-log-monitor` also produced a twice-daily
+`💤 cinema: asleep` confirming the check had run; that positive signal is the one thing lost,
+and it is an acceptable trade because cinema's absence is never alerted on either way.
 
 `health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped
 containers, filesystems at 80% or more, and the outcome of the weekly backup to vault. Known-harmless journal entries (GDM's login-screen
 assertion, BIOS CPU-feature notes at boot, desktop-session apps, keyring handling at login, and
 `sudo -n` probes) are filtered by the `NOISE` list in the script, so a healthy bastion reads
-`all clear`. Keep new patterns just as narrow: name the process and the exact message. Each section prints `none` when clean and `CHECK FAILED` when the
+`all clear`. Keep new patterns just as narrow: name the process and the exact message.
+
+`EXPECTED_EXITED` does the same job for containers whose exit is the end of their work rather
+than a fault — `model-loader` pulls models once at boot and stops by design, so without it forge
+would report a finding every single day and `warn` would stop meaning anything. Name exact
+containers there, never patterns that could hide a real service stopping. Each section prints `none` when clean and `CHECK FAILED` when the
 check itself errors, so the agent can tell "healthy" from "couldn't look".
 
 The backup section reads bastion's `~/logs/backup.log` and reports a last run that failed, or a
@@ -502,6 +513,18 @@ So vault is managed *from bastion*, which is always on and is the host that push
 
 The backup scripts create their own destination paths (`rsync --mkpath`), so a fresh or
 re-created share needs no manual preparation.
+
+**vault is reported on by bastion,** not by itself —
+[bastion/scripts/vault-report.py](bastion/scripts/vault-report.py), Sunday 3:30am, after both
+syncs and before the plug cuts power. The RAM root and vfat flash above already rule out
+installing anything, and it has no `python3` at all. But the decisive reason is different: a
+reporter on vault could not report **vault failing to power on**. Run from bastion, that becomes
+a report with `status: error` instead of silence.
+
+It reports the array state (`mdState`, `fsState`, disabled/invalid/missing disks), the last
+parity check's error count and exit code, per-disk `DISK_OK` status, `/mnt/user` usage, and how
+old the newest file under each backup source is — so a backup that silently stopped arriving is
+visible as a number rather than something you have to go and look for.
 
 ---
 
@@ -593,13 +616,16 @@ Homelab/
 │   │   ├── sync-forge.sh
 │   │   ├── backup-to-tower.sh
 │   │   ├── health-report.py          — 7am; bastion reports itself to #homelab-logs
+│   │   ├── vault-report.py           — Sun 3:30am; reports on vault, which cannot
 │   │   └── digest-watchdog.py        — 9am; tags Robby if the digest goes quiet
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard
 │                                       (live data stays in /home/robby/vaultwarden/)
 │
 ├── cinema/                           — 192.168.0.13, deployed to ~/homelab-deployed/cinema/
 │   ├── apply.sh                      — run on cinema by deploy.sh
-│   ├── crontab                       — installed as robby's crontab (deliberately empty)
+│   ├── crontab                       — installed as robby's crontab
+│   ├── scripts/
+│   │   └── health-report.py          — every 6h while awake (same file as bastion's)
 │   ├── docker-compose.yml            — Compose project `plex`
 │   └── .env.example                  — optional PLEX_CLAIM for first-time setup
 │
@@ -609,7 +635,8 @@ Homelab/
     ├── docker-compose.yaml           — Compose project `forge` (ollama, openclaw, open-webui)
     ├── .env.example                  — copy to .env (gitignored) and fill in tokens
     ├── scripts/
-    │   ├── vaultwarden-version-check.sh  — @reboot; Slacks you when bastion's Vaultwarden is stale
+    │   ├── vaultwarden-version-check.sh  — @reboot; reports if bastion's Vaultwarden is stale
+    │   ├── health-report.py          — 7:10am (same file as bastion's)
     │   └── health-digest.py          — hourly triage + daily digest of #homelab-logs
     └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/
         ├── openclaw.json             — gateway, models, channels

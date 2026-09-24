@@ -1,29 +1,35 @@
 # Health reporting: machines report, the agent digests
 
-> **Status (2026-09-23): phases 1–3 built and running; 4–5 outstanding.**
-> bastion reports to `#homelab-logs`, the digester on forge triages hourly and digests daily,
-> and bastion's watchdog is live. Still to do: forge, vault and cinema as reporters (phase 4),
-> and converting `cinema-log-monitor` so it stops tagging directly (part of phase 5).
+> **Status (2026-09-23): all five phases built and running.**
+> Every host reports to `#homelab-logs`; the digester on forge triages hourly and digests
+> daily; bastion's watchdog is live; and both agent-driven log monitors are retired. Nothing
+> tags Robby now except the digester, the two catastrophe conditions on bastion, and the
+> watchdog.
 >
-> **Two corrections to the plan below, from building it:**
+> **Three corrections to the plan below, from building it:**
 >
 > 1. **The separate reporter Slack app turned out not to be needed.** Splitting reports into
 >    `#homelab-logs` and digests into `#homelab-status` already makes loops impossible — the
->    digester reads only one channel and writes only the other — so identity filtering was
+>    digester reads one channel and writes the other — so identity filtering was
 >    belt-and-braces. It also could not have delivered the security win on its own: the
 >    watchdog has to *read* `#homelab-status`, and a webhook cannot read, so bastion keeps a
 >    token regardless. Webhooks are still supported and preferred for posting
->    (`SLACK_LOGS_WEBHOOK_URL`, `SLACK_STATUS_WEBHOOK_URL`) — they are now optional hardening
->    rather than a prerequisite.
-> 2. **The cursor lives in `/home/robby/logs/`, not `~/openclaw-state/`.** That directory is the
->    *agent's* state; operational cursors belong with the other scripts' logs, and the repo has
->    been careful about that boundary elsewhere.
+>    (`SLACK_LOGS_WEBHOOK_URL`, `SLACK_STATUS_WEBHOOK_URL`) — optional hardening, not a
+>    prerequisite.
+> 2. **vault is reported on by bastion, not by itself.** The plan said "vault reports during
+>    its window". It cannot: its root filesystem is RAM, its flash cannot hold an executable,
+>    and it has no `python3`. The better reason emerged while building it — a reporter on vault
+>    could not report **vault failing to power on**. Run from bastion, that becomes a report
+>    with `status: error` instead of silence, which is the failure most worth catching.
+> 3. **The cursor lives in `/home/robby/logs/`, not `~/openclaw-state/`.** That directory is
+>    the *agent's* state; operational cursors belong with the other scripts' logs.
 >
-> Two bugs the testing caught, worth knowing about: `df` rejects `-P` alongside `--output`, so
-> `fs_max_pct` silently reported `null`; and Slack drops the `json` language tag from a fenced
-> block when text goes through rich-text conversion, so a regex requiring ` ```json ` would have
-> made some reports invisible to the digester. Both are fixed; the second is why the parser
-> accepts a bare ` ``` ` fence.
+> Bugs the testing caught, all fixed: `df` rejects `-P` alongside `--output`, so `fs_max_pct`
+> silently reported `null`; Slack drops the `json` language tag from a fenced block when text
+> goes through rich-text conversion, so a regex requiring ` ```json ` would have made some
+> reports invisible; and the Vaultwarden report carries `host: bastion`, which refreshed
+> bastion's last-seen and would have masked its health report having stopped — absence
+> detection now counts only `kind: health`.
 
 ## What this changes
 
@@ -229,8 +235,8 @@ Each phase is independently useful and independently revertible.
 | 1 | `health-report.sh` → structured format, posts to raw via the reporter webhook, tags the bot, stops tagging Robby | bastion's daily report is machine-parsable |
 | 2 | Digester script + `forge/crontab` entries; `--dry-run` that prints what it *would* post | a day of real reports produces one sensible digest |
 | 3 | bastion watchdog | stopping the digester for 27h produces a tag |
-| 4 | Remaining producers: forge self-report at boot, vault reports during its window, `vaultwarden-version-check.sh` → a report instead of a DM | all four hosts visible in raw |
-| 5 | Retire `server-log-monitor` — absence detection replaces the external bastion check | one fewer agent cron job |
+| 4 | Remaining producers: forge self-report, vault reported on **by bastion**, `vaultwarden-version-check.sh` → a report instead of a DM | all four hosts visible in raw ✓ |
+| 5 | Retire `server-log-monitor` **and `cinema-log-monitor`** — self-reports and absence detection replace both external checks | no agent cron jobs left ✓ |
 
 Phase 3 lands before phase 4 on purpose: the watchdog must exist before anything relies on the
 digester.

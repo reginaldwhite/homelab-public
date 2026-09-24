@@ -47,6 +47,7 @@ LOG = "/home/robby/logs/health-digest.log"
 
 MAX_LOOKBACK_S = 7 * 86400   # a lost cursor must not replay months
 FS_WARN_PCT = 90
+BACKUP_STALE_DAYS = 8        # the backup window is weekly; 8 allows one late Sunday
 ESCALATION_COOLDOWN_S = 12 * 3600   # do not repeat the same escalation hourly
 
 # How long a host may stay quiet before its silence is itself the finding.
@@ -155,9 +156,18 @@ def escalations(reports, state, now):
             detail = findings[0]["detail"].splitlines()[0] if findings else "no detail"
             add(f"{host}:error", f"*{host}*: a check could not run — {detail}")
 
-        fs = (report.get("metrics") or {}).get("fs_max_pct")
+        metrics = report.get("metrics") or {}
+
+        fs = metrics.get("fs_max_pct")
         if isinstance(fs, int) and fs >= FS_WARN_PCT:
             add(f"{host}:fs", f"*{host}*: a filesystem is at {fs}%")
+
+        # Reported as a number rather than inferred from prose, so vault's backup
+        # freshness is judged by the same rule as anyone else's.
+        age = metrics.get("backup_age_days")
+        if isinstance(age, (int, float)) and age > BACKUP_STALE_DAYS:
+            add(f"{host}:backup-age",
+                f"*{host}*: newest backup is {age} days old, expected weekly")
 
         for finding in findings:
             check = (finding.get("check") or "").lower()
@@ -296,8 +306,11 @@ def main():
                  f"<#{LOGS_CHANNEL}>. See {LOG} on forge.")
         return 1
 
+    # Only a health report counts as the host having spoken up. The Vaultwarden
+    # version check also carries host=bastion, and letting it refresh last_seen
+    # would mask bastion's own health report having stopped.
     for report in reports:
-        if report.get("host") and report.get("_ts"):
+        if report.get("host") and report.get("_ts") and report.get("kind") == "health":
             state["last_seen"][report["host"]] = report["_ts"]
 
     all_esc, fresh = escalations(reports, state, now)

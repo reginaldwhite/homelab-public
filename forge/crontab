@@ -4,6 +4,10 @@
 # not a git clone, so a branch switch cannot make it vanish.
 @reboot /home/robby/homelab-deployed/forge/scripts/vaultwarden-version-check.sh
 
+# Report forge's own health to #homelab-logs, between bastion's report at 7:00 and
+# the digest at 7:30, so the digest covers a report from the same morning.
+10 7 * * * /home/robby/homelab-deployed/forge/scripts/health-report.py
+
 # Read the hosts' reports from #homelab-logs and decide what deserves a human.
 #
 # Hourly triage posts only when something escalates, so a quiet day is silent.

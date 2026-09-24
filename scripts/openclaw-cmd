@@ -72,6 +72,30 @@ section() {
 
 full_disks() { df -h --output=source,size,used,avail,pcent,target | awk 'NR > 1 && int($5) >= 80'; }
 
+# Containers whose exit is the expected end of their job, not a fault. model-loader
+# pulls models once at boot and stops (restart: "no" in forge's compose file), so
+# without this forge would report a finding every single day and "warn" would stop
+# meaning anything. Keep this list as narrow as the NOISE list above: name the exact
+# container, never a pattern that could hide a real service stopping.
+EXPECTED_EXITED=(
+    model-loader
+)
+
+stopped_containers() {
+    local out name rest expected
+    out=$(docker ps --filter status=exited --format '{{.Names}}\t{{.Status}}') || return
+    [[ -z "$out" ]] && return 0
+    while IFS=$'\t' read -r name rest; do
+        [[ -z "$name" ]] && continue
+        expected=0
+        for e in "${EXPECTED_EXITED[@]}"; do
+            if [[ "$name" == "$e" ]]; then expected=1; break; fi
+        done
+        if [[ $expected -eq 0 ]]; then printf '%s\t%s\n' "$name" "$rest"; fi
+    done <<<"$out"
+    return 0
+}
+
 # The Sunday backup jobs to vault each log one result line, and until this existed
 # nothing ever read it: they failed every single week from May to September 2026 —
 # wake-forge reported success without checking, and rsync could not create the
@@ -140,7 +164,7 @@ journal() {
 
 health() {
     section "system journal errors, last $WINDOW" journal -p err
-    section "stopped containers" docker ps --filter status=exited --format '{{.Names}}\t{{.Status}}'
+    section "stopped containers" stopped_containers
     section "filesystems at 80% or more" full_disks
     section "critical kernel events, last $WINDOW" journal -k -p crit
     section "weekly backup to vault" backup_status

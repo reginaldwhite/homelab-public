@@ -1,9 +1,13 @@
 # cinema crontab — installed by ../deploy.sh, edit it here not with crontab -e.
 #
-# Deliberately empty: cinema has no scheduled work. It is woken on demand by the
-# OpenClaw agent (wake-cinema on bastion) and suspended the same way, and its
-# health is checked from forge rather than by a job here.
-#
 # Note that deploying does install this file, so a job added by hand with
 # `crontab -e` would be removed by the next deploy. apply.sh --validate prints the
 # diff against what is installed, so that loss is visible before it happens.
+
+# Report cinema's own health to #homelab-logs whenever it happens to be awake.
+#
+# cinema is suspended most of the time, and cron does not replay jobs missed while
+# suspended, so this fires four times a day *if* the machine is up. That is the
+# honest semantic for this host: absence is normal, and the digester never alerts
+# on cinema being quiet.
+0 */6 * * * /home/robby/homelab-deployed/cinema/scripts/health-report.py
