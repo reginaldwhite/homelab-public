@@ -39,6 +39,39 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > every client by making AdGuard the DHCP server. **Not yet executed** — it has real costs,
 > chiefly that bastion becomes required to join the network.
 
+#### GDM takes the GPU away from the running container
+
+**Observed 2026-09-24.** forge woke on schedule at 05:00, docker started at 05:00:40, and ollama
+found the RTX 5060 Ti at 05:00:46. At 05:05:43 the GDM login screen came up and unloaded the
+nvidia kernel modules — the journal shows `gdm-session-worker: rmmod: ERROR: Module nvidia is in
+use by: nvidia_uvm`. The first model load at 06:36 then fell back to `GPULayers:[]` and ran
+`gpt-oss:20b` **entirely on the CPU**.
+
+Nothing looked broken. The container stayed up and healthy, `nvidia-smi` on the *host* still
+worked; only `docker exec ollama nvidia-smi` failed, with `Failed to initialize NVML: Unknown
+Error`. What it looked like from outside was the agent no longer answering Slack, because a 20B
+model on CPU takes minutes per reply instead of ~4 seconds.
+
+`docker restart ollama` restores it. [forge/scripts/gpu-guard.sh](forge/scripts/gpu-guard.sh)
+checks every 15 minutes during waking hours and does exactly that, then reloads the model so the
+next request isn't a cold start. It catches two states: the container unable to reach the driver
+at all, and a model left resident on the CPU because it was loaded while the driver was
+unreachable — which `OLLAMA_KEEP_ALIVE=-1` would otherwise pin there forever. Every repair is
+reported to `#homelab-logs`, because a self-healing loop that heals silently just hides a
+recurring fault.
+
+**The guard is a mitigation. The cure is not to run a graphical login manager on a headless
+server:**
+
+```bash
+sudo systemctl set-default multi-user.target && sudo systemctl disable gdm3
+```
+
+That removes the cause outright, along with the i915 hotplug churn and most of the
+desktop-session noise `openclaw-cmd`'s `NOISE` list exists to filter. It is left as a decision
+because it changes what you get when you sit down at the machine — a text console, with
+`sudo systemctl start gdm3` to bring the desktop up on demand.
+
 #### Deploying changes
 
 `./deploy.sh bastion` (see [Deploying](#deploying)) pushes `bastion/` to
@@ -215,6 +248,8 @@ conditions above, this is the only machine-to-human tag left in the system.
 
 It needs to *read* `#homelab-status`, and a webhook cannot read, so bastion keeps
 `SLACK_BOT_TOKEN` even if posting later moves to webhooks.
+[docs/slack-credentials.md](docs/slack-credentials.md) is the plan for removing that token from
+every host that only needs to post, and what it would take to free bastion too.
 
 #### Credentials
 
@@ -636,6 +671,7 @@ Homelab/
     ├── .env.example                  — copy to .env (gitignored) and fill in tokens
     ├── scripts/
     │   ├── vaultwarden-version-check.sh  — @reboot; reports if bastion's Vaultwarden is stale
+    │   ├── gpu-guard.sh              — every 15min; restarts ollama when it loses the GPU
     │   ├── health-report.py          — 7:10am (same file as bastion's)
     │   └── health-digest.py          — hourly triage + daily digest of #homelab-logs
     └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/

@@ -4,6 +4,12 @@
 # not a git clone, so a branch switch cannot make it vanish.
 @reboot /home/robby/homelab-deployed/forge/scripts/vaultwarden-version-check.sh
 
+# Keep ollama on the GPU. GDM unloads the nvidia kernel modules a few minutes after
+# every boot, which leaves the container unable to reach the driver; inference then
+# silently moves to the CPU and the agent appears to stop responding. See the header
+# of gpu-guard.sh, including the root fix.
+*/15 5-22 * * * /home/robby/homelab-deployed/forge/scripts/gpu-guard.sh
+
 # Report forge's own health to #homelab-logs, between bastion's report at 7:00 and
 # the digest at 7:30, so the digest covers a report from the same morning.
 10 7 * * * /home/robby/homelab-deployed/forge/scripts/health-report.py
