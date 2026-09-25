@@ -12,21 +12,34 @@
 > independently from bastion's ARP table (`192.168.0.212 lladdr e0:cb:4e:9d:02:6a`), packets sent
 > to both that address and the permanent one, and an eight-minute window. It stayed down.
 >
-> That narrows the cause to firmware or standby power, because everything on the OS side was
-> verified before the shutdown. In order of likelihood:
+> **Cause narrowed to one thing: the BIOS wake source.** With vault powered off, its link LED is
+> **lit orange and steady**, and the sending host confirmed the packet went out. So:
 >
-> 1. **`ErP Ready` is Enabled** in the BIOS. It cuts +5VSB in S5 to meet standby-power limits and
->    disables WoL as a side effect. It is enabled by default on many ASUS boards of this era, and
->    it is the first thing to check.
-> 2. **`Power On By PCIE Devices` is Disabled** — the wake source itself.
-> 3. The smart plug was switched off during the test, leaving no standby power at all. This is
->    the one assumption neither test could verify remotely — and the reason the LED check below
->    is worth thirty seconds before touching the BIOS.
+> | Ruled out | Because |
+> |---|---|
+> | `ErP Ready` enabled | It would cut +5VSB in S5; the PHY would be dark, and it is lit |
+> | Smart plug off | Same — no standby power means no lit LED. It is on |
+> | Packet never sent | The sender printed `sent` |
+> | Wrong MAC | bastion's ARP table gives `e0:cb:4e:9d:02:6a`; both it and the permanent address were tried |
+> | NIC not armed | `Wake-on: g` verified on both interfaces, and it survives a reboot via `/boot/config/go` |
 >
-> **A five-second diagnostic that separates these:** with vault powered off, look at the link
-> LED on its network port (or the switch port it feeds). Lit means standby power is reaching the
-> NIC and the link is being maintained — so the problem is the wake source, item 2. Dark means
-> no standby power — item 1 or 3, and no amount of OS configuration will help.
+> Standby power reaches the NIC, the link is up, the card is armed and the packet arrives — and
+> the board still does not power on. That is the signature of the wake *source* being disabled in
+> firmware, not of a hardware limitation.
+>
+> **What to change,** BIOS → *Advanced → APM Configuration*:
+>
+> - **`Power On By PCIE Devices` → Enabled.** The onboard Marvell NICs are PCIe-attached
+>   (`05:00.0` and `06:00.0`), so this is the one that matters.
+> - **`Power On By PCI Devices` → Enabled** as well, if the board lists it separately. Harmless,
+>   and removes a guess about which bus the firmware associates them with.
+> - Confirm `ErP Ready` is **Disabled** while in there. The LED says it already is, but it costs
+>   nothing to look.
+>
+> Worth one more check once it is back up: `/proc/acpi/wakeup` listed only USB wake sources. If
+> enabling the BIOS option makes a PCIe device appear there in a `disabled` state, it can be
+> armed with `echo <DEVNAME> > /proc/acpi/wakeup` — and that would need adding to
+> `/boot/config/go` alongside the `ethtool` lines, for the same reason they are there.
 >
 > The `ethtool` lines are left in `/boot/config/go`; they cost nothing and mean a retry after a
 > BIOS change needs only the shutdown and the packet. **Until then the smart plug stays.**
