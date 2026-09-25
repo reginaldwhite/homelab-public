@@ -5,6 +5,13 @@
 > with `powerdown`, and magic packets were sent from bastion to **both** candidate MACs. Neither
 > woke it.
 >
+> **Re-tested the same day with a proper method, same result.** The first attempt polled only 60
+> seconds per MAC, and a boot that happened minutes later was briefly mistaken for a late wake —
+> it was not. The second attempt fixed all three weaknesses: a 60-second baseline after
+> `powerdown` confirming it does not drift back up on its own, the target MAC confirmed
+> independently from bastion's ARP table (`192.168.0.212 lladdr e0:cb:4e:9d:02:6a`), packets sent
+> to both that address and the permanent one, and an eight-minute window. It stayed down.
+>
 > That narrows the cause to firmware or standby power, because everything on the OS side was
 > verified before the shutdown. In order of likelihood:
 >
@@ -13,7 +20,8 @@
 >    it is the first thing to check.
 > 2. **`Power On By PCIE Devices` is Disabled** — the wake source itself.
 > 3. The smart plug was switched off during the test, leaving no standby power at all. This is
->    the one assumption the test could not verify remotely.
+>    the one assumption neither test could verify remotely — and the reason the LED check below
+>    is worth thirty seconds before touching the BIOS.
 >
 > **A five-second diagnostic that separates these:** with vault powered off, look at the link
 > LED on its network port (or the switch port it feeds). Lit means standby power is reaching the
