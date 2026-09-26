@@ -12,6 +12,7 @@
 # Verbs, and where each is granted:
 #   wake-forge   bastion  — WoL magic packet (no sudo needed)
 #   wake-cinema  bastion  — WoL magic packet
+#   wake-vault   bastion  — WoL magic packet (vault has no other remote power-on)
 #   health       bastion  — read-only checks for the server-log-monitor cron job: journal
 #                cinema     errors, stopped containers, full disks, and (bastion only, where
 #                           the log exists) the outcome of the weekly backup to vault.
@@ -26,6 +27,9 @@ set -euo pipefail
 
 FORGE_MAC="88:d7:f6:13:14:3a"
 CINEMA_MAC="d0:17:c2:dd:c1:c2"
+# vault's NICs are bonded, so the address it presents is not the cabled interface's
+# permanent one. Both are sent; either may be the one the hardware matches on.
+VAULT_MACS="e0:cb:4e:9d:02:6a e0:cb:4e:80:92:3d"
 BROADCAST="192.168.0.255"
 
 requested="${SSH_ORIGINAL_COMMAND:-}"
@@ -173,6 +177,7 @@ health() {
 case "$requested" in
     wake-forge)  wol "$FORGE_MAC" ;;
     wake-cinema) wol "$CINEMA_MAC" ;;
+    wake-vault)  for m in $VAULT_MACS; do wol "$m"; done ;;
     shutdown)    sudo -n /usr/sbin/shutdown -h now ;;
     suspend)     sudo -n /bin/systemctl suspend ;;
     health)      health ;;

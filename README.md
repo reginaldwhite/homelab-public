@@ -184,11 +184,13 @@ one-way, so upgrades stay manual and backed up.
 | 11:00pm daily | Shut down `forge` via SSH |
 | 7:00am daily | Report bastion's own health to `#homelab-logs` (`health-report.py`) |
 | 9:00am daily | Check the digest is still being posted (`digest-watchdog.py`) |
+| 2:00am Sunday | Wake `vault` via WoL (`wake-vault.sh`) |
 | 2:30am Sunday | Push bastion data → `vault` (`backup-to-tower.sh`) |
 | 2:45am Sunday | Wake `forge` for backup |
 | 3:00am Sunday | Sync forge data → `vault` (`sync-forge.sh`) |
 | 3:30am Sunday | Report on what the backup left on `vault` (`vault-report.py`) |
 | 3:45am Sunday | Sleep `forge` after backup |
+| 4:00am Sunday | Shut down `vault` (`sleep-vault.sh`) |
 
 Scripts: [bastion/scripts/](bastion/scripts/). Both the crontab and the scripts are
 installed by `./deploy.sh bastion`, so edit them here rather than with `crontab -e` on bastion.
@@ -446,7 +448,7 @@ authenticates as `robby`:
 
 | Host | Verbs the key may run |
 |---|---|
-| bastion | `wake-forge`, `wake-cinema` (Wake-on-LAN packets; no sudo), `health` (read-only checks, below) |
+| bastion | `wake-forge`, `wake-cinema`, `wake-vault` (Wake-on-LAN packets; no sudo), `health` (read-only checks, below) |
 | forge | `shutdown` |
 | cinema | `suspend`, `health` (read-only checks, below) |
 
@@ -522,16 +524,17 @@ docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
 
 ### `vault` — 192.168.0.212 (Unraid) — Sunday 2am–5am
 
-Cold storage backup server. Powered via smart plug on a fixed schedule (2:00am–5:00am Sunday);
-the motherboard is set to boot on power restore, which is what makes that work. SSH user: `root`.
+Cold storage backup server. SSH user: `root`.
 
-**Wake-on-LAN is supported by the hardware but does not work — tested 2026-09-24.**
-Both NICs (Marvell 88E8056, `sky2`) report `Supports Wake-on: pg` and
-`PME(D0+,D1+,D2+,D3hot+,D3cold+)` — D3cold being the state that allows a wake from full
-soft-off. But it is disabled at every layer (`Wake-on: d`, `PME-Enable-`,
-`power/wakeup = disabled`), and more fundamentally **the smart plug cuts mains, so there is no
-standby power for the NIC to listen on.** WoL only becomes useful if the plug stays on
-permanently and vault is shut down in software instead — see
+**Powered by bastion over Wake-on-LAN, not by the smart plug** — woken Sunday 2:00am, shut down
+4:00am, and wakeable on demand. The plug stays installed and switched on as a manual override,
+but nothing schedules it.
+
+Getting WoL working needed three things on this board, and the middle one is why it looked
+impossible for a while: the NIC armed (`ethtool wol g`), **the NIC's PCIe root port allowed to
+raise a wake** (`P0P6`/`P0P9` in `/proc/acpi/wakeup`), and the kernel's per-device flag set.
+With the root port disabled, everything else reads as correctly configured and nothing ever
+happens. Full write-up, including the boot race that made the arming unreliable, in
 [docs/vault-power.md](docs/vault-power.md).
 
 **Backup destinations,** all under `/mnt/user/backups/`:
@@ -624,7 +627,7 @@ now sends it a Wake-on-LAN magic packet and polls SSH for up to 180 seconds:
 | `forge` | `88:d7:f6:13:14:3a` | yes |
 | `cinema` | `d0:17:c2:dd:c1:c2` | yes |
 | `bastion` | — | always on |
-| `vault` | `e0:cb:4e:80:92:3d` | not today — no standby power while the smart plug is off; see [docs/vault-power.md](docs/vault-power.md) |
+| `vault` | `e0:cb:4e:9d:02:6a` (+ `…f4:d6`) | yes — but it is not a deploy target, so bastion wakes it on a schedule instead; see [docs/vault-power.md](docs/vault-power.md) |
 
 The packet is layer 2, so this only works from a machine on the same LAN — true of every
 host here. A woken host is **left running**, because sleeping it again could cut off
@@ -720,6 +723,8 @@ Homelab/
 │   │   ├── sleep-forge.sh
 │   │   ├── sync-forge.sh
 │   │   ├── backup-to-tower.sh
+│   │   ├── wake-vault.sh             — Sun 2:00am; WoL, then waits for its array
+│   │   ├── sleep-vault.sh            — Sun 4:00am; arms WoL, verifies, powers off
 │   │   ├── vault-report.py           — Sun 3:30am; reports on vault, which cannot
 │   │   └── digest-watchdog.py        — 9am; tags Robby if the digest goes quiet
 │   └── vaultwarden/                  — compose & Caddy config for vaultwarden/caddy/adguard

@@ -113,7 +113,7 @@ Add a MAC per host and, when SSH fails, send a Wake-on-LAN magic packet and poll
 | `forge` | `88:d7:f6:13:14:3a` | yes |
 | `cinema` | `d0:17:c2:dd:c1:c2` | yes |
 | `bastion` | — | always on |
-| `vault` | `e0:cb:4e:80:92:3d` | **not today** — the hardware supports it, but the smart plug cuts mains so the NIC has no standby power to listen on. See `docs/vault-power.md`. |
+| `vault` | `e0:cb:4e:9d:02:6a` | **yes**, since 2026-09-26 — but vault is not a deploy target, so bastion wakes it on a schedule rather than deploy.sh doing it. See `docs/vault-power.md`. |
 
 Reuse the approach already in [bastion/scripts/wake-forge.sh](../bastion/scripts/wake-forge.sh):
 try `wakeonlan`/`etherwake`, fall back to a short Python broadcast, so nothing extra needs

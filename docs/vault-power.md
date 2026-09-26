@@ -1,173 +1,113 @@
-# Plan: replace vault's smart plug with Wake-on-LAN
+# vault's power: Wake-on-LAN instead of a smart plug
 
-> **Tested 2026-09-24: it does not work today.** The NIC was armed (`Wake-on: g` confirmed on
-> both interfaces), the setting was persisted in `/boot/config/go`, vault was shut down cleanly
-> with `powerdown`, and magic packets were sent from bastion to **both** candidate MACs. Neither
-> woke it.
->
-> **Re-tested the same day with a proper method, same result.** The first attempt polled only 60
-> seconds per MAC, and a boot that happened minutes later was briefly mistaken for a late wake —
-> it was not. The second attempt fixed all three weaknesses: a 60-second baseline after
-> `powerdown` confirming it does not drift back up on its own, the target MAC confirmed
-> independently from bastion's ARP table (`192.168.0.212 lladdr e0:cb:4e:9d:02:6a`), packets sent
-> to both that address and the permanent one, and an eight-minute window. It stayed down.
->
-> **Cause narrowed to one thing: the BIOS wake source.** With vault powered off, its link LED is
-> **lit orange and steady**, and the sending host confirmed the packet went out. So:
->
-> | Ruled out | Because |
-> |---|---|
-> | `ErP Ready` enabled | It would cut +5VSB in S5; the PHY would be dark, and it is lit |
-> | Smart plug off | Same — no standby power means no lit LED. It is on |
-> | Packet never sent | The sender printed `sent` |
-> | Wrong MAC | bastion's ARP table gives `e0:cb:4e:9d:02:6a`; both it and the permanent address were tried |
-> | NIC not armed | `Wake-on: g` verified on both interfaces, and it survives a reboot via `/boot/config/go` |
->
-> Standby power reaches the NIC, the link is up, the card is armed and the packet arrives — and
-> the board still does not power on. That is the signature of the wake *source* being disabled in
-> firmware, not of a hardware limitation.
->
-> **What to change,** BIOS → *Advanced → APM Configuration*:
->
-> - **`Power On By PCIE Devices` → Enabled.** The onboard Marvell NICs are PCIe-attached
->   (`05:00.0` and `06:00.0`), so this is the one that matters.
-> - **`Power On By PCI Devices` → Enabled** as well, if the board lists it separately. Harmless,
->   and removes a guess about which bus the firmware associates them with.
-> - Confirm `ErP Ready` is **Disabled** while in there. The LED says it already is, but it costs
->   nothing to look.
->
-> Worth one more check once it is back up: `/proc/acpi/wakeup` listed only USB wake sources. If
-> enabling the BIOS option makes a PCIe device appear there in a `disabled` state, it can be
-> armed with `echo <DEVNAME> > /proc/acpi/wakeup` — and that would need adding to
-> `/boot/config/go` alongside the `ethtool` lines, for the same reason they are there.
->
-> The `ethtool` lines are left in `/boot/config/go`; they cost nothing and mean a retry after a
-> BIOS change needs only the shutdown and the packet. **Until then the smart plug stays.**
->
-> One thing the test did establish: the MAC to target is genuinely ambiguous. `eth1` carries the
-> cable but is programmed with the *bond's* address (`e0:cb:4e:9d:02:6a`, which is eth0's
-> permanent one) while its own permanent address is `e0:cb:4e:80:92:3d`. The `sky2` driver
-> programs the wake filter from the interface's current address at suspend, so `fc:c2` is the
-> more likely target — but since nothing woke, that remains untested. Send both on any retry.
+**Done, 2026-09-26.** bastion wakes vault with a magic packet and shuts it down over SSH. The
+smart plug stays installed and switched on as a manual override, but nothing schedules it.
 
-The rest of this document is the original plan, kept because it is still the shape of the work
-if the BIOS turns out to be the blocker.
+## The root cause, which took four failed tests to find
 
-## The question
+Wake-on-LAN needs **three** things to be true on this board, and only the first is the one
+everybody talks about:
 
-vault is powered by a smart plug on a fixed schedule (2:00am–5:00am Sunday), with the
-motherboard set to boot on power restore. Can the plug go away, with bastion waking vault by
-magic packet and shutting it down over SSH instead?
+| # | Requirement | How to set it | Symptom if missing |
+|---|---|---|---|
+| 1 | The NIC is armed for magic packets | `ethtool -s ethN wol g` | `Wake-on: d` — obvious |
+| 2 | **The NIC's PCIe root port may raise a wake** | `echo P0PN > /proc/acpi/wakeup` | **Nothing. Everything looks right.** |
+| 3 | The kernel's per-device wake flag is set | set by `ethtool`, visible in sysfs | as #2 |
 
-## What is already established
+Requirement 2 is the one that cost the time. The NICs sit behind ICH10 root ports:
 
-Measured on the machine, not assumed:
-
-| Fact | Evidence |
-|---|---|
-| The NICs can do magic-packet wake | Both Marvell 88E8056 (`sky2`) report `Supports Wake-on: pg` |
-| They can signal from full soft-off | `PME(D0+,D1+,D2+,D3hot+,D3cold+)` — **D3cold** is the S5 standby state |
-| It is off at every layer today | `Wake-on: d`, `PME-Enable-`, sysfs `power/wakeup = disabled` |
-| Nothing would persist a change | Unraid rebuilds its OS in RAM each boot |
-| bastion can already shut it down | `ssh root@192.168.0.212` works from bastion with `id_ed25519` |
-
-**And the trap that would waste an afternoon:** the interfaces are bonded active-backup, so
-`ip link` reports `e0:cb:4e:9d:02:6a` for *every* interface — that is eth0's address, and eth0
-has no cable in it. The live link is **eth1**, whose permanent address is
-**`e0:cb:4e:80:92:3d`**, and only `ethtool -P eth1` reveals it. A magic packet sent to the
-address you would naturally read off the box goes to a NIC with nothing plugged into it.
-
-## The two things that decide it
-
-**1. Does the board hold standby power to the NIC in S5?** This is the whole question. WoL needs
-+5VSB reaching the NIC while the machine is off. The plug currently cuts mains entirely, so
-today the answer is moot — nothing can listen. With the plug left on, it depends on firmware.
-
-On this board (ASUS P6X58D Premium, BIOS 1501, 2011) two settings matter, both under
-*Advanced → APM Configuration*:
-
-- **`Power On By PCIE Devices` → Enabled.** This is the wake source itself.
-- **`ErP Ready` → Disabled.** ErP/EuP compliance cuts +5VSB in S5 to meet standby-power limits,
-  which disables WoL as a side effect. If this is enabled, nothing else matters.
-
-Neither can be read from the OS, so this needs a reboot into setup. A hint that they are not
-currently armed: `/proc/acpi/wakeup` lists only USB wake sources, nothing for the PCIe slots.
-
-**2. Is the standby draw acceptable?** Leaving the PSU on standby all week costs a few watts
-continuously instead of ~0. Against that, the plug's 165 hours of hard-off per week is most of
-the saving, and it is the reason the plug exists. If the plug was chosen for power rather than
-for scheduling, this trade may not be worth making.
-
-## What would change
-
-Today the plug is the scheduler. Afterwards, bastion is:
-
-| Time | Now | After |
-|---|---|---|
-| 2:00am Sun | plug switches on; board boots on power restore | `wake-vault.sh` on bastion sends the magic packet |
-| 2:30 / 3:00 | backups run | unchanged |
-| 3:30 | `vault-report.py` | unchanged |
-| ~4:00am Sun | — | bastion runs `ssh root@vault powerdown` |
-| 5:00am Sun | plug switches off | — |
-
-`powerdown` is Unraid's clean shutdown: it stops the array first, so the next boot does not start
-a parity check. That is already how vault was last shut down.
-
-The real prize is not removing a plug. It is that **the backup window stops being fixed** —
-bastion could wake vault whenever a backup is actually due, and vault could join wake-on-deploy
-like forge and cinema.
-
-## Steps (vault must be powered on)
-
-1. **BIOS:** reboot into setup, set `Power On By PCIE Devices` = Enabled and `ErP Ready` =
-   Disabled. Leave `Restore on AC Power Loss` alone — harmless, and it keeps the old behaviour
-   working as a fallback.
-2. **Arm the NIC:** `ethtool -s eth1 wol g`, then confirm with
-   `ethtool eth1 | grep Wake-on` → `Wake-on: g`.
-3. **Persist it.** Unraid's OS is rebuilt in RAM at every boot, so add to `/boot/config/go`:
-
-   ```sh
-   # Arm Wake-on-LAN on the cabled NIC. eth1's permanent MAC is e0:cb:4e:80:92:3d;
-   # the bond makes every interface report eth0's address, which has no cable.
-   /usr/sbin/ethtool -s eth1 wol g
-   ```
-4. **Add `bastion/scripts/wake-vault.sh`,** modelled on `wake-forge.sh` — send the packet, then
-   poll for the host answering rather than assuming the packet worked. That is the bug that made
-   the forge backup fail silently every week for four months; do not reintroduce it here.
-5. **Add the shutdown job** to `bastion/crontab` at ~4:00am Sunday, and move the wake to 2:00am.
-6. **Leave the plug switched on** but keep it installed for a few weeks, so reverting is one
-   schedule change rather than a shopping trip.
-
-## The test that decides it
-
-With vault running and step 2 applied:
-
-```bash
-ssh root@192.168.0.212 /usr/local/sbin/powerdown     # clean stop
-# wait for it to go dark, then from bastion:
-ssh robby@192.168.0.10 "wakeonlan e0:cb:4e:80:92:3d || \
-  python3 -c \"import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);\
-s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1);\
-s.sendto(bytes.fromhex('ff'*6+'e0cb4e80923d'*16),('192.168.0.255',9))\""
-ping -c1 192.168.0.212    # within ~60s if it worked
+```
+eth1 (05:00.0) <- 00:1c.5 = ACPI P0P9
+eth0 (06:00.0) <- 00:1c.2 = ACPI P0P6
 ```
 
-If it does not come up, the BIOS settings in step 1 are the first suspect, and `ErP Ready` the
-likeliest culprit.
+Both were `*disabled` in `/proc/acpi/wakeup`. PME from the card has to travel up through that
+bridge to reach the chipset, so the wake event was being raised and then dropped one hop later.
+Every observable signal said the configuration was correct: `Wake-on: g` on the card, the BIOS
+option enabled, standby power present (link LED lit), the packet confirmed sent to the right MAC.
+It simply never woke.
 
-## Risk, and what already catches it
+**Lesson for the next time something like this happens:** four separate tests each produced a
+clean negative, and each one tempted a different wrong conclusion — a too-short poll window, then
+a coincidental boot mistaken for a late wake, then "the board can't do it", then "maybe only one
+NIC supports it". None of those were it. What actually found it was enumerating the whole causal
+chain — card, bridge, chipset, firmware, standby power — and checking each link, instead of
+testing variations on the last thing tried.
 
-The failure mode is that WoL silently stops working — a BIOS reset, a firmware update, a moved
-cable — and vault never wakes, so backups stop without anyone noticing. That is exactly the
-class of failure that went unnoticed from May to September 2026.
+A secondary bug, found along the way: **the boot-time arming was unreliable.** Unraid brings the
+bond up *after* `/boot/config/go` runs and resets the NIC's WoL bit, so a single `ethtool` call
+there won the race on some boots and lost it on others — both were observed, which is worse than
+consistently failing.
 
-It is already covered: `bastion/scripts/vault-report.py` runs at 3:30am Sunday whether or not
-vault is up, and reports `status: error` when it cannot be reached — which the digester
-escalates. **This monitoring is a precondition for making the change, not an afterthought**;
-without it, swapping a dumb plug for a wake that can fail quietly would be a downgrade.
+## How it is configured
 
-## Rollback
+**On vault** — both files on the flash, because Unraid rebuilds its OS in RAM at every boot and
+nothing under `/` survives:
 
-Put the plug back on its schedule and remove the wake/shutdown cron entries. The board still
-boots on power restore, so nothing else needs undoing. Leaving the `ethtool` line in
-`/boot/config/go` is harmless either way.
+- `/boot/config/wol-arm.sh` — idempotent, handles all three requirements above.
+- `/boot/config/go` — runs `wol-arm.sh` every 30s for the first five minutes, rather than once,
+  to beat the bond race. The previous `go` files are backed up alongside it.
+
+**On bastion** — the scheduler, replacing the plug:
+
+| Time (Sunday) | Job |
+|---|---|
+| 2:00am | [wake-vault.sh](../bastion/scripts/wake-vault.sh) |
+| 2:30am | `backup-to-tower.sh` |
+| 3:00am | `sync-forge.sh` |
+| 3:30am | `vault-report.py` |
+| 4:00am | [sleep-vault.sh](../bastion/scripts/sleep-vault.sh) |
+
+`wake-vault.sh` waits on **three** gates, not one: ping, then SSH, then `mdState=STARTED`. The
+third matters most and is the easiest to skip — Unraid's root filesystem is RAM, and
+`rsync --mkpath` would happily create `/mnt/user/backups` on it and report success, producing a
+backup that evaporates at the next boot. A backup that lies is worse than one that fails.
+
+`sleep-vault.sh` arms WoL immediately before powering down rather than trusting boot-time state,
+and **refuses to power vault down if it cannot verify the arming.** A vault that is off and
+unwakeable needs someone to walk over to it; a vault that is still running costs a few watts.
+Those are not symmetrical failures, so it fails towards the recoverable one.
+
+The agent also has a `wake-vault` verb on bastion, so vault can be woken on demand without
+waiting for Sunday.
+
+## What this buys
+
+- **The backup window is no longer fixed.** bastion can wake vault whenever a backup is due,
+  rather than the schedule having to be timed around a plug.
+- **No dependency on the plug's clock** — or on remembering that its schedule fires on
+  *transitions*, so leaving it switched on manually silently skipped a whole window.
+- vault can be woken on demand, from cron or from the agent.
+
+## Failure modes
+
+| Failure | Caught by |
+|---|---|
+| WoL stops working (BIOS reset, firmware update, cable moved) | `wake-vault.sh` logs it and exits non-zero; `vault-report.py` reports `status: error` at 3:30am and the digester escalates |
+| vault wakes but the array does not mount | `wake-vault.sh` gate 3 refuses to let the backups run |
+| vault cannot be armed, so shutting it down would strand it | `sleep-vault.sh` refuses to power it down |
+| Backups silently stop arriving | `vault-report.py` reports `backup_age_days`, and the digester escalates past 8 days |
+
+**This monitoring was a precondition, not an afterthought.** Swapping a dumb plug for a wake that
+can fail quietly would have been a downgrade without it.
+
+## Costs and the fallback
+
+Standby power now runs continuously — a few watts, against the plug's 165 hours a week of hard
+off. If that matters more than the flexibility, the plug's schedule can simply be re-enabled: the
+board still boots on power restore, and the wake/sleep cron entries become harmless no-ops
+(`wake-vault.sh` exits early when vault is already up). Leaving the `ethtool` and
+`/proc/acpi/wakeup` configuration in place costs nothing either way.
+
+## If it ever needs re-testing
+
+```bash
+# from bastion, with vault running
+/home/robby/homelab-deployed/bastion/scripts/sleep-vault.sh   # arms, verifies, powers off
+/home/robby/homelab-deployed/bastion/scripts/wake-vault.sh    # wakes, waits for the array
+tail -20 /home/robby/logs/power.log
+```
+
+Expect roughly 60–90 seconds from packet to first ping on this board, and a further few seconds
+for the array. Anything under two minutes is normal; a poll window of one minute is not enough,
+which is how the first test went wrong.

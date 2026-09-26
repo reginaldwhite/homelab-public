@@ -19,7 +19,14 @@
 0 9 * * * /home/robby/homelab-deployed/bastion/scripts/digest-watchdog.py
 
 # === Sunday backup window ===
-# Push bastion data to tower at 2:30am (30min after smart plug powers tower on)
+# vault is woken and shut down by bastion now, not by the smart plug. Wake-on-LAN on
+# that board needed the NIC's PCIe root port enabled as well as the NIC itself, which
+# is why it looked impossible for a while -- see docs/vault-power.md. The plug stays
+# installed and switched on as a manual override, but nothing schedules it.
+0 2 * * 0 /home/robby/homelab-deployed/bastion/scripts/wake-vault.sh
+
+# Push bastion data to vault at 2:30am. wake-vault.sh has already waited for vault's
+# array to mount, so this cannot write into vault's RAM filesystem.
 30 2 * * 0 /home/robby/homelab-deployed/bastion/scripts/backup-to-tower.sh
 
 # Wake forge for backup at 2:45am Sunday
@@ -29,12 +36,17 @@
 0 3 * * 0 /home/robby/homelab-deployed/bastion/scripts/sync-forge.sh
 
 # Report on what the backup window actually left on vault, at 3:30am Sunday -- after
-# both syncs and before the smart plug cuts power at 5:00. Run from bastion, not from
-# vault: a reporter on vault could not report vault failing to power on.
+# both syncs and before vault is shut down at 4:00. Run from bastion, not from vault:
+# a reporter on vault could not report vault failing to power on.
 30 3 * * 0 /home/robby/homelab-deployed/bastion/scripts/vault-report.py
 
 # Sleep forge after backup at 3:45am Sunday
 45 3 * * 0 /home/robby/homelab-deployed/bastion/scripts/sleep-forge.sh
+
+# Shut vault down at 4:00am, after the reports have run. sleep-vault.sh arms WoL
+# first and refuses to power vault down if it cannot verify that, because a vault
+# that is off and unwakeable needs someone to walk over to it.
+0 4 * * 0 /home/robby/homelab-deployed/bastion/scripts/sleep-vault.sh
 
 # Wake forge again at 5:00am Sunday (normal waking hours)
 0 5 * * 0 /home/robby/homelab-deployed/bastion/scripts/wake-forge.sh
