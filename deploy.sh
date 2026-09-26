@@ -84,11 +84,24 @@ SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5)
 # the working tree, which a deploy would have rsynced onto bastion and a backup
 # then copied to vault. Those paths are gitignored precisely because they are live
 # data, so "git ignores it" is exactly the right test.
+#
+# git's exit status is captured rather than piped, because a pipeline swallows it
+# and so does the process substitution this used to be read through: if git failed
+# for any reason, the function still returned 0 with nothing but the two static
+# excludes, and the deploy would have pushed exactly the live data this exists to
+# hold back. It fails the deploy instead.
 host_excludes() {
-    local host=$1 path
+    local host=$1 path ignored
+    if ! ignored=$(git -C "$REPO_DIR" ls-files --others --ignored --exclude-standard \
+                       --directory -- "$host/"); then
+        echo "could not list ignored files under $host/; refusing to deploy it" >&2
+        return 1
+    fi
     printf '%s\n' --exclude=.env --exclude=.secrets.env
-    git -C "$REPO_DIR" ls-files --others --ignored --exclude-standard --directory -- "$host/" \
-        | while IFS= read -r path; do printf -- '--exclude=/%s\n' "${path#"$host/"}"; done
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        printf -- '--exclude=/%s\n' "${path#"$host/"}"
+    done <<<"$ignored"
 }
 
 WOKEN=()
@@ -181,7 +194,11 @@ deploy_host() {
         rsync_dest="${HOST_SSH[$host]}:$staging/"
     fi
 
-    mapfile -t excludes < <(host_excludes "$host")
+    # Not `mapfile < <(...)`: a process substitution hides the exit status, which is
+    # the whole point of host_excludes being able to fail.
+    local exclude_list
+    exclude_list=$(host_excludes "$host") || return 1
+    mapfile -t excludes <<<"$exclude_list"
     exclude_str=$(printf '%q ' "${excludes[@]}")
 
     # set -e doesn't apply inside a function called from `||`, hence the explicit returns.
