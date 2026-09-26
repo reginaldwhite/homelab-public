@@ -238,6 +238,33 @@ cannot wait for forge to wake up: any filesystem at **95%** or more, and the wee
 vault having **failed** on its last run. Both are deterministic and rare. Everything else waits
 for the digester.
 
+#### The worker and the daily roll-call
+
+[forge/scripts/health-digest.py](forge/scripts/health-digest.py) is the only thing that reads
+`#homelab-logs`. It runs two ways, from `forge/crontab`:
+
+| Run | When | Posts |
+|---|---|---|
+| `--triage` | every 10 minutes, 5am–10pm | only when a rule escalates |
+| `--digest` | 07:30 daily | always, so silence is the watchdog's signal |
+
+A triage run with nothing to escalate never calls the model — it is one Slack read — which is why
+10 minutes is affordable where the design originally assumed hourly.
+
+The two runs keep **separate cursors**. Sharing one meant the frequent run always consumed the
+day's reports first and the daily digest only ever covered the preceding half hour; it read
+`1 report(s) from forge` for three days while every host was reporting normally.
+
+Every digest opens with a **roll-call** naming all four hosts whether they reported or not:
+
+```
+bastion warn (1) · forge warn (1) · cinema silent 46h, asleep is normal · vault silent 2d
+```
+
+A digest that lists only the hosts that happened to speak cannot distinguish a healthy host from
+one nobody looked at, which is the same failure shape as the backup that logged failures for four
+months into a file nothing read.
+
 #### Digest watchdog
 
 [bastion/scripts/digest-watchdog.py](bastion/scripts/digest-watchdog.py) runs at 9:00am and tags
@@ -482,8 +509,10 @@ Both agent-driven log monitors are therefore **retired** — disabled rather tha
 
 Both polled a host from forge and decided for themselves whether to interrupt. That judgement
 now happens once, in the digester. `cinema-log-monitor` also produced a twice-daily
-`💤 cinema: asleep` confirming the check had run; that positive signal is the one thing lost,
-and it is an acceptable trade because cinema's absence is never alerted on either way.
+`💤 cinema: asleep` confirming the check had run. Losing that positive signal was written off as
+an acceptable trade, and it was not: for three days nothing in the system mentioned cinema at
+all, and there was no way to tell "cinema is fine" from "cinema was never looked at". The daily
+roll-call replaces it — cinema is named in every digest, still never escalated.
 
 `health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped
@@ -757,7 +786,7 @@ Homelab/
     ├── scripts/
     │   ├── vaultwarden-version-check.sh  — @reboot; reports if bastion's Vaultwarden is stale
     │   ├── gpu-guard.sh              — every 15min; restarts ollama when it loses the GPU
-    │   └── health-digest.py          — hourly triage + daily digest of #homelab-logs
+    │   └── health-digest.py          — 10-min triage worker + daily digest of #homelab-logs
     └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/
         ├── openclaw.json             — gateway, models, channels
         ├── models.json               — per-model context windows

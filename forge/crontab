@@ -14,13 +14,18 @@
 # the digest at 7:30, so the digest covers a report from the same morning.
 10 7 * * * /home/robby/homelab-deployed/forge/scripts/health-report.py
 
-# Read the hosts' reports from #homelab-logs and decide what deserves a human.
+# The worker: read the hosts' reports from #homelab-logs and decide what deserves a
+# human. Every 10 minutes rather than hourly, so an escalation reaches Slack while it
+# is still current; a run with nothing to escalate costs one Slack read and never
+# calls the model, so the cadence is close to free.
 #
-# Hourly triage posts only when something escalates, so a quiet day is silent.
 # Bounded to forge's waking hours -- reports posted while forge is off are picked up
-# by the cursor on the next run, because Slack Socket Mode has no replay.
-0 6-22 * * * /home/robby/homelab-deployed/forge/scripts/health-digest.py --triage
+# by the cursor on the next run, because Slack Socket Mode has no replay. It starts at
+# 5 because bastion wakes forge at 5:00.
+*/10 5-22 * * * /home/robby/homelab-deployed/forge/scripts/health-digest.py --triage
 
 # The daily digest runs after bastion reports at 7:00 and always posts, so silence is
-# itself the signal bastion's watchdog looks for.
+# itself the signal bastion's watchdog looks for. It keeps its own cursor: sharing one
+# with the worker above meant the worker always consumed the day's reports first and
+# the digest only ever covered the last half hour.
 30 7 * * * /home/robby/homelab-deployed/forge/scripts/health-digest.py --digest

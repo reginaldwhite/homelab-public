@@ -1,7 +1,7 @@
 # Health reporting: machines report, the agent digests
 
-> **Status (2026-09-23): all five phases built and running.**
-> Every host reports to `#homelab-logs`; the digester on forge triages hourly and digests
+> **Status (2026-09-26): all five phases built and running.**
+> Every host reports to `#homelab-logs`; a worker on forge triages every 10 minutes and digests
 > daily; bastion's watchdog is live; and both agent-driven log monitors are retired. Nothing
 > tags Robby now except the digester, the two catastrophe conditions on bastion, and the
 > watchdog.
@@ -30,6 +30,21 @@
 > reports invisible; and the Vaultwarden report carries `host: bastion`, which refreshed
 > bastion's last-seen and would have masked its health report having stopped — absence
 > detection now counts only `kind: health`.
+>
+> **Two more, found after three days of real digests (2026-09-26).** Both had the same visible
+> symptom — every daily digest read `1 report(s) from forge` — and neither logged an error:
+>
+> - **triage and the digest shared one cursor.** Triage runs far more often, so it always
+>   consumed the day's reports first; by 07:30 the digest's window was whatever had arrived
+>   since the 07:00 triage, which was forge's 07:10 report and nothing else. bastion, cinema
+>   and vault were reporting normally the whole time. They now keep separate cursors. A digest
+>   that quietly narrows its own window is worse than a missing one, because it still looks
+>   complete.
+> - **The digest could only name hosts that spoke.** Nothing distinguished "cinema is fine"
+>   from "cinema was never looked at", and the one thing that had watched cinema —
+>   `cinema-log-monitor` — was retired in phase 5, with the exemption it justified left in
+>   place. Every daily digest now opens with a roll-call naming all four hosts, reported or
+>   not. cinema still never escalates; it is just visible.
 
 ## What this changes
 
@@ -168,8 +183,12 @@ Producers keep logging locally exactly as they do now; Slack is a transport, not
 `forge/scripts/health-digest.sh`, installed by `deploy.sh` and run from `forge/crontab` — not an
 OpenClaw cron job. Deliberate: the deployment model says runtime config is version-controlled and
 deployed, and OpenClaw's cron lives in `~/openclaw-state/cron/jobs.json`, which is agent state
-that no deploy can reproduce. The existing `cinema-log-monitor` stays in agent cron because it is
-a genuine agent task; this is a script that *calls* an agent.
+that no deploy can reproduce.
+
+There is also a harder constraint: OpenClaw cron only schedules `agentTurn` payloads. A worker
+living there would mean the *model* reads the reports and decides what is an outage. The whole
+point of this design is that severity is decided by rules and the model only writes the prose, so
+the worker stays a script that calls an agent rather than an agent that calls itself.
 
 Per run:
 
@@ -188,7 +207,7 @@ Two schedules:
 
 | Run | When | Posts |
 |---|---|---|
-| triage | hourly, 6am–10pm | only if something escalates |
+| triage (the worker) | every 10 min, 5am–10pm | only if something escalates |
 | digest | 07:30 daily | always — so silence is itself the signal the watchdog looks for |
 
 ### 4. Escalation policy
@@ -223,7 +242,7 @@ is visible rather than authoritative.
 | bastion | daily 08:00 | 26h |
 | forge | daily at boot (~05:00) | 26h |
 | vault | Sunday window | 8 days |
-| cinema | only when awake | never — absence is normal; forge's `cinema-log-monitor` stays as its external check |
+| cinema | only when awake | never — absence is normal, so it is named in the daily roll-call instead of alerted on |
 
 ## Phasing
 
@@ -249,7 +268,8 @@ digester.
 | bastion down | digester's absence detection; if both are down, the watchdog is also down — see the open decision below |
 | digester under-escalates (LLM misjudges) | deterministic rules cover the serious categories; raw reports remain in `#homelab-raw` |
 | digester over-escalates | tuning the rules; noise here is recoverable, silence is not |
-| cursor lost or corrupt | 7-day clamp, then re-digest; duplicates are harmless |
+| cursor lost or corrupt | 7-day clamp, then re-digest; duplicates are harmless. The digest's own cursor falls back to a 25h window |
+| a host stops reporting | the daily roll-call names it as silent; bastion, forge and vault also escalate past their window |
 | Slack outage | cursor only advances after a successful post, so reports are re-read, not lost |
 | reporter webhook leaked | post-only to one channel; revoke that host's webhook alone |
 | bot digesting its own output | reporter app has a different `app_id`; filter is exact, not textual |
