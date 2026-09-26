@@ -238,7 +238,7 @@ cannot wait for forge to wake up: any filesystem at **95%** or more, and the wee
 vault having **failed** on its last run. Both are deterministic and rare. Everything else waits
 for the digester.
 
-#### The worker and the daily roll-call
+#### The worker and the digest format
 
 [forge/scripts/health-digest.py](forge/scripts/health-digest.py) is the only thing that reads
 `#homelab-logs`. It runs two ways, from `forge/crontab`:
@@ -255,15 +255,34 @@ The two runs keep **separate cursors**. Sharing one meant the frequent run alway
 day's reports first and the daily digest only ever covered the preceding half hour; it read
 `1 report(s) from forge` for three days while every host was reporting normally.
 
-Every digest opens with a **roll-call** naming all four hosts whether they reported or not:
+Both posts are **grouped by machine** — one block per host, escalations first, then the raw
+findings behind them, then that host's metrics. The daily digest renders a block for all four
+hosts whether they reported or not:
 
 ```
-bastion warn (1) · forge warn (1) · cinema silent 46h, asleep is normal · vault silent 2d
+:clipboard: homelab digest — 6 report(s), 26 Sep
+@robbywhite needs a look: bastion, vault
+
+🚨 *bastion* — warn
+        🔸 a filesystem is at 97%
+        🔸 the weekly backup to vault failed — sync-forge: last run (9d ago) FAILED
+        • system journal errors, last 14 hours: Sep 26 05:29:21 file sshd[443058]: error: …
+        _fs 97% · journal errors 1 · stopped containers 0_
+⚠️ *forge* — warn
+        • [gpu-guard] ollama gpu access: ollama had lost GPU access and was restarted
+        _fs 18% · journal errors 2 · stopped containers 0_
+*cinema* — silent 46h, asleep is normal
+🚨 *vault* — error
+        🔸 a check could not run — vault did not answer during its backup window
 ```
 
-A digest that lists only the hosts that happened to speak cannot distinguish a healthy host from
-one nobody looked at, which is the same failure shape as the backup that logged failures for four
-months into a file nothing read.
+Two things that fixes. Findings used to be a flat list with the host as a prefix on each line, so
+one host with three problems looked like three hosts with one. And a digest that lists only the
+hosts that happened to speak cannot distinguish a healthy host from one nobody looked at — the
+same failure shape as the backup that logged failures for four months into a file nothing read.
+
+A **triage** post is the same format but carries only the machines it is about; the state of the
+rest of the fleet is the digest's job, and repeating it buries the thing that needs doing.
 
 #### Digest watchdog
 
@@ -512,7 +531,7 @@ now happens once, in the digester. `cinema-log-monitor` also produced a twice-da
 `💤 cinema: asleep` confirming the check had run. Losing that positive signal was written off as
 an acceptable trade, and it was not: for three days nothing in the system mentioned cinema at
 all, and there was no way to tell "cinema is fine" from "cinema was never looked at". The daily
-roll-call replaces it — cinema is named in every digest, still never escalated.
+grouped digest replaces it — cinema gets a block in every digest, still never escalated.
 
 `health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped

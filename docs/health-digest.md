@@ -43,8 +43,11 @@
 > - **The digest could only name hosts that spoke.** Nothing distinguished "cinema is fine"
 >   from "cinema was never looked at", and the one thing that had watched cinema —
 >   `cinema-log-monitor` — was retired in phase 5, with the exemption it justified left in
->   place. Every daily digest now opens with a roll-call naming all four hosts, reported or
->   not. cinema still never escalates; it is just visible.
+>   place. Both posts are now **grouped by machine**, and the daily digest renders a block for
+>   all four hosts, reported or not. cinema still never escalates; it is just visible.
+>
+> Grouping by machine also fixed a smaller thing: findings were a flat list with the host as a
+> prefix on every line, so one host with three problems read as three hosts with one.
 
 ## What this changes
 
@@ -242,7 +245,7 @@ is visible rather than authoritative.
 | bastion | daily 08:00 | 26h |
 | forge | daily at boot (~05:00) | 26h |
 | vault | Sunday window | 8 days |
-| cinema | only when awake | never — absence is normal, so it is named in the daily roll-call instead of alerted on |
+| cinema | only when awake | never — absence is normal, so it gets a block in the daily digest instead of an alert |
 
 ## Phasing
 
@@ -269,7 +272,7 @@ digester.
 | digester under-escalates (LLM misjudges) | deterministic rules cover the serious categories; raw reports remain in `#homelab-raw` |
 | digester over-escalates | tuning the rules; noise here is recoverable, silence is not |
 | cursor lost or corrupt | 7-day clamp, then re-digest; duplicates are harmless. The digest's own cursor falls back to a 25h window |
-| a host stops reporting | the daily roll-call names it as silent; bastion, forge and vault also escalate past their window |
+| a host stops reporting | the daily digest renders its block as silent; bastion, forge and vault also escalate past their window |
 | Slack outage | cursor only advances after a successful post, so reports are re-read, not lost |
 | reporter webhook leaked | post-only to one channel; revoke that host's webhook alone |
 | bot digesting its own output | reporter app has a different `app_id`; filter is exact, not textual |

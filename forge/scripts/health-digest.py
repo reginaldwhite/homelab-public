@@ -16,6 +16,11 @@ Division of labour, deliberately:
     this script   what counts as serious, what gets posted, where the cursor is
     the agent     the prose summary, correlation across days, a suggested action
 
+Both posts are grouped by machine: one block per host, escalations first, then the
+raw findings behind them, then that host's metrics. Findings were previously a
+flat list in which the host was a prefix on every line, which made a single host
+having three problems look like three hosts having one.
+
 The serious categories are decided by the rules below, never by the model, so a
 bad summary degrades to "bland or noisy" rather than "missed outage". Every
 escalation carries the raw finding underneath it, so a wrong summary is visible
@@ -66,8 +71,8 @@ CURSOR_KEY = {"triage": "cursor", "digest": "cursor_digest"}
 
 # How long a host may stay quiet before its silence is itself the finding.
 # cinema is absent from this map on purpose: it is asleep most of the time, so
-# absence is normal rather than a fault. It is still named in the roll-call below,
-# so "cinema has not been heard from in nine days" is visible without being an
+# absence is normal rather than a fault. It still gets a block in every digest, so
+# "cinema has not been heard from in nine days" is visible without being an
 # alert -- the earlier plan left that to an agent cron job that has since been
 # retired, which meant nothing watched cinema at all.
 EXPECTED_SILENCE_S = {
@@ -76,9 +81,10 @@ EXPECTED_SILENCE_S = {
     "vault": 8 * 86400,
 }
 
-# Named in every daily digest whether they reported or not. Without this the
-# digest can only list hosts that happened to speak, which reads as "the others
-# are fine" when it means "I did not look at them".
+# The daily digest is grouped by machine and renders one block per name here, in
+# this order, whether that machine reported or not. A digest listing only the
+# hosts that happened to speak reads as "the others are fine" when it means "I did
+# not look at them". A host that reports without being listed is appended.
 ROLLCALL = ("bastion", "forge", "cinema", "vault")
 ROLLCALL_NOTE = {"cinema": "asleep is normal"}
 
@@ -170,11 +176,16 @@ def read_reports(cursor):
 
 
 def escalations(reports, state, now):
-    """The deterministic half. Returns [(key, text)] — the model never decides these."""
+    """The deterministic half. Returns [(key, host, text)].
+
+    The host is carried alongside the text rather than written into it, so the
+    digest can group escalations under the machine they belong to. The model
+    never decides any of these.
+    """
     found = []
 
-    def add(key, text):
-        found.append((key, text))
+    def add(host, key, text):
+        found.append((key, host, text))
 
     for report in reports:
         host = report.get("host", "?")
@@ -182,48 +193,48 @@ def escalations(reports, state, now):
 
         if report.get("status") == "error":
             detail = findings[0]["detail"].splitlines()[0] if findings else "no detail"
-            add(f"{host}:error", f"*{host}*: a check could not run — {detail}")
+            add(host, f"{host}:error", f"a check could not run — {detail}")
 
         metrics = report.get("metrics") or {}
 
         fs = metrics.get("fs_max_pct")
         if isinstance(fs, int) and fs >= FS_WARN_PCT:
-            add(f"{host}:fs", f"*{host}*: a filesystem is at {fs}%")
+            add(host, f"{host}:fs", f"a filesystem is at {fs}%")
 
         # Reported as a number rather than inferred from prose, so vault's backup
         # freshness is judged by the same rule as anyone else's.
         age = metrics.get("backup_age_days")
         if isinstance(age, (int, float)) and age > BACKUP_STALE_DAYS:
-            add(f"{host}:backup-age",
-                f"*{host}*: newest backup is {age} days old, expected weekly")
+            add(host, f"{host}:backup-age",
+                f"newest backup is {age} days old, expected weekly")
 
         for finding in findings:
             check = (finding.get("check") or "").lower()
             detail = finding.get("detail") or ""
             if "backup" in check:
                 if "FAILED" in detail:
-                    add(f"{host}:backup-failed",
-                        f"*{host}*: the weekly backup to vault failed — {detail.splitlines()[0]}")
+                    add(host, f"{host}:backup-failed",
+                        f"the weekly backup to vault failed — {detail.splitlines()[0]}")
                 elif "expected weekly" in detail or "never" in detail:
-                    add(f"{host}:backup-stale",
-                        f"*{host}*: the weekly backup to vault is stale — {detail.splitlines()[0]}")
+                    add(host, f"{host}:backup-stale",
+                        f"the weekly backup to vault is stale — {detail.splitlines()[0]}")
 
         if report.get("kind") == "vaultwarden-version" and report.get("status") != "ok":
-            add("vaultwarden:version",
-                f"*vaultwarden*: {findings[0]['detail'] if findings else 'behind the latest release'}")
+            add(host, "vaultwarden:version",
+                f"Vaultwarden: {findings[0]['detail'] if findings else 'behind the latest release'}")
 
     # Silence is a finding too, but only for hosts that are supposed to speak up.
     for host, window in EXPECTED_SILENCE_S.items():
         last = state["last_seen"].get(host)
         if last and now - last > window:
             hours = int((now - last) / 3600)
-            add(f"{host}:silent", f"*{host}*: has not reported in {hours}h")
+            add(host, f"{host}:silent", f"has not reported in {hours}h")
 
     # Do not repeat the same escalation every hour; the daily digest still carries it.
     fresh = []
-    for key, text in found:
+    for key, host, text in found:
         if now - state["escalated"].get(key, 0) > ESCALATION_COOLDOWN_S:
-            fresh.append((key, text))
+            fresh.append((key, host, text))
     return found, fresh
 
 
@@ -232,31 +243,101 @@ def human_age(seconds):
     return f"{hours:.0f}h" if hours < 48 else f"{hours / 24:.0f}d"
 
 
-def rollcall(reports, state, now):
-    """One line naming every host that is supposed to report, reported or not."""
-    latest = {}
-    for report in reports:
-        if report.get("kind") != "health":
-            continue
-        host = report.get("host")
-        if host and report.get("_ts", 0) >= latest.get(host, {}).get("_ts", 0):
-            latest[host] = report
+STATUS_RANK = {"ok": 0, "warn": 1, "error": 2}
+STATUS_ICON = {"ok": ":white_check_mark:", "warn": ":warning:", "error": ":x:"}
 
+# Rendered as "fs 68%" rather than "fs_max_pct=68"; anything not listed falls
+# through to "name value", so a new metric stays visible without a code change.
+METRIC_LABEL = {
+    "fs_max_pct": ("fs", "{}%"),
+    "journal_errors": ("journal errors", "{}"),
+    "stopped_containers": ("stopped containers", "{}"),
+    "backup_age_days": ("newest backup", "{}d old"),
+}
+
+
+def fmt_metrics(reports):
+    """One compact line carrying the newest value seen for each metric.
+
+    Health reports only: the Vaultwarden check reports version strings, which are
+    not numbers to watch, and when they matter the escalation already says so.
+    """
+    merged = {}
+    for report in sorted((r for r in reports if r.get("kind") == "health"),
+                         key=lambda r: r.get("_ts", 0)):
+        for key, value in (report.get("metrics") or {}).items():
+            if value is not None:
+                merged[key] = value
     bits = []
-    for host in ROLLCALL:
-        report = latest.get(host)
-        if report:
-            n = len(report.get("findings") or [])
-            bits.append(f"{host} {report.get('status')}" + (f" ({n})" if n else ""))
-            continue
-        note = ROLLCALL_NOTE.get(host)
-        last = state["last_seen"].get(host)
-        if not last:
-            text = f"{host} never reported"
-        else:
-            text = f"{host} silent {human_age(now - last)}"
-        bits.append(text + (f", {note}" if note else ""))
+    for key, value in merged.items():
+        label, shape = METRIC_LABEL.get(key, (key.replace("_", " "), "{}"))
+        bits.append(f"{label} {shape.format(value)}")
     return " · ".join(bits)
+
+
+def host_section(host, reports, escs, state, now):
+    """The lines for one machine: its state, what needs a human, then the detail."""
+    if not reports:
+        mark = ":rotating_light: " if escs else ""
+        # A machine that did not report is still named. Without this the digest can
+        # only list hosts that happened to speak, which reads as "the others are
+        # fine" when it means "I did not look at them".
+        last = state["last_seen"].get(host)
+        when = f"silent {human_age(now - last)}" if last else "never reported"
+        note = ROLLCALL_NOTE.get(host)
+        head = f"{mark}*{host}* — {when}" + (f", {note}" if note else "")
+        # A silence escalation here would only repeat the header line.
+        rest = [t for t in escs if not t.startswith("has not reported")]
+        return [head] + [f"        :small_orange_diamond: {t}" for t in rest]
+
+    status = max((r.get("status", "ok") for r in reports),
+                 key=lambda v: STATUS_RANK.get(v, 1))
+    kinds = {r.get("kind") for r in reports}
+    icon = ":rotating_light:" if escs else STATUS_ICON.get(status, "")
+    lines = [f"{icon} *{host}* — {status}".lstrip()]
+    lines += [f"        :small_orange_diamond: {t}" for t in escs]
+
+    # A finding already spelled out in an escalation above is not repeated.
+    said = " ".join(escs)
+    for report in sorted(reports, key=lambda r: r.get("_ts", 0)):
+        prefix = "" if report.get("kind") == "health" or len(kinds) == 1 \
+                 else f"[{report.get('kind')}] "
+        for finding in (report.get("findings") or []):
+            detail = " / ".join((finding.get("detail") or "").splitlines())
+            if detail[:50] and detail[:50] in said:
+                continue
+            lines.append(f"        • {prefix}{finding.get('check')}: {detail[:200]}")
+
+    metrics = fmt_metrics(reports)
+    if metrics:
+        lines.append(f"        _{metrics}_")
+    return lines
+
+
+def by_machine(reports, escalated, state, now, only=None):
+    """Group everything collected into one block per machine, in a fixed order.
+
+    `only` restricts the output to a set of hosts. The daily digest leaves it
+    unset so that every machine is named whether it reported or not; triage
+    passes the escalating hosts, because a post that exists to say "do something"
+    should not open with three machines that are fine.
+    """
+    reports_by_host, escs_by_host = {}, {}
+    for report in reports:
+        reports_by_host.setdefault(report.get("host", "?"), []).append(report)
+    for _, host, text in escalated:
+        escs_by_host.setdefault(host, []).append(text)
+
+    seen = set(reports_by_host) | set(escs_by_host)
+    order = list(ROLLCALL) + sorted(seen - set(ROLLCALL))
+    if only is not None:
+        order = [h for h in order if h in only]
+
+    lines = []
+    for host in order:
+        lines += host_section(host, reports_by_host.get(host, []),
+                              escs_by_host.get(host, []), state, now)
+    return lines
 
 
 def compact(reports, limit=1800):
@@ -294,7 +375,7 @@ def ask_agent(reports, fresh, mode):
         prompt += ("These already qualify as problems and will be flagged "
                    "automatically, so do not repeat them verbatim — instead say what "
                    "they most likely mean together, and name ONE action worth taking:\n"
-                   + "\n".join(f"- {t}" for _, t in fresh) + "\n\n")
+                   + "\n".join(f"- {h}: {t}" for _, h, t in fresh) + "\n\n")
     else:
         prompt += ("None of the rules fired. Open with one sentence confirming "
                    "nothing needs action -- in your own words, do not reuse the "
@@ -316,28 +397,27 @@ def ask_agent(reports, fresh, mode):
         return None
 
 
-def compose(reports, fresh, summary, mode, roll=None):
-    hosts = sorted({r.get("host", "?") for r in reports})
-    head = (f"{DIGEST_PREFIX} — {len(reports)} report(s)"
-            f"{' from ' + ', '.join(hosts) if hosts else ''}")
-    body = []
-    if roll:
-        body.append(roll)
-    if fresh:
-        body.append(f"{OWNER_MENTION} needs a look:")
-        body += [f"• {text}" for _, text in fresh]
-    if summary:
-        body.append(summary)
-    elif not fresh:
-        # The agent is allowed to fail without taking the digest down with it.
-        body.append("No problems found." if reports else
-                    "No reports arrived since the last digest.")
+def compose(reports, escalated, summary, mode, state, now):
+    """Both posts are grouped by machine, so a finding is read next to its host."""
+    flagged = sorted({host for _, host, _ in escalated})
+
     if mode == "triage":
-        # A triage post only happens because something escalated, so lead with it.
-        return "\n".join([f"{OWNER_MENTION} :warning: homelab"] +
-                         [f"• {text}" for _, text in fresh] +
-                         ([summary] if summary else []))
-    return "\n".join([head] + body)
+        # Only the escalating machines appear. A triage post exists because
+        # something is wrong; the state of the rest of the fleet is the daily
+        # digest's job, and repeating it here buries the thing that needs doing.
+        head = [f"{OWNER_MENTION} :warning: homelab"]
+        sections = by_machine(reports, escalated, state, now, only=set(flagged))
+    else:
+        head = [f"{DIGEST_PREFIX} — {len(reports)} report(s), "
+                f"{datetime.now().strftime('%-d %b')}"]
+        if flagged:
+            head.append(f"{OWNER_MENTION} needs a look: {', '.join(flagged)}")
+        if not reports and not escalated:
+            return "\n".join(head + ["No reports arrived since the last digest."])
+        sections = by_machine(reports, escalated, state, now)
+
+    tail = ["", summary] if summary else []
+    return "\n".join(head + [""] + sections + tail)
 
 
 def post(text):
@@ -393,9 +473,9 @@ def main():
             save_state(state)
         return 0
 
-    roll = rollcall(reports, state, now) if mode == "digest" else None
-    summary = ask_agent(reports, fresh if mode == "triage" else all_esc, mode)
-    text = compose(reports, fresh if mode == "triage" else all_esc, summary, mode, roll)
+    shown = fresh if mode == "triage" else all_esc
+    summary = ask_agent(reports, shown, mode)
+    text = compose(reports, shown, summary, mode, state, now)
 
     if dry:
         print(f"--- would post to #homelab-status ({mode}) ---\n{text}")
@@ -406,7 +486,7 @@ def main():
         # Leave the cursor alone so the next run re-reads rather than loses reports.
         return 1
 
-    for esc_key, _ in (fresh if mode == "triage" else all_esc):
+    for esc_key, _, _ in shown:
         state["escalated"][esc_key] = now
     state[key] = newest or cursor
     save_state(state)
