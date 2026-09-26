@@ -2,12 +2,32 @@ vault.robbywhite.net {
   reverse_proxy vaultwarden:80
   encode gzip
 }
-# AdGuard Home admin UI. LAN-only: there is no public DNS record for this name, so
-# public ACME can never validate it — `tls internal` issues a local cert instead and
-# stops Caddy retrying Let's Encrypt forever (which had pushed it to the staging CA).
+# AdGuard Home admin UI. There is no public DNS record for this name, so public ACME
+# can never validate it — `tls internal` issues a local cert instead and stops Caddy
+# retrying Let's Encrypt forever (which had pushed it to the staging CA).
 # AdGuard runs with network_mode: host, so it is reached on the host's LAN address:
 # 127.0.0.1 from inside this container is the container itself, not the host.
+#
+# **Having no public DNS record does not make this private.** Caddy routes on the Host
+# header and SNI, not on how the client resolved the name, and 443 is forwarded from
+# the internet so that vault.robbywhite.net can get a real certificate. Until the
+# remote_ip check below, anyone could reach this admin login from anywhere with
+#   curl -k -H 'Host: dns.robbywhite.net' https://<public-ip>/
+# and only AdGuard's own password stood behind it. The missing DNS record just meant
+# they had to know the name.
+#
+# 172.16/12 is here because Caddy is in a bridge network: if Docker ever proxies a
+# published port rather than DNAT-ing it, the client address Caddy sees is the bridge
+# gateway, not the real LAN address. If this ever locks you out of the UI, that is the
+# reason — AdGuard is still directly reachable at http://192.168.0.10:8888 on the LAN.
+# `abort` rather than a 403, so a prober cannot confirm the vhost exists.
 dns.robbywhite.net {
     tls internal
-    reverse_proxy 192.168.0.10:8888
+    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
+    handle @lan {
+        reverse_proxy 192.168.0.10:8888
+    }
+    handle {
+        abort
+    }
 }
