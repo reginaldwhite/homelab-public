@@ -177,6 +177,22 @@ def read_reports(cursor):
     return reports, newest
 
 
+def first_detail(findings):
+    """First line of the first finding that has one, or None.
+
+    Reports are parsed out of Slack messages, so a finding can arrive without the
+    key at all. Everything else here reaches into them with .get() for exactly that
+    reason; two call sites used findings[0]["detail"] directly, where one malformed
+    report was enough to raise KeyError and take down the whole run — including the
+    digest that bastion's watchdog is waiting to see.
+    """
+    for finding in findings or []:
+        detail = (finding.get("detail") or "").strip()
+        if detail:
+            return detail.splitlines()[0]
+    return None
+
+
 def escalations(reports, state, now):
     """The deterministic half. Returns [(key, host, text)].
 
@@ -194,8 +210,8 @@ def escalations(reports, state, now):
         findings = report.get("findings") or []
 
         if report.get("status") == "error":
-            detail = findings[0]["detail"].splitlines()[0] if findings else "no detail"
-            add(host, f"{host}:error", f"a check could not run — {detail}")
+            add(host, f"{host}:error",
+                f"a check could not run — {first_detail(findings) or 'no detail'}")
 
         metrics = report.get("metrics") or {}
 
@@ -223,7 +239,7 @@ def escalations(reports, state, now):
 
         if report.get("kind") == "vaultwarden-version" and report.get("status") != "ok":
             add(host, "vaultwarden:version",
-                f"Vaultwarden: {findings[0]['detail'] if findings else 'behind the latest release'}")
+                f"Vaultwarden: {first_detail(findings) or 'behind the latest release'}")
 
     # Silence is a finding too, but only for hosts that are supposed to speak up.
     for host, window in EXPECTED_SILENCE_S.items():
