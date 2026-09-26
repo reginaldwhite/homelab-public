@@ -760,22 +760,20 @@ always on, and its clone lives at `~/Documents/Github/homelab`. forge's clone is
 
 | Origin | Can deploy | Notes |
 |---|---|---|
-| `bastion` | bastion, forge | **no key on cinema yet** — see below |
-| `forge` | bastion, forge, cinema | reaches all three today |
+| `bastion` | bastion, forge, cinema | always on; the default |
+| `forge` | bastion, forge, cinema | off 11pm–5am |
 | a laptop | — | needs `brew install bash rsync` first; see [Deploying from another machine](#deploying-from-another-machine) |
 
 Whichever you use, pull first — a clone that has not fetched cannot deploy what was merged, and
 `deploy.sh` refuses when `HEAD` is not `origin/main`.
 
-> **bastion cannot currently deploy to cinema.** `robby@bastion`'s key is not in cinema's
-> `~/.ssh/authorized_keys`, so `./deploy.sh cinema` from bastion fails on SSH. Until that key is
-> appended — *appended*, never overwritten, since that file also holds the agent's forced-command
-> line — deploy cinema from forge. Fix it the next time cinema is awake:
->
-> ```bash
-> # from forge, which does have access
-> ssh-copy-id -i ~/.ssh/id_ed25519.pub robby@192.168.0.13   # run ON bastion, or append by hand
-> ```
+**cinema is suspended most of the time and `deploy.sh` wakes what it cannot reach**, so
+`./deploy.sh all` will power on the living-room Plex box and leave it running. Deploy it
+deliberately, and suspend it afterwards:
+
+```bash
+ssh robby@192.168.0.13 'sudo -n /bin/systemctl suspend'
+```
 
 Hosts never run from a git clone. [deploy.sh](deploy.sh) rsyncs `<host>/` to
 `/home/robby/homelab-deployed/<host>/` on that host and runs the host's `apply.sh` there.
