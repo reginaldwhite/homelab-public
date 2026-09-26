@@ -22,7 +22,7 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `vaultwarden` | `vaultwarden/server:1.37.3` | 8080→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below |
+| `vaultwarden` | `vaultwarden/server:1.37.3` | `127.0.0.1:8080`→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below. Loopback only: Caddy reaches it as `vaultwarden:80` on the compose network, and binding it to the LAN served the vault over plaintext HTTP |
 | `caddy` | `caddy:latest` | 80, 443 | Reverse proxy / TLS termination |
 | `adguardhome` | `adguard/adguardhome` | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
 

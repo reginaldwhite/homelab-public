@@ -22,7 +22,13 @@ services:
       - DOMAIN=https://vault.robbywhite.net
       - SIGNUPS_ALLOWED=false
     ports:
-      - 8080:80
+      # Loopback only. Caddy reaches this over the compose network as vaultwarden:80,
+      # so nothing ever needed the published port — but until 2026-09-26 it was bound
+      # to every interface, which served the vault over plaintext HTTP to the whole
+      # LAN at http://192.168.0.10:8080, master password hashes included.
+      # Kept on 127.0.0.1 because `curl localhost:8080` on bastion is what separates
+      # "Vaultwarden is down" from "Caddy is down".
+      - 127.0.0.1:8080:80
   caddy:
     image: caddy:latest
     container_name: caddy
