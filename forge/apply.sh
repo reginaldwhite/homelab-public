@@ -58,11 +58,80 @@ if [[ $VALIDATE -eq 1 ]]; then
     if [[ -e "$HERE/scripts/openclaw-cmd" ]]; then bash -n "$HERE/scripts/openclaw-cmd"; fi
     say "compose file, JSON config and scripts valid"
 
+    # Skills are shared with Claude Code on the laptop, which parses frontmatter more
+    # leniently than the OpenClaw version pinned here does: 2026.3.2 supports
+    # single-line frontmatter keys only. A wrapped `description:` therefore loads on
+    # the laptop and silently fails to load on forge, which is the worst direction for
+    # this to break in -- so it is checked here, where it can still stop a deploy.
+    if [[ -d "$HERE/skills" ]]; then
+        python3 - "$HERE/skills" <<'PYVALIDATE' || exit 1
+import glob, json, os, re, sys
+
+root = sys.argv[1]
+problems = []
+
+for skill in sorted(glob.glob(os.path.join(root, "*", "SKILL.md"))):
+    text = open(skill).read()
+    m = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    if not m:
+        problems.append(f"{skill}: no YAML frontmatter block")
+        continue
+    keys = {}
+    for line in m.group(1).split("\n"):
+        if not line.strip():
+            continue
+        if re.match(r"^[A-Za-z0-9_-]+:", line):
+            k, v = line.split(":", 1)
+            keys[k.strip()] = v.strip()
+        else:
+            problems.append(f"{skill}: frontmatter continues across lines "
+                            f"({line.strip()[:40]!r}); OpenClaw 2026.3.2 parses "
+                            f"single-line keys only")
+    for required in ("name", "description"):
+        if not keys.get(required):
+            problems.append(f"{skill}: frontmatter is missing {required}")
+
+for pkg in sorted(glob.glob(os.path.join(root, "*", "packages", "*.md"))):
+    blocks = re.findall(r"```json\s*(\{.*?\})\s*```", open(pkg).read(), re.S)
+    if len(blocks) != 1:
+        problems.append(f"{pkg}: expected exactly one fenced json block, found {len(blocks)}")
+        continue
+    try:
+        data = json.loads(blocks[0])
+    except ValueError as exc:
+        problems.append(f"{pkg}: json block does not parse: {exc}")
+        continue
+    missing = {"name", "tier", "host", "container", "compose", "image",
+               "upstream", "tag_from_release"} - set(data)
+    if missing:
+        problems.append(f"{pkg}: json block missing {sorted(missing)}")
+    if data.get("tier") not in ("watch", "drift"):
+        problems.append(f"{pkg}: tier must be watch or drift, got {data.get('tier')!r}")
+    if data.get("tag_from_release") not in ("identity", "strip-v"):
+        problems.append(f"{pkg}: tag_from_release must be identity or strip-v")
+
+if problems:
+    for problem in problems:
+        print(f"    skill invalid: {problem}", file=sys.stderr)
+    sys.exit(1)
+PYVALIDATE
+        say "skills valid ($(find "$HERE/skills" -name '*.md' | wc -l | tr -d ' ') files)"
+    fi
+
     # OpenClaw reads its config at startup, so a changed file means a restart.
     for pair in "${CONFIG[@]}"; do
         src="$HERE/${pair%%:*}" dst="$STATE/${pair##*:}"
         cmp -s "$src" "$dst" || say "openclaw config differs: ${pair##*:} (agent will be restarted)"
     done
+    if [[ -d "$HERE/skills" ]]; then
+        for skill_dir in "$HERE/skills"/*/; do
+            [[ -d "$skill_dir" ]] || continue
+            name=$(basename "$skill_dir")
+            if [[ -n "$(rsync -ain --delete "$skill_dir" "$STATE/skills/$name/" 2>/dev/null)" ]]; then
+                say "skill differs: $name (agent will be restarted)"
+            fi
+        done
+    fi
     crontab -l 2>/dev/null | diff -u --label installed --label repo - "$HERE/crontab" \
         | sed 's/^/    /' || true
     exit 0
@@ -98,6 +167,26 @@ for pair in "${CONFIG[@]}"; do
     fi
 done
 [[ $openclaw_changed -eq 0 ]] && say "openclaw config unchanged"
+
+# Skills go into the agent's state dir, which is where OpenClaw looks for skills shared
+# by every agent on the machine (~/.openclaw/skills inside the container -- the same
+# path in 2026.3.2 and in current releases, and it is this bind mount).
+#
+# --delete is scoped to each skill's OWN directory, never to $STATE/skills as a whole:
+# a removed package file should disappear, but a skill the agent installed for itself
+# is not deploy's to delete. That keeps apply.sh's rule intact -- copy config in, never
+# delete from the state dir.
+if [[ -d "$HERE/skills" ]]; then
+    for skill_dir in "$HERE/skills"/*/; do
+        [[ -d "$skill_dir" ]] || continue
+        name=$(basename "$skill_dir")
+        mkdir -p "$STATE/skills/$name"
+        if [[ -n "$(rsync -ai --delete "$skill_dir" "$STATE/skills/$name/")" ]]; then
+            say "installed skill $name"
+            openclaw_changed=1
+        fi
+    done
+fi
 
 docker compose up -d
 

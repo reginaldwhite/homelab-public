@@ -210,8 +210,20 @@ deploy_host() {
         echo "${NOT_MIGRATED[$host]:-$host is not migrated to deploy.sh yet; see README.}" >&2
         return 1
     fi
-    if [[ $FORCE -eq 0 && $CHECK -eq 0 && -n "$(git -C "$REPO_DIR" status --porcelain -- "$host")" ]]; then
-        echo "Refusing to deploy $host: uncommitted changes in $host/." >&2; return 1
+    # Paths whose uncommitted state must block a deploy. This used to check only
+    # <host>/, which missed shared/ -- an uncommitted edit to shared/health-report.py
+    # would deploy to all three hosts with nothing said, because the file it changes
+    # lives outside the directory being checked. .claude/skills/ has the same shape.
+    local dirty_paths=("$host" shared)
+    [[ "$host" == forge ]] && dirty_paths+=(.claude/skills)
+    if [[ $FORCE -eq 0 && $CHECK -eq 0 ]]; then
+        local dirty
+        dirty=$(git -C "$REPO_DIR" status --porcelain -- "${dirty_paths[@]}") || return 1
+        if [[ -n "$dirty" ]]; then
+            echo "Refusing to deploy $host: uncommitted changes in ${dirty_paths[*]}." >&2
+            printf '%s\n' "$dirty" | sed 's/^/  /' >&2
+            return 1
+        fi
     fi
 
     say "$host (${HOST_SSH[$host]}) @ $(git -C "$REPO_DIR" rev-parse --short HEAD)$([[ $CHECK -eq 1 ]] && echo ', check only')"
@@ -249,6 +261,18 @@ deploy_host() {
     # host are unchanged, so crontabs and authorized_keys do not care.
     if [[ -d "$REPO_DIR/shared" ]]; then
         rsync -a -e "ssh ${SSH_OPTS[*]}" "$REPO_DIR/shared/" "${rsync_dest%/}/scripts/" || return 1
+    fi
+
+    # The agent's skills, staged as skills/ and installed into the agent's state dir
+    # by forge/apply.sh. Only forge runs an agent, so only forge gets them.
+    #
+    # Pushed from .claude/skills/ specifically and never .claude/, because
+    # settings.local.json sits beside it and is local-only. host_excludes() does not
+    # protect this path: it only lists ignored files under <host>/, so an untracked
+    # .claude/settings.local.json would otherwise ride along.
+    if [[ "$host" == forge && -d "$REPO_DIR/.claude/skills" ]]; then
+        rsync -a --delete -e "ssh ${SSH_OPTS[*]}" \
+            "$REPO_DIR/.claude/skills/" "${rsync_dest%/}/skills/" || return 1
     fi
 
     on_host "$host" "'$staging/apply.sh' --validate" || { echo "$host: validation failed, nothing applied" >&2; return 1; }
