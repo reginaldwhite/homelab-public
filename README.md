@@ -260,21 +260,30 @@ findings behind them, then that host's metrics. The daily digest renders a block
 hosts whether they reported or not:
 
 ```
-:clipboard: homelab digest — 6 report(s), 26 Sep
+📋 homelab digest — 6 report(s), 26 Sep
 @robbywhite needs a look: bastion, vault
 
-🚨 *bastion* — warn
-        🔸 a filesystem is at 97%
-        🔸 the weekly backup to vault failed — sync-forge: last run (9d ago) FAILED
-        • system journal errors, last 14 hours: Sep 26 05:29:21 file sshd[443058]: error: …
-        _fs 97% · journal errors 1 · stopped containers 0_
-⚠️ *forge* — warn
-        • [gpu-guard] ollama gpu access: ollama had lost GPU access and was restarted
-        _fs 18% · journal errors 2 · stopped containers 0_
-*cinema* — silent 46h, asleep is normal
-🚨 *vault* — error
-        🔸 a check could not run — vault did not answer during its backup window
+🚨 bastion — warn
+🔸 a filesystem is at 97%
+🔸 the weekly backup to vault failed — sync-forge: last run (9d ago) FAILED
+• system journal errors, last 14 hours: Sep 26 05:29:21 file sshd[443058]: error: …
+fs 97% · journal errors 1 · stopped containers 0
+
+⚠️ forge — warn
+• [gpu-guard] ollama gpu access: ollama had lost GPU access and was restarted
+fs 18% · journal errors 2 · stopped containers 0
+
+cinema — silent 46h, asleep is normal
+
+🚨 vault — error
+🔸 a check could not run — vault did not answer during its backup window
 ```
+
+🔸 is something a rule escalated; • is a finding the host reported. Hierarchy comes from blank
+lines and glyphs because Slack strips leading whitespace — and because this post goes out through
+`openclaw message send`, which converts Markdown, host names are written `**bold**`: a single
+asterisk arrives as *italic*. The scripts that post straight to a webhook are unaffected, and
+still use Slack's own `*bold*`.
 
 Two things that fixes. Findings used to be a flat list with the host as a prefix on each line, so
 one host with three problems looked like three hosts with one. And a digest that lists only the

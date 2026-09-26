@@ -276,7 +276,13 @@ def fmt_metrics(reports):
 
 
 def host_section(host, reports, escs, state, now):
-    """The lines for one machine: its state, what needs a human, then the detail."""
+    """The lines for one machine: its state, what needs a human, then the detail.
+
+    Slack strips leading whitespace and escapes "> ", so this cannot indent. The
+    grouping comes from a bold header, a blank line between machines, and a
+    different glyph for "needs a human" than for "here is what was found".
+    Bold is **x**: a single asterisk converts to italic, not bold.
+    """
     if not reports:
         mark = ":rotating_light: " if escs else ""
         # A machine that did not report is still named. Without this the digest can
@@ -285,17 +291,17 @@ def host_section(host, reports, escs, state, now):
         last = state["last_seen"].get(host)
         when = f"silent {human_age(now - last)}" if last else "never reported"
         note = ROLLCALL_NOTE.get(host)
-        head = f"{mark}*{host}* — {when}" + (f", {note}" if note else "")
+        head = f"{mark}**{host}** — {when}" + (f", {note}" if note else "")
         # A silence escalation here would only repeat the header line.
         rest = [t for t in escs if not t.startswith("has not reported")]
-        return [head] + [f"        :small_orange_diamond: {t}" for t in rest]
+        return [head] + [f":small_orange_diamond: {t}" for t in rest]
 
     status = max((r.get("status", "ok") for r in reports),
                  key=lambda v: STATUS_RANK.get(v, 1))
     kinds = {r.get("kind") for r in reports}
     icon = ":rotating_light:" if escs else STATUS_ICON.get(status, "")
-    lines = [f"{icon} *{host}* — {status}".lstrip()]
-    lines += [f"        :small_orange_diamond: {t}" for t in escs]
+    lines = [f"{icon} **{host}** — {status}".lstrip()]
+    lines += [f":small_orange_diamond: {t}" for t in escs]
 
     # A finding already spelled out in an escalation above is not repeated.
     said = " ".join(escs)
@@ -306,11 +312,11 @@ def host_section(host, reports, escs, state, now):
             detail = " / ".join((finding.get("detail") or "").splitlines())
             if detail[:50] and detail[:50] in said:
                 continue
-            lines.append(f"        • {prefix}{finding.get('check')}: {detail[:200]}")
+            lines.append(f"• {prefix}{finding.get('check')}: {detail[:200]}")
 
     metrics = fmt_metrics(reports)
     if metrics:
-        lines.append(f"        _{metrics}_")
+        lines.append(f"_{metrics}_")
     return lines
 
 
@@ -333,10 +339,14 @@ def by_machine(reports, escalated, state, now, only=None):
     if only is not None:
         order = [h for h in order if h in only]
 
+    blocks = [host_section(host, reports_by_host.get(host, []),
+                           escs_by_host.get(host, []), state, now)
+              for host in order]
     lines = []
-    for host in order:
-        lines += host_section(host, reports_by_host.get(host, []),
-                              escs_by_host.get(host, []), state, now)
+    for block in blocks:
+        if lines:
+            lines.append("")   # the only separator Slack will not strip
+        lines += block
     return lines
 
 
