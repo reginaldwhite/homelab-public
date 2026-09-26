@@ -5,6 +5,7 @@
 #   ./deploy.sh all                # every migrated host
 #   ./deploy.sh --check bastion    # validate and list changed files, apply nothing
 #   ./deploy.sh --no-wake cinema   # never send Wake-on-LAN; fail if it is asleep
+#   ./deploy.sh --no-sleep cinema  # wake it if needed, but leave it running afterwards
 #
 # Hosts get a deployed copy, never a git clone, at $DEST/<host>/. A branch switch
 # in any clone therefore changes nothing running; only a deploy does. Each host
@@ -71,15 +72,30 @@ declare -A HOST_MAC=(
 )
 WAKE_TIMEOUT=180   # seconds; bastion is old and forge's POST is slow
 
+# How to put each host back, so a deploy leaves the fleet in the power state it
+# found it in. Only ever run against a host THIS SCRIPT WOKE: one that was already
+# up is never touched, which is what makes this safe — if it was asleep when the
+# deploy started, nobody was using it.
+#
+# The verbs match what each host's sudoers actually grants (see shared/openclaw-cmd):
+# cinema suspends, forge shuts down and is woken again at 5am by bastion's cron.
+declare -A HOST_SLEEP=(
+    [forge]="sudo -n /usr/sbin/shutdown -h now"
+    [cinema]="sudo -n /bin/systemctl suspend"
+)
+SLEEP_TIMEOUT=120  # seconds to stop answering ping before it is called a failure
+
 CHECK=0
 FORCE=0
 WAKE=1
+SLEEP_WOKEN=1
 HOSTS=()
 for arg in "$@"; do
     case "$arg" in
         --check) CHECK=1 ;;
         --force) FORCE=1 ;;
         --no-wake) WAKE=0 ;;
+        --no-sleep) SLEEP_WOKEN=0 ;;
         # The whole header block, however long it grows — a hardcoded line range
         # silently starts truncating mid-sentence the first time it is edited.
         -h|--help) awk 'NR>1 && /^#/ {print; next} NR>1 {exit}' "$0"; exit 0 ;;
@@ -88,7 +104,9 @@ for arg in "$@"; do
         *) HOSTS+=("$arg") ;;
     esac
 done
-[[ ${#HOSTS[@]} -gt 0 ]] || { sed -n '2,7p' "$0" >&2; exit 2; }
+# Title line plus every usage example, found by shape rather than by line number, so
+# adding a flag cannot silently push one out of the message.
+[[ ${#HOSTS[@]} -gt 0 ]] || { awk 'NR==2 || /^#   \.\/deploy\.sh/' "$0" >&2; exit 2; }
 
 say() { echo "==> $*"; }
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5)
@@ -246,9 +264,45 @@ failed=()
 for host in "${HOSTS[@]}"; do
     deploy_host "$host" || failed+=("$host")
 done
+# Put back what we woke, so a deploy is not a way to quietly leave machines running.
+# Only hosts in WOKEN are touched, and a host is only in WOKEN if this script found it
+# asleep and woke it -- so this can never suspend a machine someone was already using.
+#
+# The residual risk is small but real: someone could start using a host in the minutes
+# between the wake and the end of the deploy. --no-sleep is the escape hatch, and a
+# host whose deploy FAILED is left up deliberately, because the next thing you will
+# want to do is look at it.
+sleep_host() {
+    local host=$1 cmd=${HOST_SLEEP[$host]:-} ip=${HOST_SSH[$host]#*@} waited=0
+    if [[ -z "$cmd" ]]; then
+        say "    $host was woken but has no sleep command; leaving it up"
+        return 0
+    fi
+    # ssh exits 255 when the host drops the connection on its way down, which is the
+    # expected case, so the exit code is not the signal -- ping is.
+    ssh "${SSH_OPTS[@]}" "${HOST_SSH[$host]}" "$cmd" >/dev/null 2>&1 || true
+    while (( waited < SLEEP_TIMEOUT )); do
+        sleep 5; waited=$((waited + 5))
+        if ! ping -c1 -W2 "$ip" >/dev/null 2>&1; then
+            say "    $host is back down after ${waited}s"
+            return 0
+        fi
+    done
+    say "    $host did not go down within ${SLEEP_TIMEOUT}s -- still up, check it"
+    return 1
+}
+
 if [[ ${#WOKEN[@]} -gt 0 ]]; then
-    say "Woken for this deploy and left running: ${WOKEN[*]}"
-    say "  forge shuts down at 11pm via bastion's cron; sleep cinema with plex-power.py sleep"
+    say "Woken for this deploy: ${WOKEN[*]}"
+    for host in "${WOKEN[@]}"; do
+        if [[ " ${failed[*]} " == *" $host "* ]]; then
+            say "    $host: deploy failed, leaving it up to be looked at"
+        elif [[ $SLEEP_WOKEN -eq 0 ]]; then
+            say "    $host: --no-sleep given, leaving it up"
+        else
+            sleep_host "$host" || true
+        fi
+    done
 fi
 if [[ ${#failed[@]} -gt 0 ]]; then
     echo "FAILED: ${failed[*]}" >&2

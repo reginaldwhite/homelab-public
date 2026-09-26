@@ -767,13 +767,9 @@ always on, and its clone lives at `~/Documents/Github/homelab`. forge's clone is
 Whichever you use, pull first — a clone that has not fetched cannot deploy what was merged, and
 `deploy.sh` refuses when `HEAD` is not `origin/main`.
 
-**cinema is suspended most of the time and `deploy.sh` wakes what it cannot reach**, so
-`./deploy.sh all` will power on the living-room Plex box and leave it running. Deploy it
-deliberately, and suspend it afterwards:
-
-```bash
-ssh robby@192.168.0.13 'sudo -n /bin/systemctl suspend'
-```
+**A deploy leaves the fleet in the power state it found it in**, so `./deploy.sh all` no longer
+means "and now cinema is awake indefinitely". See [Waking hosts on
+deploy](#waking-hosts-on-deploy).
 
 Hosts never run from a git clone. [deploy.sh](deploy.sh) rsyncs `<host>/` to
 `/home/robby/homelab-deployed/<host>/` on that host and runs the host's `apply.sh` there.
@@ -819,10 +815,31 @@ now sends it a Wake-on-LAN magic packet and polls SSH for up to 180 seconds:
 | `vault` | `e0:cb:4e:9d:02:6a` (+ `…f4:d6`) | yes — but it is not a deploy target, so bastion wakes it on a schedule instead; see [docs/vault-power.md](docs/vault-power.md) |
 
 The packet is layer 2, so this only works from a machine on the same LAN — true of every
-host here. A woken host is **left running**, because sleeping it again could cut off
-whoever is using it; the run prints which hosts it woke. forge shuts itself down at 11pm
-via bastion's cron anyway; sleep cinema with `plex-power.py sleep`. Pass `--no-wake` to
-opt out, e.g. so a scripted deploy can't power on the living-room Plex box at 3am.
+host here. Pass `--no-wake` to opt out, e.g. so a scripted deploy can't power on the
+living-room Plex box at 3am.
+
+### And put back what it woke
+
+**A deploy leaves each host in the power state it found it in.** When it finishes, any host
+*this run* woke is sent back to sleep — cinema suspends, forge shuts down (bastion's cron wakes
+it again at 5am). The run prints what it woke and what it did about it.
+
+This used to leave woken hosts running, on the reasoning that sleeping one could cut off
+whoever was using it. That reasoning is what makes the current behaviour safe rather than
+unsafe: **only hosts in this run's woken list are ever touched**, and a host is only on that
+list because the deploy found it asleep and woke it. A machine that was already up is never
+suspended, so there is nobody to cut off.
+
+Two deliberate exceptions, both printed:
+
+| Situation | What happens |
+|---|---|
+| The host's deploy **failed** | Left running — the next thing you want is to look at it |
+| `--no-sleep` was passed | Left running |
+
+The residual risk is small but real: someone could start using a host in the minutes between
+the wake and the end of the deploy. `--no-sleep` is the escape hatch. A host that does not go
+down within 120s is reported and the run carries on rather than failing.
 
 `apply.sh` waits for `dockerd` on each host, since a just-woken machine accepts SSH well
 before Docker is ready.
