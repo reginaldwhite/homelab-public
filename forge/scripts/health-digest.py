@@ -296,8 +296,10 @@ def ask_agent(reports, fresh, mode):
                    "they most likely mean together, and name ONE action worth taking:\n"
                    + "\n".join(f"- {t}" for _, t in fresh) + "\n\n")
     else:
-        prompt += ("Nothing qualifies as a problem. Say so in one sentence, and "
-                   "mention any number worth watching before it becomes one.\n\n")
+        prompt += ("None of the rules fired. Open with one sentence confirming "
+                   "nothing needs action -- in your own words, do not reuse the "
+                   "word \"qualifies\" -- then mention any number worth watching "
+                   "before it becomes one.\n\n")
     prompt += "Reply with the summary text only."
 
     rc, out, err = openclaw("agent", "--session-id", f"health-{mode}-{int(time.time())}",
