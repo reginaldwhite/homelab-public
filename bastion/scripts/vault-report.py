@@ -118,7 +118,7 @@ def probe():
     try:
         proc = subprocess.run(
             ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
-             "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+             "-o", "StrictHostKeyChecking=accept-new",
              "-i", SSH_KEY, VAULT_SSH, PROBE],
             capture_output=True, text=True, timeout=180)
     except subprocess.SubprocessError as exc:

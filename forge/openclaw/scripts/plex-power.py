@@ -17,6 +17,18 @@ PLEX_MAC = "d0:17:c2:dd:c1:c2"
 PLEX_USER = "robby"          # SSH username on cinema
 BASTION_IP = "192.168.0.10"  # Relay host for WoL broadcast
 
+# known_hosts lives under the agent's state dir because that is the only writable path
+# that survives the container being recreated; /home/node/.ssh holds nothing but the
+# read-only key mount. accept-new pins each host on first contact and refuses a changed
+# key afterwards — the previous StrictHostKeyChecking=no with UserKnownHostsFile=/dev/null
+# accepted whatever answered on the address, on every single call.
+SSH_OPTS = [
+    "-o", "StrictHostKeyChecking=accept-new",
+    "-o", "UserKnownHostsFile=/home/node/.openclaw/known_hosts",
+    "-o", "ConnectTimeout=10",
+    "-i", "/home/node/.ssh/openclaw_ed25519",
+]
+
 
 def send_wol(mac: str) -> None:
     """Send WoL by SSHing to the host machine (on the physical LAN).
@@ -24,15 +36,7 @@ def send_wol(mac: str) -> None:
     directly, so we SSH to the host at 192.168.0.12 and run the packet send there.
     """
     result = subprocess.run(
-        [
-            "ssh",
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            "-o", "ConnectTimeout=10",
-            "-i", "/home/node/.ssh/openclaw_ed25519",
-            f"robby@{BASTION_IP}",
-            "wake-cinema",
-        ],
+        ["ssh", *SSH_OPTS, f"robby@{BASTION_IP}", "wake-cinema"],
         capture_output=True,
         text=True,
     )
@@ -58,15 +62,7 @@ def cmd_wake() -> None:
 def cmd_sleep() -> None:
     print(f"Sending suspend command to {PLEX_IP}...")
     result = subprocess.run(
-        [
-            "ssh",
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
-            "-o", "ConnectTimeout=10",
-            "-i", "/home/node/.ssh/openclaw_ed25519",
-            f"{PLEX_USER}@{PLEX_IP}",
-            "suspend",
-        ],
+        ["ssh", *SSH_OPTS, f"{PLEX_USER}@{PLEX_IP}", "suspend"],
         capture_output=True,
         text=True,
     )

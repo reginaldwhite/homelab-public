@@ -37,8 +37,11 @@ LOG="/home/robby/logs/power.log"
 mkdir -p "$(dirname "$LOG")"
 log() { echo "$(date -Iseconds) [wake-vault] $*" >> "$LOG"; }
 
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no
-          -o UserKnownHostsFile=/dev/null -i "$SSH_KEY")
+# accept-new, not no/dev/null: this authenticates as root on the machine holding every
+# backup, so a key that changes without explanation should stop the job, not be accepted
+# silently. After a legitimate rebuild: ssh-keygen -R 192.168.0.212
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5
+          -o StrictHostKeyChecking=accept-new -i "$SSH_KEY")
 
 vault_pings() { ping -c1 -W2 "$VAULT_IP" &>/dev/null; }
 vault_ssh()   { ssh "${SSH_OPTS[@]}" "$VAULT_SSH" true 2>/dev/null; }

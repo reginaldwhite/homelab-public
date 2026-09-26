@@ -22,8 +22,7 @@ fi
 
 echo "$(date -Iseconds) [sleep-forge] Sending shutdown to forge ($FORGE_IP)..." >> "$LOG"
 
-ssh -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
+ssh -o StrictHostKeyChecking=accept-new \
     -o LogLevel=ERROR \
     -o BatchMode=yes \
     -o ConnectTimeout=10 \

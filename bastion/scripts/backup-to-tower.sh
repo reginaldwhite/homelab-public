@@ -10,16 +10,25 @@ SSH_KEY="/home/robby/.ssh/id_ed25519"
 TOWER_DEST="$TOWER_USER@$TOWER_IP:/mnt/user/backups"
 LOG="/home/robby/logs/backup.log"
 
+# This connection carries vw-data — the Vaultwarden sqlite DB and rsa_key.pem, its
+# JWT signing key — plus AdGuardHome.yaml with the admin password hash, to root on
+# vault. It used to pass StrictHostKeyChecking=no with UserKnownHostsFile=/dev/null,
+# which accepts a different host key every single week: anyone able to ARP-spoof
+# 192.168.0.212 during the Sunday window would have been handed the vault.
+#
+# accept-new rather than yes: it pins vault's key on first contact and refuses any
+# change afterwards, without needing every host seeded by hand first. If vault is
+# ever rebuilt its key changes and this will refuse to connect — that is the point.
+# Clear the stale entry deliberately:
+#   ssh-keygen -R 192.168.0.212
+SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 -i "$SSH_KEY")
+
 mkdir -p "$(dirname "$LOG")"
 
 # Wait for tower to be reachable (plug just came on, give it time to boot)
 echo "$(date -Iseconds) [backup-to-tower] Waiting for tower to come online..." >> "$LOG"
 for i in $(seq 1 20); do
-    if ssh -o StrictHostKeyChecking=no \
-           -o UserKnownHostsFile=/dev/null \
-           -o ConnectTimeout=5 \
-           -i "$SSH_KEY" \
-           "$TOWER_USER@$TOWER_IP" "echo ok" &>/dev/null; then
+    if ssh "${SSH_OPTS[@]}" "$TOWER_USER@$TOWER_IP" "echo ok" &>/dev/null; then
         echo "$(date -Iseconds) [backup-to-tower] Tower is online" >> "$LOG"
         break
     fi
@@ -29,7 +38,7 @@ done
 
 echo "$(date -Iseconds) [backup-to-tower] Starting weekly backup to tower..." >> "$LOG"
 
-SSH_OPTS="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SSH_KEY"
+RSYNC_SSH="ssh -o StrictHostKeyChecking=accept-new -i $SSH_KEY"
 
 DATA_DIR="/home/robby/vaultwarden"
 STAGING="/home/robby/backup-staging"
@@ -57,14 +66,14 @@ fi
 # here (and so also protected from --delete) and sent from staging below.
 rsync -az --delete --mkpath \
     --exclude=/agh-work/ --exclude=/agh-conf/ \
-    -e "$SSH_OPTS" \
+    -e "$RSYNC_SSH" \
     "$DATA_DIR/" \
     "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1 || EXIT=$?
 
 # Only a complete copy may be pushed: a partial one would --delete good data on tower.
 if [[ $STAGED -eq 1 ]]; then
     rsync -az --delete --mkpath \
-        -e "$SSH_OPTS" \
+        -e "$RSYNC_SSH" \
         "$STAGING/agh-work" "$STAGING/agh-conf" \
         "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1 || EXIT=$?
 fi

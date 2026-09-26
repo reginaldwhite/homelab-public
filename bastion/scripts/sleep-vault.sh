@@ -28,8 +28,11 @@ LOG="/home/robby/logs/power.log"
 mkdir -p "$(dirname "$LOG")"
 log() { echo "$(date -Iseconds) [sleep-vault] $*" >> "$LOG"; }
 
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no
-          -o UserKnownHostsFile=/dev/null -i "$SSH_KEY")
+# accept-new, not no/dev/null: this hands a root command to whatever answers on
+# 192.168.0.212, so an unexplained key change should stop it rather than be accepted.
+# After a legitimate rebuild: ssh-keygen -R 192.168.0.212
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10
+          -o StrictHostKeyChecking=accept-new -i "$SSH_KEY")
 
 if ! ping -c1 -W2 "$VAULT_IP" &>/dev/null; then
     log "vault already down, nothing to do"

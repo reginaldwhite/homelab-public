@@ -501,12 +501,33 @@ not the whole `~/.ssh` directory:
 - /home/robby/.ssh/openclaw_ed25519:/home/node/.ssh/openclaw_ed25519:ro
 ```
 
-`forge-power.py` and `plex-power.py` reference that key explicitly at every call site and pass
-`StrictHostKeyChecking=no` / `UserKnownHostsFile=/dev/null`, so nothing else from `~/.ssh` is
-needed. Mounting the whole directory additionally exposed `id_ed25519` — the key
-`backup-to-tower.sh` uses for `root@192.168.0.212` — to a process running an LLM with web
-access. Reading a file is the easiest thing for a prompt-injected agent to be talked into, so
-that key should never be inside this container.
+`forge-power.py` and `plex-power.py` reference that key explicitly at every call site, so
+nothing else from `~/.ssh` is needed. Mounting the whole directory additionally exposed
+`id_ed25519` — the key `backup-to-tower.sh` uses for `root@192.168.0.212` — to a process
+running an LLM with web access. Reading a file is the easiest thing for a prompt-injected
+agent to be talked into, so that key should never be inside this container.
+
+Their `known_hosts` lives at `/home/node/.openclaw/known_hosts`, inside the state bind mount:
+the `.ssh` mount is read-only and the container filesystem does not survive a recreate, so
+that is the only writable path that persists.
+
+#### Host keys are checked
+
+Every SSH call in this repo uses `StrictHostKeyChecking=accept-new` against a real
+`known_hosts`. Until 2026-09-26 the backup and power scripts paired
+`StrictHostKeyChecking=no` with `UserKnownHostsFile=/dev/null`, which accepts whatever key
+answers on the address, every time — on the connections that carry `vw-data` (the Vaultwarden
+DB and its JWT signing key), `AdGuardHome.yaml`, and the agent's `openclaw-state/` to **root**
+on vault. Anyone able to ARP-spoof `192.168.0.212` during the Sunday window would have been
+handed all of it.
+
+`accept-new` pins each host on first contact and refuses a changed key afterwards, so nothing
+had to be seeded by hand. **A rebuilt host will therefore fail to connect until its old entry
+is cleared** — that is the intended behaviour, and the fix is deliberate:
+
+```bash
+ssh-keygen -R 192.168.0.212        # on bastion, and on forge for its own tower entry
+```
 
 OpenClaw's own audit suggests `agents.defaults.sandbox.mode="all"` for small models with web
 tools. **That is not usable here:** the container has no Docker socket and no Docker CLI

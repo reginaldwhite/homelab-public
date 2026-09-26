@@ -112,11 +112,12 @@ services:
       # vw-data. A relative path would resolve against whichever copy of this file
       # started the stack, and a deploy would then hand the agent an empty state dir.
       - /home/robby/openclaw-state:/home/node/.openclaw
-      # Only the agent's own key, not all of ~/.ssh. The power scripts use
-      # openclaw_ed25519 exclusively (and pass StrictHostKeyChecking=no /
-      # UserKnownHostsFile=/dev/null, so no known_hosts is needed). Mounting the
-      # whole directory also exposed id_ed25519, which authenticates as root on
-      # vault — a prompt-injected agent could read it straight off disk.
+      # Only the agent's own key, not all of ~/.ssh. The power scripts reference
+      # openclaw_ed25519 explicitly at every call site, and keep their known_hosts
+      # under /home/node/.openclaw (the state bind mount) because this directory is
+      # read-only and the container filesystem does not survive a recreate.
+      # Mounting the whole directory also exposed id_ed25519, which authenticates as
+      # root on vault — a prompt-injected agent could read it straight off disk.
       - /home/robby/.ssh/openclaw_ed25519:/home/node/.ssh/openclaw_ed25519:ro
     environment:
       # The ONLY source of the gateway token. openclaw.json used to carry a literal
