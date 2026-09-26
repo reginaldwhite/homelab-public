@@ -11,6 +11,11 @@ them and decides what reaches #homelab-status, so severity is judged in one plac
 that can correlate across hosts and across days rather than by each reporter
 alone.
 
+Only messages from the `openclaw` Slack app count as reports (REPORTER_APP_ID).
+Anyone in the channel can type a fenced JSON block, and until 2026-09-26 that was
+enough to be believed — including enough to refresh a host's last_seen and switch
+off its silence escalation for 26 hours.
+
 Division of labour, deliberately:
 
     this script   what counts as serious, what gets posted, where the cursor is
@@ -51,6 +56,22 @@ from datetime import datetime
 LOGS_CHANNEL = "C0C3XSNE71T"      # #homelab-logs — the hosts' raw reports
 STATUS_CHANNEL = "C0C3MAXLSRK"    # #homelab-status — only things meant for a human
 OWNER_MENTION = "<@U01E91JBPPG>"  # robbywhite
+
+# Only this Slack app's messages are read as reports. app_id rather than bot_id or
+# user: it is the identifier that stays the same whether a host posts through the bot
+# token or through an incoming webhook, and moving the reporters onto post-only
+# webhooks is the plan in docs/slack-credentials.md.
+#
+# What this stops: a person in the channel, or any other app, creating a report. That
+# matters most for last_seen below — a forged {"host":"bastion","kind":"health"} used
+# to refresh bastion's clock and suppress its silence escalation for 26 hours, which
+# is the one mechanism the whole design rests on.
+#
+# What it does NOT stop: the agent itself. OpenClaw posts as this same app and reads
+# web content, so a prompt-injected agent could still write a report. Separating that
+# would need a second app identity for the reporters, or a signature the agent has no
+# key for. Recorded rather than solved.
+REPORTER_APP_ID = "A0AJP1R92MD"   # the `openclaw` Slack app
 DIGEST_PREFIX = ":clipboard: homelab digest"   # bastion's watchdog looks for this
 
 STATE = "/home/robby/logs/health-digest-state.json"
@@ -148,14 +169,20 @@ def read_reports(cursor):
 
     floor = time.time() - MAX_LOOKBACK_S
     reports, newest = [], cursor
+    foreign = 0
     for msg in sorted(messages, key=lambda m: float(m.get("ts", 0))):
         ts = float(msg.get("ts", 0))
         if cursor and ts <= float(cursor):
             continue
         if ts < floor:
             continue
+        # The cursor still advances past these, so chatter in the channel does not
+        # get re-read forever — they are just never reports.
         if newest is None or ts > float(newest):
             newest = msg["ts"]
+        if msg.get("app_id") != REPORTER_APP_ID:
+            foreign += 1
+            continue
         # The language tag is optional: Slack keeps "```json" when a report is posted
         # with chat.postMessage, but drops it when the same text goes through
         # rich-text conversion, which would otherwise make reports invisible here.
@@ -174,6 +201,11 @@ def read_reports(cursor):
         if "host" in report and "kind" in report:
             report["_ts"] = ts
             reports.append(report)
+    # Logged rather than silent: if the app is ever recreated its id changes, every
+    # report stops counting, and the symptom would otherwise be four hosts escalating
+    # as silent with nothing saying why.
+    if foreign:
+        log(f"ignored {foreign} message(s) not posted by app {REPORTER_APP_ID}")
     return reports, newest
 
 

@@ -251,6 +251,22 @@ for the digester.
 A triage run with nothing to escalate never calls the model — it is one Slack read — which is why
 10 minutes is affordable where the design originally assumed hourly.
 
+**Only the `openclaw` app's messages are read as reports.** Anyone in the channel can type a
+fenced JSON block, and until 2026-09-26 that was enough to be believed. The damage was not a
+fake finding — those are visible — but `last_seen`: a forged `{"host":"bastion","kind":"health"}`
+refreshed bastion's clock and switched off its silence escalation for 26 hours, which is the one
+mechanism the whole design rests on. Matching is on `app_id`, the identifier that survives the
+move from bot token to incoming webhook planned in
+[docs/slack-credentials.md](docs/slack-credentials.md).
+
+It does **not** stop the agent, which posts as that same app and reads web content. Separating
+those would need a second app identity for the reporters, or a signature the agent holds no key
+for. Worth knowing; not currently worth the moving parts.
+
+The model's prose summary is escaped before posting, so `<!channel>` or a link arriving through
+a report's finding text cannot become a real mention or a real link — the prompt asks the model
+not to tag anyone, and the escape is what makes it true.
+
 The two runs keep **separate cursors**. Sharing one meant the frequent run always consumed the
 day's reports first and the daily digest only ever covered the preceding half hour; it read
 `1 report(s) from forge` for three days while every host was reporting normally.
