@@ -25,8 +25,21 @@ say() { echo "    $*"; }
 
 cd "$HERE"
 
+# A just-woken host accepts SSH before dockerd is ready, and --validate runs
+# immediately after the wake. Wait here too, not only in the apply phase, or a
+# deploy to a sleeping host fails validation on a race rather than on a real fault.
+wait_for_docker() {
+    for _ in $(seq 1 30); do
+        docker info >/dev/null 2>&1 && return 0
+        sleep 2
+    done
+    echo "docker never became ready" >&2
+    return 1
+}
+
 # --- validate ----------------------------------------------------------------------
 if [[ $VALIDATE -eq 1 ]]; then
+    wait_for_docker || exit 1
     docker compose config --quiet
     say "compose file valid"
 
@@ -70,11 +83,7 @@ fi
 
 # cinema is usually asleep, so a deploy often follows a Wake-on-LAN: it accepts SSH
 # before dockerd is ready.
-for i in $(seq 1 30); do
-    docker info >/dev/null 2>&1 && break
-    [[ $i -eq 30 ]] && { echo "docker never became ready" >&2; exit 1; }
-    sleep 2
-done
+wait_for_docker || exit 1
 
 docker compose up -d
 docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
