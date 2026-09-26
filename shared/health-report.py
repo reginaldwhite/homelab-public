@@ -53,7 +53,7 @@ HOST = os.environ.get("REPORT_HOST") or ROLE_BY_HOSTNAME.get(
     socket.gethostname(), socket.gethostname())
 
 HEALTH_CMD = "/home/robby/bin/openclaw-cmd"
-EXPECTED_SECTIONS = 5
+EXPECTED_SECTIONS = 6
 LOG = "/home/robby/logs/health-report.log"
 
 LOGS_CHANNEL = "C0C3XSNE71T"     # #homelab-logs — raw reports, read by the digester

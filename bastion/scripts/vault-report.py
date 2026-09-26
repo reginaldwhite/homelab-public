@@ -8,7 +8,7 @@ vault is the one host that does not report for itself, and deliberately so. Thre
 facts make a reporter *on* vault a bad idea, all verified on the machine:
 
     * its root filesystem is RAM, so nothing installed there survives a reboot —
-      and it reboots weekly when the smart plug cycles
+      and it is power-cycled weekly by bastion
     * its flash is vfat mounted fmask=0177, so a script there can never carry an
       executable bit
     * it has no python3 at all
@@ -19,7 +19,7 @@ which is always on, "vault never came up" becomes a report with status=error
 instead of silence.
 
 Scheduled for Sunday 3:30am, after backup-to-tower.sh (2:30) and sync-forge.sh
-(3:00) have run and before the smart plug cuts power at 5:00 — so it reports on
+(3:00) have run and before sleep-vault.sh powers it off at 4:00 — so it reports on
 the state the backups actually left behind, which is the thing nobody could see
 before.
 

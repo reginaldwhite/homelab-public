@@ -231,7 +231,7 @@ if the number is in the report rather than buried in prose.
 
 It runs the same `health` verb the agent's monitor runs rather than reimplementing the checks, so
 the two can never disagree about what healthy means, and it refuses to call a truncated run
-healthy — fewer than five sections is reported as `status: error`.
+healthy — fewer than six sections is reported as `status: error`.
 
 **Two conditions bypass the digester** and tag Robby directly in `#homelab-status`, because they
 cannot wait for forge to wake up: any filesystem at **95%** or more, and the weekly backup to
@@ -487,7 +487,8 @@ and it is an acceptable trade because cinema's absence is never alerted on eithe
 
 `health` runs a fixed set of read-only checks: journal errors and
 critical kernel events from the last 14 hours (the longer gap between runs), stopped
-containers, filesystems at 80% or more, and the outcome of the weekly backup to vault. Known-harmless journal entries (GDM's login-screen
+containers, filesystems at 80% or more, the outcome of the weekly backup to vault, and the
+outcome of the wake/sleep power jobs. Known-harmless journal entries (GDM's login-screen
 assertion, BIOS CPU-feature notes at boot, desktop-session apps, keyring handling at login, and
 `sudo -n` probes) are filtered by the `NOISE` list in the script, so a healthy bastion reads
 `all clear`. Keep new patterns just as narrow: name the process and the exact message.
@@ -497,6 +498,14 @@ than a fault — `model-loader` pulls models once at boot and stops by design, s
 would report a finding every single day and `warn` would stop meaning anything. Name exact
 containers there, never patterns that could hide a real service stopping. Each section prints `none` when clean and `CHECK FAILED` when the
 check itself errors, so the agent can tell "healthy" from "couldn't look".
+
+The power-jobs section reads `~/logs/power.log` the same way, reporting any of `wake-forge`,
+`sleep-forge`, `wake-vault` or `sleep-vault` whose **most recent** run failed — a later success
+clears it. It exists because those scripts had never been read either: `wake-forge` reported
+success without checking for months while the Sunday backup silently failed, and vault's wake is
+now the only thing standing between the backup server and never powering on again. It also
+catches the one gap the other checks miss — `sleep-vault.sh` refusing to power vault down, which
+leaves it running all week and would otherwise be invisible.
 
 The backup section reads bastion's `~/logs/backup.log` and reports a last run that failed, or a
 last success older than 8 days. It exists because the weekly backup to vault failed **every
@@ -522,7 +531,7 @@ docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
 
 ---
 
-### `vault` — 192.168.0.212 (Unraid) — Sunday 2am–5am
+### `vault` — 192.168.0.212 (Unraid) — Sunday 2am–4am
 
 Cold storage backup server. SSH user: `root`.
 
@@ -551,7 +560,7 @@ happens. Full write-up, including the boot race that made the arming unreliable,
 - There is nothing to deploy. No Docker daemon runs on it, it has no crontab of ours, and
   its own configuration lives on the Unraid flash and is managed from the web GUI.
 - Its root filesystem is **RAM** (`rootfs`, ~8.8 GB). Anything under `/root` or `/home` is
-  gone at the next boot, and it reboots every week when the smart plug cycles.
+  gone at the next boot, and it is power-cycled every week by bastion.
 - Its flash (`/boot`) is **vfat mounted `fmask=0177`**, so a file there can never carry an
   executable bit. `chmod +x` succeeds and the file still refuses to run. A deployed
   `apply.sh` could neither survive on one filesystem nor execute on the other.

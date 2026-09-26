@@ -266,7 +266,7 @@ backlog item, and it rests on three facts checked on the machine rather than ass
 1. **Nothing to deploy.** The Docker daemon isn't even running on it; it has no crontab of ours,
    and its own configuration lives on the Unraid flash, managed from the web GUI.
 2. **Its root filesystem is RAM.** `/` is `rootfs` (~8.8 GB). A deployed copy under `/root` or
-   `/home` disappears at the next boot — and vault reboots weekly when the smart plug cycles.
+   `/home` disappears at the next boot — and vault is power-cycled weekly by bastion.
 3. **Its flash cannot hold an executable.** `/boot` is vfat mounted `fmask=0177`. `chmod +x`
    returns success and the file still fails with `Permission denied`. Verified directly.
 

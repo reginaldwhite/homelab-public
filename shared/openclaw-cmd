@@ -15,8 +15,8 @@
 #   wake-vault   bastion  — WoL magic packet (vault has no other remote power-on)
 #   health       bastion  — read-only checks for the server-log-monitor cron job: journal
 #                cinema     errors, stopped containers, full disks, and (bastion only, where
-#                           the log exists) the outcome of the weekly backup to vault.
-#                           Fixed commands, no arguments from the agent.
+#                           the logs exist) the outcome of the weekly backup to vault and of
+#                           the wake/sleep jobs. Fixed commands, no arguments from the agent.
 #   shutdown     forge    — sudo NOPASSWD: /usr/sbin/shutdown
 #   suspend      cinema   — sudo NOPASSWD: /bin/systemctl suspend
 #
@@ -109,6 +109,35 @@ stopped_containers() {
 #
 # Prints nothing when both jobs are recent and clean, and nothing on a host with no
 # backup log (only bastion pushes to vault), so "none" stays the healthy reading.
+# The power scripts (wake/sleep for forge and vault) each log one result line, and
+# until this existed nothing read them either. wake-forge reported success without
+# checking for months while the Sunday backup quietly failed; the same log now also
+# carries vault's wake and shutdown, which are the only things standing between the
+# backup server and never powering on again.
+POWER_LOG="/home/robby/logs/power.log"
+POWER_JOBS=(wake-forge sleep-forge wake-vault sleep-vault)
+
+power_jobs() {
+    [[ -f "$POWER_LOG" ]] || return 0
+    local now line ts secs age unit
+    now=$(date +%s)
+    for job in "${POWER_JOBS[@]}"; do
+        line=$(grep -F "[$job]" "$POWER_LOG" | tail -1) || true
+        [[ -z "$line" ]] && continue
+        # Only the most recent outcome matters: a later success clears an older failure.
+        [[ "$line" != *ERROR* ]] && continue
+        ts=${line%% *}
+        if secs=$(date -d "$ts" +%s 2>/dev/null); then
+            age=$(( (now - secs) / 3600 )); unit=h
+            (( age > 48 )) && { age=$(( age / 24 )); unit=d; }
+            echo "$job: last run FAILED (${age}${unit} ago) -- ${line#* }"
+        else
+            echo "$job: last run FAILED -- ${line#* }"
+        fi
+    done
+    return 0
+}
+
 BACKUP_LOG="/home/robby/logs/backup.log"
 BACKUP_MAX_AGE_DAYS=8   # weekly job; 8 gives a late or skipped Sunday one grace day
 
@@ -172,6 +201,7 @@ health() {
     section "filesystems at 80% or more" full_disks
     section "critical kernel events, last $WINDOW" journal -k -p crit
     section "weekly backup to vault" backup_status
+    section "power jobs" power_jobs
 }
 
 case "$requested" in

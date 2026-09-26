@@ -1,6 +1,7 @@
 #!/bin/bash
 # backup-to-tower.sh — Push all backup data from bastion (file) to tower (Unraid)
-# Runs Sunday 2:30am — 30 minutes after smart plug powers tower on.
+# Runs Sunday 2:30am — 30 minutes after wake-vault.sh wakes tower and waits for its
+# array to mount, so /mnt/user is a real filesystem and not Unraid's RAM root.
 # Requires SSH key auth to vault (root): ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.0.212
 
 TOWER_IP="192.168.0.212"
