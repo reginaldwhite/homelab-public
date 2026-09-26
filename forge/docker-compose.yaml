@@ -3,7 +3,11 @@ name: forge
 
 services:
   ollama:
-    image: ollama/ollama:latest
+    # Pinned to what was running. :latest only moves on `docker compose pull`,
+    # which nothing here does on a schedule, so the tag was never telling the
+    # truth about the version — and a silent ollama change moves the agent's
+    # inference behaviour underneath it.
+    image: ollama/ollama:0.17.5
     container_name: ollama
     restart: unless-stopped
     ports:
@@ -40,7 +44,8 @@ services:
       - ai-network
 
   model-loader:
-    image: ollama/ollama:latest
+    # Same image as the ollama service; keep the two in step.
+    image: ollama/ollama:0.17.5
     container_name: model-loader
     depends_on:
       ollama:
@@ -95,7 +100,10 @@ services:
       - ai-network
 
   openclaw:
-    image: ghcr.io/openclaw/openclaw:latest
+    # Pinned to what was running. Worth knowing when this was done: the container
+    # was on 2026.3.2 while the newest published tag was 2026.5.22 — about two
+    # months behind, on a tag called "latest". Bump deliberately.
+    image: ghcr.io/openclaw/openclaw:2026.3.2
     container_name: openclaw
     restart: unless-stopped
     # Depends on ollama itself, not model-loader: a failed model pull should
@@ -133,7 +141,9 @@ services:
       - ai-network
 
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    # `main` is a branch tag: it moves whenever upstream pushes. Pinned to the
+    # version that was running.
+    image: ghcr.io/open-webui/open-webui:0.8.8
     container_name: open-webui
     restart: unless-stopped
     # As with openclaw: ollama being up is what matters, not the model pulls.

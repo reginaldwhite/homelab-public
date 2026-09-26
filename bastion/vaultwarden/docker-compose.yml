@@ -30,7 +30,13 @@ services:
       # "Vaultwarden is down" from "Caddy is down".
       - 127.0.0.1:8080:80
   caddy:
-    image: caddy:latest
+    # Pinned for the same reason Vaultwarden is, and it matters at least as much:
+    # this is what terminates TLS for the vault. `:latest` only moves when something
+    # runs `docker compose pull`, which nothing does on a schedule — so the tag says
+    # "latest" while the binary quietly ages, exactly how Vaultwarden sat on 1.35.3
+    # for seven months. This is the version that was already running when it was
+    # pinned, so pinning changed nothing; upgrading is now a deliberate edit.
+    image: caddy:2.10.2
     container_name: caddy
     restart: unless-stopped
     ports:
@@ -45,7 +51,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
   adguardhome:
-    image: adguard/adguardhome
+    # Was completely untagged, which means :latest. Pinned to what was running.
+    image: adguard/adguardhome:v0.107.72
     container_name: adguardhome
     restart: unless-stopped
     network_mode: "host"
