@@ -18,6 +18,13 @@ LOG="/home/robby/logs/backup.log"
 DATA_DIR="/home/robby/vaultwarden"
 STAGING="/home/robby/backup-staging"
 
+# Weekly point-in-time copies of vw-data, rotated. Separate from VW_BACKUPS, which
+# apply.sh writes immediately before a version upgrade and which is never rotated —
+# those mark known-risky moments and should outlive any schedule.
+SNAPSHOT_DIR="/home/robby/vw-snapshots"
+SNAPSHOT_KEEP=8
+VW_BACKUPS="/home/robby/vw-backups"
+
 mkdir -p "$(dirname "$LOG")"
 log() { echo "$(date -Iseconds) [backup-to-tower] $*" >> "$LOG"; }
 
@@ -98,14 +105,62 @@ fi
 
 restart_vaultwarden
 
+# --- a dated copy, not just a mirror -----------------------------------------------
+# The push below is a MIRROR: --delete means last Sunday's copy is gone. Corruption,
+# an accidental deletion, or anything else that damages vw-data therefore reaches
+# vault on the next run with nothing older to fall back to. vw-data is a few MB, so a
+# dated copy per week is almost free, and it is the difference between "the backup
+# ran" and "I can get last month's vault back".
+#
+# Rotated here rather than on vault, so nothing ever runs rm over SSH against the one
+# machine holding every backup; the mirror carries the rotation across. The limit of
+# that is worth stating: a bastion that deletes its own snapshots propagates the
+# deletion on the next run. Defending against that needs pull-based or append-only
+# storage, which this does not attempt.
+if [[ $STAGED -eq 1 ]]; then
+    mkdir -p "$SNAPSHOT_DIR" && chmod 700 "$SNAPSHOT_DIR"
+    snapshot="$SNAPSHOT_DIR/vw-data-$(date +%F).tgz"
+    if tar czf "$snapshot" -C "$STAGING/vaultwarden-data" vw-data 2>> "$LOG"; then
+        log "snapshot $(basename "$snapshot") ($(du -h "$snapshot" | cut -f1))"
+        # Matches vw-data-YYYY-MM-DD.tgz and nothing else. VW_BACKUPS being a separate
+        # directory is what really keeps apply.sh's pre-upgrade tarballs out of the
+        # rotation, but a plain vw-data-*.tgz would also match their longer
+        # vw-data-<date>-<time>-<version>.tgz names, so the date shape is spelled out
+        # rather than left resting on the directory split alone.
+        ls -1t "$SNAPSHOT_DIR"/vw-data-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].tgz \
+            2>/dev/null | tail -n +$((SNAPSHOT_KEEP + 1)) \
+            | while IFS= read -r old; do
+                  rm -f -- "$old" && log "pruned $(basename "$old")"
+              done
+    else
+        log "ERROR: could not write $snapshot"
+        EXIT=1
+    fi
+fi
+
 # Only a complete copy may be pushed: a partial one would --delete good data on tower.
 if [[ $STAGED -eq 1 ]]; then
     rsync -az --delete --mkpath \
         -e "$VAULT_RSYNC_SSH" \
         "$STAGING/vaultwarden-data/" \
         "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1 || EXIT=$?
+
+    rsync -az --delete --mkpath \
+        -e "$VAULT_RSYNC_SSH" \
+        "$SNAPSHOT_DIR/" \
+        "$TOWER_DEST/vaultwarden-snapshots/" >> "$LOG" 2>&1 || EXIT=$?
 else
     log "ERROR: nothing was staged, so nothing was pushed"
+fi
+
+# apply.sh's pre-upgrade tarballs. No --delete: nothing prunes these, and a copy that
+# exists only on bastion is not a backup — it is the single disk the whole point of
+# this script is to get off.
+if [[ -d "$VW_BACKUPS" ]]; then
+    rsync -az --mkpath \
+        -e "$VAULT_RSYNC_SSH" \
+        "$VW_BACKUPS/" \
+        "$TOWER_DEST/vaultwarden-pre-upgrade/" >> "$LOG" 2>&1 || EXIT=$?
 fi
 
 # Note: forge (7700k) data is synced directly to tower by sync-forge.sh at 3:00am

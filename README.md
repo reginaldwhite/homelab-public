@@ -662,8 +662,27 @@ being silent.
 |---|---|---|
 | `vaultwarden/` | bastion's `~/vaultwarden/` — vw-data, Caddyfile, compose | `backup-to-tower.sh` |
 | `vaultwarden/agh-conf/`, `agh-work/` | bastion's AdGuard state, staged through a root container | `backup-to-tower.sh` |
+| `vaultwarden-snapshots/` | dated weekly tarballs of `vw-data`, newest 8 kept | `backup-to-tower.sh` |
+| `vaultwarden-pre-upgrade/` | `apply.sh`'s pre-upgrade tarballs, never pruned | `backup-to-tower.sh` |
 | `forge/Documents/` | forge's `~/Documents/` — this repo and everything developed there | `sync-forge.sh` |
 | `forge/openclaw-state/` | forge's `~/openclaw-state/` — agent memory, sessions, credentials | `sync-forge.sh` |
+
+**A mirror is not a history.** The main push uses `rsync --delete`, so last Sunday's copy is
+gone: corruption or an accidental deletion reaches vault on the next run with nothing older
+behind it. `vw-data` is a few MB, so `backup-to-tower.sh` also writes a dated tarball to
+`~/vw-snapshots/` each week and keeps the newest **8** — two months of weekly restore points,
+for almost no space.
+
+Rotation happens on bastion, not on vault, so nothing ever runs `rm` over SSH against the one
+machine holding every backup; the mirror carries the rotation across. The limit is worth
+stating plainly: **a bastion that deletes its own snapshots propagates that deletion** on the
+next run. Defending against that needs pull-based or append-only storage, which this does not
+attempt.
+
+`~/vw-backups/` — the tarballs `apply.sh` writes immediately before a version upgrade — is a
+separate directory, is never pruned, and is now pushed too. Those mark known-risky moments and
+should outlive any schedule; until 2026-09-26 they existed only on bastion, which is the single
+disk this whole script exists to get data off.
 
 **Vaultwarden is stopped for the copy, not for the transfer.** `vw-data` is a live sqlite
 database, and rsyncing an open one can capture a torn write or a state that disagrees with its
