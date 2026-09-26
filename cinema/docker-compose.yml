@@ -5,7 +5,11 @@ name: plex
 services:
   plex:
     container_name: plex
-    image: plexinc/pms-docker:latest
+    # Pinned to the version that was running, like every other image here. Plex's
+    # own tags carry the build hash, and the running server reports the same string
+    # at http://192.168.0.13:32400/identity — so the deployed version can be read
+    # back without a shell on this host.
+    image: plexinc/pms-docker:1.43.2.10687-563d026ea
     restart: unless-stopped
     network_mode: host
     environment:
