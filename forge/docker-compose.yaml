@@ -119,6 +119,10 @@ services:
       # vault — a prompt-injected agent could read it straight off disk.
       - /home/robby/.ssh/openclaw_ed25519:/home/node/.ssh/openclaw_ed25519:ro
     environment:
+      # The ONLY source of the gateway token. openclaw.json used to carry a literal
+      # one as well, which meant a live credential sat in git on every clone — and
+      # this gateway binds to the LAN with exec security "full" and ask "off", so
+      # that token is remote code execution to anyone holding it. Keep it here.
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OLLAMA_API_KEY=ollama-local
       - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}

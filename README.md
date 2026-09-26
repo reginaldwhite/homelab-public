@@ -474,6 +474,24 @@ its config at startup — without that, a config-only deploy would succeed and t
 Because nothing running reads from a git working tree, `git switch` on forge no longer changes
 live configuration. That was previously the cause of repeated silent reverts.
 
+#### The gateway token lives in `.env`, never in `openclaw.json`
+
+`openclaw.json` is **tracked in git**, so it must never hold a credential. The gateway token
+comes from `OPENCLAW_GATEWAY_TOKEN` in `forge/.env`, passed through by
+[forge/docker-compose.yaml](forge/docker-compose.yaml); the config file declares
+`auth.mode: "token"` and nothing else.
+
+It carried a literal token until 2026-09-26 — committed since the initial commit, and therefore
+present in every clone, on the laptop of anyone who cloned it, and inside `forge/Documents/` on
+`vault`. That matters more here than it would for most secrets, because the gateway binds to the
+LAN (`--bind lan`, ports 18789/18791) and runs with `tools.exec.security: "full"` and
+`ask: "off"` — so the token is unprompted remote code execution in a container that also holds
+the agent's cross-host SSH key.
+
+**OpenClaw rewrites this file at runtime** (see `meta.lastTouchedAt`), so if it ever regenerates
+a token into the live copy at `~/openclaw-state/openclaw.json`, that copy — not the repo — is
+the one to read. `apply.sh` copies the tracked file over it whenever the two differ.
+
 #### Agent credential scope
 
 The `openclaw` container gets **only** `~/.ssh/openclaw_ed25519`, mounted as a single file —

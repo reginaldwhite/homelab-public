@@ -97,8 +97,7 @@
       "dangerouslyAllowHostHeaderOriginFallback": true
     },
     "auth": {
-      "mode": "token",
-      "token": "REDACTED"
+      "mode": "token"
     }
   },
   "meta": {
