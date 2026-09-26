@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # deploy.sh — Push a host's folder from this repo to that host and apply it.
 #
 #   ./deploy.sh bastion            # deploy one host
@@ -19,12 +19,29 @@
 #   5. rsync staging -> $DEST/<host>/, then run its apply.sh
 # A change that fails validation never reaches the live copy.
 #
+# --check is not read-only. It still writes the staging directory on the host and
+# runs apply.sh --validate out of it, which starts a throwaway container to check
+# the Caddyfile. It also skips the clean-checkout gate, deliberately, so you can
+# check work in progress — which means --check can execute uncommitted code on the
+# host. It changes nothing in $DEST/<host>/, and nothing running.
+#
 # Deploys only a clean checkout of origin/main (--force overrides), so what runs
 # is what's merged. Needs SSH key auth to each remote host; the host this runs
 # on is deployed locally. Secrets and anything git ignores are never pushed, and
 # the copies on the host survive deploys.
 
 set -euo pipefail
+
+# macOS still ships bash 3.2 (2007), which has neither associative arrays nor
+# mapfile — both used below. `env bash` picks up a newer one from PATH if there is
+# one; without this check the failure on a Mac is "bastion: unbound variable" from
+# the HOST_SSH declaration, which says nothing about the actual problem. Deploying
+# from a laptop is a documented path, so it should fail legibly.
+if (( BASH_VERSINFO[0] < 4 )); then
+    echo "deploy.sh needs bash 4 or newer; this is bash ${BASH_VERSION}." >&2
+    echo "On macOS: brew install bash   (/bin/bash is 3.2 and cannot run this)." >&2
+    exit 1
+fi
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="/home/robby/homelab-deployed"
@@ -63,7 +80,9 @@ for arg in "$@"; do
         --check) CHECK=1 ;;
         --force) FORCE=1 ;;
         --no-wake) WAKE=0 ;;
-        -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+        # The whole header block, however long it grows — a hardcoded line range
+        # silently starts truncating mid-sentence the first time it is edited.
+        -h|--help) awk 'NR>1 && /^#/ {print; next} NR>1 {exit}' "$0"; exit 0 ;;
         all) HOSTS+=("${MIGRATED[@]}") ;;
         -*) echo "unknown option: $arg" >&2; exit 2 ;;
         *) HOSTS+=("$arg") ;;

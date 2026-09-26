@@ -195,6 +195,10 @@ journal() {
     grep -v -E -f <(printf '%s\n' "${NOISE[@]}") <<<"$out" || true
 }
 
+# Adding or removing a section here means bumping EXPECTED_SECTIONS in
+# shared/health-report.py, which treats a short run as status=error so a truncated
+# check can never read as healthy. Leave them disagreeing and every host reports an
+# error every day.
 health() {
     section "system journal errors, last $WINDOW" journal -p err
     section "stopped containers" stopped_containers

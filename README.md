@@ -781,8 +781,21 @@ This matters because forge does not need a desktop: see
 **Set this up while you still have working access to the current machine, and verify it before
 relying on it.**
 
-1. **Tools:** `git`, `bash`, `ssh`, `rsync`. On macOS check `rsync --version` first — the system
-   copy is ancient; `brew install rsync` if so.
+1. **Tools:** `git`, `bash` **4 or newer**, `ssh`, `rsync`.
+
+   **On macOS both `bash` and `rsync` are too old.** The system `/bin/bash` is 3.2, from 2007,
+   which has neither associative arrays nor `mapfile` — `deploy.sh` uses both, so it cannot run
+   on it at all. The system `rsync` is likewise ancient and lacks `--mkpath`, which the backup
+   scripts rely on.
+
+   ```bash
+   brew install bash rsync
+   bash --version     # expect 5.x, not 3.2
+   ```
+
+   `deploy.sh` runs under `#!/usr/bin/env bash`, so a Homebrew bash on `PATH` is picked up
+   automatically, and it refuses with a clear message rather than an obscure
+   `bastion: unbound variable` if it ever finds itself on 3.2.
 2. **SSH key.** Generate one on the new machine and add its public key to
    `~/.ssh/authorized_keys` on bastion, forge and cinema, as `robby`. Append it — do not
    overwrite: those files also hold the agent's forced-command line, and replacing them breaks

@@ -53,6 +53,11 @@ HOST = os.environ.get("REPORT_HOST") or ROLE_BY_HOSTNAME.get(
     socket.gethostname(), socket.gethostname())
 
 HEALTH_CMD = "/home/robby/bin/openclaw-cmd"
+# Must equal the number of `section` calls in health() in shared/openclaw-cmd. A run
+# returning fewer is reported as status=error rather than as a clean bill of health,
+# which is the point — but it also means ADDING A SECTION THERE WITHOUT BUMPING THIS
+# makes every host report an error. The two files deploy together from shared/, so
+# they cannot drift apart on disk; they can still drift in an edit.
 EXPECTED_SECTIONS = 6
 LOG = "/home/robby/logs/health-report.log"
 
