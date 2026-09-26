@@ -20,35 +20,29 @@
 DRY=0
 [[ "${1:-}" == "--dry-run" ]] && DRY=1
 
-VAULT_IP="192.168.0.212"
-VAULT_SSH="root@$VAULT_IP"
-SSH_KEY="/home/robby/.ssh/id_ed25519"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/vault-common.sh"
+
 LOG="/home/robby/logs/power.log"
 
 mkdir -p "$(dirname "$LOG")"
 log() { echo "$(date -Iseconds) [sleep-vault] $*" >> "$LOG"; }
 
-# accept-new, not no/dev/null: this hands a root command to whatever answers on
-# 192.168.0.212, so an unexplained key change should stop it rather than be accepted.
-# After a legitimate rebuild: ssh-keygen -R 192.168.0.212
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10
-          -o StrictHostKeyChecking=accept-new -i "$SSH_KEY")
-
-if ! ping -c1 -W2 "$VAULT_IP" &>/dev/null; then
+if ! vault_pings; then
     log "vault already down, nothing to do"
     exit 0
 fi
 
 # wol-arm.sh lives on vault's flash and handles all three requirements: the NIC, its
 # PCIe root port, and the kernel's per-device flag. It is idempotent.
-if ! ssh "${SSH_OPTS[@]}" "$VAULT_SSH" "bash /boot/config/wol-arm.sh" 2>/dev/null; then
+if ! vault_ssh "bash /boot/config/wol-arm.sh" 2>/dev/null; then
     log "ERROR: could not run /boot/config/wol-arm.sh on vault — refusing to power it down"
     exit 1
 fi
 
 # Verify rather than trust. Both the card and the root port have to be right; either
 # one alone produces a machine that cannot be woken.
-state=$(ssh "${SSH_OPTS[@]}" "$VAULT_SSH" '
+state=$(vault_ssh '
     for i in eth0 eth1; do ethtool $i 2>/dev/null | grep -q "Wake-on: g" && echo "nic:$i"; done
     grep -qE "^P0P6[[:space:]].*enabled" /proc/acpi/wakeup && echo "port:P0P6"
     grep -qE "^P0P9[[:space:]].*enabled" /proc/acpi/wakeup && echo "port:P0P9"
@@ -68,12 +62,11 @@ if [[ $DRY -eq 1 ]]; then
 fi
 
 log "sending powerdown to vault..."
-ssh "${SSH_OPTS[@]}" "$VAULT_SSH" \
-    "nohup /usr/local/sbin/powerdown >/tmp/powerdown.log 2>&1 &" 2>/dev/null
+vault_ssh "nohup /usr/local/sbin/powerdown >/tmp/powerdown.log 2>&1 &" 2>/dev/null
 
 SECONDS=0
 while (( SECONDS < 300 )); do
-    ping -c1 -W2 "$VAULT_IP" &>/dev/null || { log "vault is down (${SECONDS}s)"; exit 0; }
+    vault_pings || { log "vault is down (${SECONDS}s)"; exit 0; }
     sleep 5
 done
 log "ERROR: vault still answering ping 300s after powerdown"

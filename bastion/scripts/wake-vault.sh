@@ -23,9 +23,12 @@
 # carrying the link, and the address the bond presents is not the same as the
 # cabled interface's permanent one.
 
-VAULT_IP="192.168.0.212"
-VAULT_SSH="root@$VAULT_IP"
-SSH_KEY="/home/robby/.ssh/id_ed25519"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# vault_pings, vault_ssh and vault_array_started live there — the array check in
+# particular, because the two backup jobs need the identical one and cron runs them
+# whether or not this script succeeded.
+. "$HERE/vault-common.sh"
+
 # eth0 permanent (= the address the bond presents) and eth1 permanent.
 VAULT_MACS=("e0:cb:4e:9d:02:6a" "e0:cb:4e:80:92:3d")
 
@@ -37,19 +40,7 @@ LOG="/home/robby/logs/power.log"
 mkdir -p "$(dirname "$LOG")"
 log() { echo "$(date -Iseconds) [wake-vault] $*" >> "$LOG"; }
 
-# accept-new, not no/dev/null: this authenticates as root on the machine holding every
-# backup, so a key that changes without explanation should stop the job, not be accepted
-# silently. After a legitimate rebuild: ssh-keygen -R 192.168.0.212
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=5
-          -o StrictHostKeyChecking=accept-new -i "$SSH_KEY")
-
-vault_pings() { ping -c1 -W2 "$VAULT_IP" &>/dev/null; }
-vault_ssh()   { ssh "${SSH_OPTS[@]}" "$VAULT_SSH" true 2>/dev/null; }
-array_up() {
-    [[ "$(ssh "${SSH_OPTS[@]}" "$VAULT_SSH" \
-        "grep -E '^mdState=' /var/local/emhttp/var.ini 2>/dev/null | cut -d'\"' -f2" \
-        2>/dev/null)" == "STARTED" ]]
-}
+vault_ssh_up() { vault_ssh true &>/dev/null; }
 
 send_wol() {
     local mac
@@ -91,20 +82,20 @@ fi
 
 SECONDS=0
 while (( SECONDS < SSH_TIMEOUT )); do
-    vault_ssh && break
+    vault_ssh_up && break
     sleep 5
 done
-if ! vault_ssh; then
+if ! vault_ssh_up; then
     log "ERROR: vault answers ping but not SSH after ${SSH_TIMEOUT}s"
     exit 1
 fi
 
 SECONDS=0
 while (( SECONDS < ARRAY_TIMEOUT )); do
-    array_up && break
+    vault_array_started && break
     sleep 10
 done
-if ! array_up; then
+if ! vault_array_started; then
     log "ERROR: vault is up but the array never started — /mnt/user is not mounted, so a backup now would write to its RAM filesystem and be lost"
     exit 1
 fi

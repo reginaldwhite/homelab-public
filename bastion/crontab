@@ -25,8 +25,9 @@
 # installed and switched on as a manual override, but nothing schedules it.
 0 2 * * 0 /home/robby/homelab-deployed/bastion/scripts/wake-vault.sh
 
-# Push bastion data to vault at 2:30am. wake-vault.sh has already waited for vault's
-# array to mount, so this cannot write into vault's RAM filesystem.
+# Push bastion data to vault at 2:30am. This does NOT rely on the 2:00 wake having
+# succeeded -- cron runs the two independently, so a failed wake leaves this job to
+# run anyway. It checks vault's array itself and refuses if it is not started.
 30 2 * * 0 /home/robby/homelab-deployed/bastion/scripts/backup-to-tower.sh
 
 # Wake forge for backup at 2:45am Sunday

@@ -642,6 +642,20 @@ With the root port disabled, everything else reads as correctly configured and n
 happens. Full write-up, including the boot race that made the arming unreliable, in
 [docs/vault-power.md](docs/vault-power.md).
 
+**Every job that writes to vault checks the array first.** `mdState == STARTED` means
+`/mnt/user` is a real filesystem; with the array stopped it is Unraid's RAM root, and
+`rsync --mkpath` will create the destination there, transfer everything, exit 0, and lose it
+at the next boot — a backup that reports success and evaporates, which is worse than one that
+fails. That check used to live only in `wake-vault.sh`, but **cron runs each job
+independently**: a failed 2:00 wake did nothing to stop the 2:30 and 3:00 backups, and neither
+of them looked. It now lives in
+[bastion/scripts/vault-common.sh](bastion/scripts/vault-common.sh), sourced by all three, so
+there is one copy of it rather than three that can drift.
+
+A refusal logs `ERROR` to `~/logs/backup.log`, which is exactly what the `health` verb's backup
+section already reads — so the gate firing escalates like any other backup failure instead of
+being silent.
+
 **Backup destinations,** all under `/mnt/user/backups/`:
 
 | Path | Source | Pushed by |
@@ -650,6 +664,18 @@ happens. Full write-up, including the boot race that made the arming unreliable,
 | `vaultwarden/agh-conf/`, `agh-work/` | bastion's AdGuard state, staged through a root container | `backup-to-tower.sh` |
 | `forge/Documents/` | forge's `~/Documents/` — this repo and everything developed there | `sync-forge.sh` |
 | `forge/openclaw-state/` | forge's `~/openclaw-state/` — agent memory, sessions, credentials | `sync-forge.sh` |
+
+**Vaultwarden is stopped for the copy, not for the transfer.** `vw-data` is a live sqlite
+database, and rsyncing an open one can capture a torn write or a state that disagrees with its
+WAL — a copy that may simply not open when you need it. `backup-to-tower.sh` stops the
+container, copies `~/vaultwarden` into `~/backup-staging` (seconds, local disk), starts it
+again, and only then pushes staging to vault. A `trap` restarts the container on every exit
+path, including a failure between the two. Staging is `0700` and holds the database, its
+`rsa_key.pem` signing key, and `AdGuardHome.yaml`.
+
+Staging is also what makes AdGuard's data readable at all: `agh-work/` and `agh-conf/` are
+root-owned `0700`/`0600` because that container runs as root, so `robby`'s rsync cannot read
+them in place. The copy goes through a throwaway root container.
 
 **vault is deliberately not a `deploy.sh` host,** and that is not a to-do:
 

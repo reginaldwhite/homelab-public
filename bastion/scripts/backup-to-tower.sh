@@ -1,88 +1,118 @@
 #!/bin/bash
 # backup-to-tower.sh — Push all backup data from bastion (file) to tower (Unraid)
-# Runs Sunday 2:30am — 30 minutes after wake-vault.sh wakes tower and waits for its
-# array to mount, so /mnt/user is a real filesystem and not Unraid's RAM root.
+# Runs Sunday 2:30am, 30 minutes after wake-vault.sh.
+#
+# It does NOT assume wake-vault.sh succeeded. Cron runs the two independently, so a
+# failed wake leaves this job running anyway; it checks the array itself before
+# writing anything. See vault-common.sh.
+#
 # Requires SSH key auth to vault (root): ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.0.212
 
-TOWER_IP="192.168.0.212"
-TOWER_USER="root"
-SSH_KEY="/home/robby/.ssh/id_ed25519"
-TOWER_DEST="$TOWER_USER@$TOWER_IP:/mnt/user/backups"
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/vault-common.sh"
+
+TOWER_DEST="$VAULT_SSH:/mnt/user/backups"
 LOG="/home/robby/logs/backup.log"
-
-# This connection carries vw-data — the Vaultwarden sqlite DB and rsa_key.pem, its
-# JWT signing key — plus AdGuardHome.yaml with the admin password hash, to root on
-# vault. It used to pass StrictHostKeyChecking=no with UserKnownHostsFile=/dev/null,
-# which accepts a different host key every single week: anyone able to ARP-spoof
-# 192.168.0.212 during the Sunday window would have been handed the vault.
-#
-# accept-new rather than yes: it pins vault's key on first contact and refuses any
-# change afterwards, without needing every host seeded by hand first. If vault is
-# ever rebuilt its key changes and this will refuse to connect — that is the point.
-# Clear the stale entry deliberately:
-#   ssh-keygen -R 192.168.0.212
-SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 -i "$SSH_KEY")
-
-mkdir -p "$(dirname "$LOG")"
-
-# Wait for tower to be reachable (plug just came on, give it time to boot)
-echo "$(date -Iseconds) [backup-to-tower] Waiting for tower to come online..." >> "$LOG"
-for i in $(seq 1 20); do
-    if ssh "${SSH_OPTS[@]}" "$TOWER_USER@$TOWER_IP" "echo ok" &>/dev/null; then
-        echo "$(date -Iseconds) [backup-to-tower] Tower is online" >> "$LOG"
-        break
-    fi
-    echo "$(date -Iseconds) [backup-to-tower] Tower not ready, retry $i/20..." >> "$LOG"
-    sleep 15
-done
-
-echo "$(date -Iseconds) [backup-to-tower] Starting weekly backup to tower..." >> "$LOG"
-
-RSYNC_SSH="ssh -o StrictHostKeyChecking=accept-new -i $SSH_KEY"
-
 DATA_DIR="/home/robby/vaultwarden"
 STAGING="/home/robby/backup-staging"
+
+mkdir -p "$(dirname "$LOG")"
+log() { echo "$(date -Iseconds) [backup-to-tower] $*" >> "$LOG"; }
+
+# Wait for tower to be reachable. Until 2026-09-26 this loop fell through when the
+# retries ran out and the script carried on regardless; sync-forge.sh grew a guard
+# for that and this one never did.
+log "Waiting for tower to come online..."
+READY=0
+for i in $(seq 1 20); do
+    if vault_ssh "echo ok" &>/dev/null; then
+        READY=1
+        log "Tower is online"
+        break
+    fi
+    log "Tower not ready, retry $i/20..."
+    sleep 15
+done
+if [[ $READY -eq 0 ]]; then
+    log "ERROR: tower never came online, aborting"
+    exit 1
+fi
+
+# The gate. /mnt/user is RAM until the array starts; see vault-common.sh.
+vault_require_array backup-to-tower "$LOG" || exit 1
+
+log "Starting weekly backup to tower..."
+
 EXIT=0
 
-# AdGuard's agh-work/ and agh-conf/ are root-owned (0700/0600) because the
-# container runs as root, so robby's rsync can't read them. Copy them out through
-# a throwaway container, which runs as root, into a robby-owned staging dir.
-# Staging holds AdGuardHome.yaml (admin password hash), so keep it private.
+# Everything is staged locally first, then pushed. Two reasons, and the first is
+# the one that matters:
+#
+#   * vw-data is a LIVE sqlite database. rsync of an open sqlite file can capture a
+#     torn write or a state that does not match its WAL, so the copy on vault may
+#     not open. Vaultwarden is stopped for the local copy only — seconds against a
+#     local disk — and is running again long before the transfer to vault starts.
+#   * AdGuard's agh-work/ and agh-conf/ are root-owned 0700/0600 because that
+#     container runs as root, so robby's rsync cannot read them at all.
+#
+# Staging holds the vault database, its rsa_key.pem signing key, and
+# AdGuardHome.yaml with the admin password hash. It stays 0700.
 mkdir -p "$STAGING" && chmod 700 "$STAGING"
+
+vw_stopped=0
+restart_vaultwarden() {
+    [[ $vw_stopped -eq 1 ]] || return 0
+    if docker start vaultwarden >/dev/null 2>&1; then
+        log "vaultwarden restarted"
+    else
+        log "ERROR: could not restart vaultwarden — the vault is DOWN"
+    fi
+    vw_stopped=0
+}
+# Covers every exit path, including an error between the stop and the start.
+trap restart_vaultwarden EXIT
+
+if docker stop vaultwarden >/dev/null 2>&1; then
+    vw_stopped=1
+    log "vaultwarden stopped for a consistent copy"
+else
+    log "ERROR: could not stop vaultwarden; copying it live, which may not restore"
+    EXIT=1
+fi
+
 STAGED=0
 if docker run --rm \
     -v "$DATA_DIR:/src:ro" \
     -v "$STAGING:/out" \
-    alpine sh -c 'rm -rf /out/agh-work /out/agh-conf &&
-                  cp -a /src/agh-work /src/agh-conf /out/ &&
-                  chown -R '"$(id -u):$(id -g)"' /out/agh-work /out/agh-conf' >> "$LOG" 2>&1; then
+    alpine sh -c 'rm -rf /out/vaultwarden-data &&
+                  mkdir -p /out/vaultwarden-data &&
+                  cp -a /src/. /out/vaultwarden-data/ &&
+                  chown -R '"$(id -u):$(id -g)"' /out/vaultwarden-data' >> "$LOG" 2>&1; then
     STAGED=1
 else
-    echo "$(date -Iseconds) [backup-to-tower] ERROR: could not stage AdGuard data" >> "$LOG"
+    log "ERROR: could not stage bastion data"
     EXIT=1
 fi
 
-# Vaultwarden data and the rest of ~/vaultwarden. The AdGuard dirs are excluded
-# here (and so also protected from --delete) and sent from staging below.
-rsync -az --delete --mkpath \
-    --exclude=/agh-work/ --exclude=/agh-conf/ \
-    -e "$RSYNC_SSH" \
-    "$DATA_DIR/" \
-    "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1 || EXIT=$?
+restart_vaultwarden
 
 # Only a complete copy may be pushed: a partial one would --delete good data on tower.
 if [[ $STAGED -eq 1 ]]; then
     rsync -az --delete --mkpath \
-        -e "$RSYNC_SSH" \
-        "$STAGING/agh-work" "$STAGING/agh-conf" \
+        -e "$VAULT_RSYNC_SSH" \
+        "$STAGING/vaultwarden-data/" \
         "$TOWER_DEST/vaultwarden/" >> "$LOG" 2>&1 || EXIT=$?
+else
+    log "ERROR: nothing was staged, so nothing was pushed"
 fi
 
 # Note: forge (7700k) data is synced directly to tower by sync-forge.sh at 3:00am
 
 if [[ $EXIT -eq 0 ]]; then
-    echo "$(date -Iseconds) [backup-to-tower] Weekly backup complete" >> "$LOG"
+    log "Weekly backup complete"
 else
-    echo "$(date -Iseconds) [backup-to-tower] ERROR: One or more rsyncs failed (exit $EXIT)" >> "$LOG"
+    log "ERROR: backup failed (exit $EXIT)"
     exit $EXIT
 fi
