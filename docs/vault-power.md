@@ -34,6 +34,12 @@ NIC supports it". None of those were it. What actually found it was enumerating 
 chain — card, bridge, chipset, firmware, standby power — and checking each link, instead of
 testing variations on the last thing tried.
 
+A third bug, caught by testing rather than in production: `wol-arm.sh` originally ended with a
+`grep && echo` loop, which **returns non-zero when everything is already armed** — the normal
+case. `sleep-vault.sh` reads a non-zero exit as "could not arm" and refuses to power vault down,
+so that one missing `exit 0` would have meant vault never shut down again, every Sunday, quietly.
+It failed safe and would have failed forever.
+
 A secondary bug, found along the way: **the boot-time arming was unreliable.** Unraid brings the
 bond up *after* `/boot/config/go` runs and resets the NIC's WoL bit, so a single `ethtool` call
 there won the race on some boots and lost it on others — both were observed, which is worse than
@@ -44,7 +50,9 @@ consistently failing.
 **On vault** — both files on the flash, because Unraid rebuilds its OS in RAM at every boot and
 nothing under `/` survives:
 
-- `/boot/config/wol-arm.sh` — idempotent, handles all three requirements above.
+- `/boot/config/wol-arm.sh` — idempotent, handles all three requirements above. Versioned in
+  this repo at [vault/wol-arm.sh](../vault/wol-arm.sh) and installed by hand, since vault is not
+  a deploy target and that flash is a USB stick with no other backup.
 - `/boot/config/go` — runs `wol-arm.sh` every 30s for the first five minutes, rather than once,
   to beat the bond race. The previous `go` files are backed up alongside it.
 

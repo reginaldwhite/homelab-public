@@ -710,6 +710,9 @@ Homelab/
 ├── scripts/
 │   └── git-credential-homelab        — git credential helper; reads .secrets.env
 │
+├── vault/                            — 192.168.0.212; NOT deployed (see docs/vault-power.md)
+│   └── wol-arm.sh                    — lives on vault's flash; versioned here, installed by hand
+│
 ├── shared/                           — merged into every host's scripts/ by deploy.sh
 │   ├── health-report.py              — each host reports itself to #homelab-logs
 │   └── openclaw-cmd                  — the agent's forced command; installed to ~/bin
