@@ -15,8 +15,14 @@ But it turns a silent-upgrade problem into a silent-staleness problem, and today
 has anything watching for it.
 
 This generalises [forge/scripts/vaultwarden-version-check.sh](../forge/scripts/vaultwarden-version-check.sh)
-from one package to seven. It stays **entirely inside the homelab**: no repo clone on a host, no
-GitHub credential anywhere new, no dependency on the laptop being awake.
+from one package to seven. It stays **entirely inside the homelab**: no GitHub credential anywhere
+new, and no dependency on the laptop being awake.
+
+(An earlier draft claimed forge has no git clone and built an argument on it. That is wrong —
+bastion's clone is at `~/Documents/Github/homelab` and forge's at `~/Documents/Github/Homelab`, and
+bastion is the preferred deploy origin. The repo's rule is that hosts never *run* from a clone, not
+that clones do not exist. Reading live containers rather than the repo's pins is still the right
+choice, but for its own reason: it reports what is actually running, so deploy drift shows up too.)
 
 ## Version distance is not risk
 
@@ -188,7 +194,8 @@ Recorded so they are not rediscovered. Every one of these was designed in an ear
 - **No laptop dependency, no launchd, no scheduled work outside a host crontab.** The earlier
   pull-based design put the check on the laptop because it read the repo's pins; reading live
   containers removes the reason.
-- **No GitHub credential on forge, no PR automation, no branch protection, no working clone.**
+- **No GitHub credential on forge, no PR automation, no branch protection.** forge already has a
+  clone for deploying from; nothing here needs a second one, or write access to the remote.
 - **No release-note analysis for the Drift tier.** OpenClaw's p90 release body alone is ~28,700
   tokens against a 16384 ceiling. A local summary would be written from a fraction of the notes
   without saying so; the laptop is the escalation for exactly this case.
