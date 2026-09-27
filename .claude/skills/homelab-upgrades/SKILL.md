@@ -119,6 +119,34 @@ in hand — and prefer the project's own upgrade or migration guide over the cha
 backlog is more than a few releases deep. When the notes genuinely do not fit, say so and plan
 from the migration guide rather than summarising a fraction of them silently.
 
+## Host operating systems
+
+The three Ubuntu hosts are not in the table above, but they age the same way and nothing here
+manages them. `unattended-upgrades` installs **security** updates on every host and never
+reboots, so two things accumulate: ordinary package updates, and a pending kernel that only a
+reboot activates. `apt` on the host is the source of truth, never this file.
+
+Check, on each host:
+
+```bash
+apt list --upgradable 2>/dev/null | grep -c upgradable
+[[ -e /var/run/reboot-required ]] && cat /var/run/reboot-required.pkgs
+```
+
+Apply monthly, or when a reboot is pending, one host at a time:
+
+```bash
+sudo apt update && sudo apt full-upgrade && sudo apt autoremove
+sudo reboot
+```
+
+Order by blast radius: **forge** first (nothing depends on it and it reboots daily anyway), then
+**cinema** (Plex only), then **bastion** last and in a quiet window -- its reboot takes DNS and
+the vault away for about a minute, and every client pointed at AdGuard has no DNS until it is
+back. Both `sudo` calls need a password on every host, so this is done by a person, never by the
+agent. After bastion returns: `docker ps` shows its three containers up and
+`dig @192.168.0.10 vault.robbywhite.net` answers.
+
 ## Per-package detail
 
 One file per package in `packages/`, each carrying a JSON block with the machine-readable facts

@@ -34,7 +34,7 @@ say() { echo "    $*"; }
 # 600 for the power scripts too. They are invoked as `python3 <script>`, which needs
 # read and not execute, and the container runs as uid 1000 exactly as the host owner
 # does. They would need 700 to be allowlisted by resolved path under
-# tools.exec.security="allowlist" -- see .claude/skills/homelab-upgrades/packages/openclaw.md.
+# tools.exec.mode="allowlist" -- see .claude/skills/homelab-upgrades/packages/openclaw.md.
 #
 # agents/main/agent/models.json is NOT here any more. It was tracked and copied in
 # until the move to OpenClaw 2026.9: since then the agent regenerates it from
@@ -79,10 +79,12 @@ if [[ $VALIDATE -eq 1 ]]; then
     say "compose file, JSON config and scripts valid"
 
     # Skills are shared with Claude Code on the laptop, which parses frontmatter more
-    # leniently than the OpenClaw version pinned here does: 2026.3.2 supports
-    # single-line frontmatter keys only. A wrapped `description:` therefore loads on
-    # the laptop and silently fails to load on forge, which is the worst direction for
-    # this to break in -- so it is checked here, where it can still stop a deploy.
+    # leniently than OpenClaw did when this was written: 2026.3.2 supported single-line
+    # frontmatter keys only, and a wrapped `description:` loaded on the laptop while
+    # silently failing to load on forge -- the worst direction for this to break in.
+    # Newer releases parse YAML, but the check stays strict so the skill can never
+    # again load on one runtime and not the other. It runs here, where it can still
+    # stop a deploy.
     if [[ -d "$HERE/skills" ]]; then
         python3 - "$HERE/skills" <<'PYVALIDATE' || exit 1
 import glob, json, os, re, sys
@@ -105,8 +107,8 @@ for skill in sorted(glob.glob(os.path.join(root, "*", "SKILL.md"))):
             keys[k.strip()] = v.strip()
         else:
             problems.append(f"{skill}: frontmatter continues across lines "
-                            f"({line.strip()[:40]!r}); OpenClaw 2026.3.2 parses "
-                            f"single-line keys only")
+                            f"({line.strip()[:40]!r}); keep frontmatter keys on one "
+                            f"line (OpenClaw 2026.3.2 parsed nothing else)")
     for required in ("name", "description"):
         if not keys.get(required):
             problems.append(f"{skill}: frontmatter is missing {required}")

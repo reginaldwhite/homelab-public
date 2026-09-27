@@ -22,9 +22,9 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `vaultwarden` | `vaultwarden/server:1.37.3` | `127.0.0.1:8080`→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below. Loopback only: Caddy reaches it as `vaultwarden:80` on the compose network, and binding it to the LAN served the vault over plaintext HTTP |
-| `caddy` | `caddy:latest` | 80, 443 | Reverse proxy / TLS termination |
-| `adguardhome` | `adguard/adguardhome` | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
+| `vaultwarden` | `vaultwarden/server` (pinned tag) | `127.0.0.1:8080`→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below. Loopback only: Caddy reaches it as `vaultwarden:80` on the compose network, and binding it to the LAN served the vault over plaintext HTTP |
+| `caddy` | `caddy` (pinned tag) | 80, 443 | Reverse proxy / TLS termination. Bump from `.claude/skills/homelab-upgrades/packages/caddy.md` |
+| `adguardhome` | `adguard/adguardhome` (pinned tag) | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
 
 > **Most clients never reach AdGuard.** The BGW320-500 advertises *itself* as the DNS server
 > over DHCP and resolves publicly rather than forwarding to AdGuard, so only hosts with DNS set
@@ -397,10 +397,10 @@ went down, and log `ERROR` in `~/logs/power.log` on bastion when it didn't.
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `ollama` | `ollama/ollama:latest` | 11434 | Local LLM inference, GPU-accelerated. One model resident at a time, held indefinitely (see below) |
-| `model-loader` | `ollama/ollama:latest` | — | One-shot init: pulls the models below, then pre-loads `gpt-oss:20b` into VRAM. Exits non-zero if any step fails |
-| `openclaw` | `ghcr.io/openclaw/openclaw:latest` | 18789, 18791 | AI agent gateway with Slack integration and Brave search |
-| `open-webui` | `ghcr.io/open-webui/open-webui:main` | 8080 | Web UI for Ollama models |
+| `ollama` | `ollama/ollama` (pinned tag) | 11434 | Local LLM inference, GPU-accelerated. One model resident at a time, held indefinitely (see below) |
+| `model-loader` | `ollama/ollama` (pinned tag) | — | One-shot init: pulls the models below, then pre-loads `gpt-oss:20b` into VRAM. Exits non-zero if any step fails |
+| `openclaw` | `ghcr.io/openclaw/openclaw` (pinned tag) | 18789, 18791 | AI agent gateway with Slack integration. Upgrade from `.claude/skills/homelab-upgrades/packages/openclaw.md` |
+| `open-webui` | `ghcr.io/open-webui/open-webui` (pinned tag) | 8080 | Web UI for Ollama models |
 
 **Models pulled by `model-loader`:**
 
@@ -502,8 +502,7 @@ comes from `OPENCLAW_GATEWAY_TOKEN` in `forge/.env`, passed through by
 It carried a literal token until 2026-09-26 — committed since the initial commit, and therefore
 present in every clone, on the laptop of anyone who cloned it, and inside `forge/Documents/` on
 `vault`. That matters more here than it would for most secrets, because the gateway binds to the
-LAN (`--bind lan`, ports 18789/18791) and runs with `tools.exec.security: "full"` and
-`ask: "off"` — so the token is unprompted remote code execution in a container that also holds
+LAN (`--bind lan`, ports 18789/18791) and runs with `tools.exec.mode: "full"` — so the token is unprompted remote code execution in a container that also holds
 the agent's cross-host SSH key.
 
 **OpenClaw rewrites this file at runtime** (see `meta.lastTouchedAt`), so if it ever regenerates

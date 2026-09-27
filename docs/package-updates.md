@@ -1,10 +1,10 @@
 # Keeping the homelab current: two tiers, one script on forge
 
-> **Status (2026-09-26): phase 1 partly built.** The skill exists at
+> **Status (2026-09-26): phase 1 built and deployed.** The skill exists at
 > [.claude/skills/homelab-upgrades/](../.claude/skills/homelab-upgrades/) — `SKILL.md` and seven
-> package runbooks. Still to do in phase 1: the `deploy.sh` addition that pushes `.claude/skills/`
-> to a host, and the `apply.sh` entries that install it into forge's state dir and validate it.
-> Phases 2–4 are unbuilt.
+> package runbooks; `deploy.sh` pushes it to forge and `forge/apply.sh` installs it into the agent's
+> state dir and validates it on every deploy. It has already driven one OpenClaw, one Caddy and one
+> AdGuard upgrade by hand. Phases 2–4 are unbuilt and, with the skill in use, optional.
 >
 > This supersedes four earlier drafts of this document, all of which sorted packages by how far
 > behind they were. That was the wrong measure — see below.

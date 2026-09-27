@@ -185,6 +185,12 @@ NOISE=(
     # `sudo -n` probing without a password. A wrong password logs "incorrect password
     # attempts" instead, and that still gets through.
     ' sudo\[[0-9]+\]: +robby : a password is required ; '
+    # fwupd's metadata-refresh timer fails on forge whenever LVFS is unreachable at that
+    # moment; nothing here installs firmware through it
+    ' systemd\[[0-9]+\]: Failed to start fwupd-refresh\.service - Refresh fwupd metadata and update motd\.$'
+    # cinema's iGPU drives an HDMI bridge (LSPCON) that is still asleep on every resume;
+    # the link recovers by itself and nothing is watching that output
+    ' kernel: i915 0000:00:02\.0: \[drm\] \*ERROR\* (LSPCON |DPCD |Failed to write infoframes)'
 )
 
 # journalctl, minus NOISE. Captured first so a failing journalctl still reports CHECK FAILED,

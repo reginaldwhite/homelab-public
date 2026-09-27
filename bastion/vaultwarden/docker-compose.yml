@@ -57,6 +57,11 @@ services:
     container_name: adguardhome
     restart: unless-stopped
     network_mode: "host"
+    # Required to serve DHCP from inside a container. Step 2 of
+    # ../adguard-dhcp-runbook.md; on its own it changes nothing, DHCP is still off in
+    # AdGuard's config until step 3.
+    cap_add:
+      - NET_ADMIN
     volumes:
       - /home/robby/vaultwarden/agh-work:/opt/adguardhome/work
       - /home/robby/vaultwarden/agh-conf:/opt/adguardhome/conf
