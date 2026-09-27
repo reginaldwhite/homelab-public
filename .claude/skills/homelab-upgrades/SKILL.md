@@ -133,17 +133,19 @@ apt list --upgradable 2>/dev/null | grep -c upgradable
 [[ -e /var/run/reboot-required ]] && cat /var/run/reboot-required.pkgs
 ```
 
-Apply monthly, or when a reboot is pending, one host at a time:
+Apply monthly, or when a reboot is pending, one host at a time, with the script every host
+carries (it re-runs itself under `sudo`, logs to `~/logs/os-update.log`, and asks before
+rebooting; `--dry-run` shows what it would do):
 
 ```bash
-sudo apt update && sudo apt full-upgrade && sudo apt autoremove
-sudo reboot
+/home/robby/homelab-deployed/<host>/scripts/os-update.sh --dry-run
+/home/robby/homelab-deployed/<host>/scripts/os-update.sh
 ```
 
 Order by blast radius: **forge** first (nothing depends on it and it reboots daily anyway), then
 **cinema** (Plex only), then **bastion** last and in a quiet window -- its reboot takes DNS and
 the vault away for about a minute, and every client pointed at AdGuard has no DNS until it is
-back. Both `sudo` calls need a password on every host, so this is done by a person, never by the
+back. The script needs a password on every host, so this is done by a person, never by the
 agent. After bastion returns: `docker ps` shows its three containers up and
 `dig @192.168.0.10 vault.robbywhite.net` answers.
 
