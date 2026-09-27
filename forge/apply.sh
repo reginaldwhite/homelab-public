@@ -21,12 +21,25 @@ OPENCLAW_CMD="/home/robby/bin/openclaw-cmd"
 
 say() { echo "    $*"; }
 
-# Config files that deploy owns, as "source:destination-under-$STATE".
+# Config files that deploy owns, as "source:destination-under-$STATE:mode".
+#
+# The mode is explicit because the source mode is not usable: git tracks only the
+# executable bit, so every one of these is 644 on checkout, and this used to copy
+# with `cp -p` -- which preserves the SOURCE mode and therefore reset openclaw.json
+# to 664 on every deploy. A `chmod 600` done by hand on the host survived exactly
+# until the next deploy, silently. `openclaw security audit` rates a
+# group-writable openclaw.json critical, and rightly: it sets the gateway auth and
+# tool policy, so anyone who can write it can re-enable the tools denied in it.
+#
+# 600 for the power scripts too. They are invoked as `python3 <script>`, which needs
+# read and not execute, and the container runs as uid 1000 exactly as the host owner
+# does. They would need 700 to be allowlisted by resolved path under
+# tools.exec.security="allowlist" -- see .claude/skills/homelab-upgrades/packages/openclaw.md.
 CONFIG=(
-    "openclaw/openclaw.json:openclaw.json"
-    "openclaw/models.json:agents/main/agent/models.json"
-    "openclaw/scripts/forge-power.py:scripts/forge-power.py"
-    "openclaw/scripts/plex-power.py:scripts/plex-power.py"
+    "openclaw/openclaw.json:openclaw.json:600"
+    "openclaw/models.json:agents/main/agent/models.json:600"
+    "openclaw/scripts/forge-power.py:scripts/forge-power.py:600"
+    "openclaw/scripts/plex-power.py:scripts/plex-power.py:600"
 )
 
 # A just-woken host accepts SSH before dockerd is ready, and --validate runs
@@ -120,8 +133,14 @@ PYVALIDATE
 
     # OpenClaw reads its config at startup, so a changed file means a restart.
     for pair in "${CONFIG[@]}"; do
-        src="$HERE/${pair%%:*}" dst="$STATE/${pair##*:}"
-        cmp -s "$src" "$dst" || say "openclaw config differs: ${pair##*:} (agent will be restarted)"
+        IFS=: read -r rel dstrel mode <<<"$pair"
+        src="$HERE/$rel" dst="$STATE/$dstrel"
+        cmp -s "$src" "$dst" || say "openclaw config differs: $dstrel (agent will be restarted)"
+        # A mode drift is worth reporting on its own: the content can match while the
+        # permissions are wrong, which is exactly how the hand-fixed 600 came back as 664.
+        if [[ -e "$dst" && "$(stat -c %a "$dst" 2>/dev/null)" != "$mode" ]]; then
+            say "openclaw config mode differs: $dstrel is $(stat -c %a "$dst"), want $mode"
+        fi
     done
     if [[ -d "$HERE/skills" ]]; then
         for skill_dir in "$HERE/skills"/*/; do
@@ -158,12 +177,18 @@ wait_for_docker || exit 1
 # Copy config in; never delete. Track whether the agent needs a restart.
 openclaw_changed=0
 for pair in "${CONFIG[@]}"; do
-    src="$HERE/${pair%%:*}" dst="$STATE/${pair##*:}"
+    IFS=: read -r rel dstrel mode <<<"$pair"
+    src="$HERE/$rel" dst="$STATE/$dstrel"
     if ! cmp -s "$src" "$dst"; then
         mkdir -p "$(dirname "$dst")"
-        cp -p "$src" "$dst"
-        say "updated ${pair##*:}"
+        install -m "$mode" "$src" "$dst"
+        say "updated $dstrel (mode $mode)"
         openclaw_changed=1
+    elif [[ "$(stat -c %a "$dst" 2>/dev/null)" != "$mode" ]]; then
+        # Content already matches, so this is a permission-only repair. It needs no
+        # restart: the agent re-reads nothing, and the file it reads has not changed.
+        chmod "$mode" "$dst"
+        say "corrected mode on $dstrel to $mode"
     fi
 done
 [[ $openclaw_changed -eq 0 ]] && say "openclaw config unchanged"
