@@ -55,7 +55,8 @@ WINDOW = {            # local time, America/Chicago
     "weekend": ("07:00", "21:30"),  # Fri and Sat nights end at 21:30
 }
 KIDS = [              # AdGuard persistent-client names, one per device (step 1)
-    "kid-pc", "kid-chromebook", "kid-roku", "kid-ipad-mini", "kid-ipad", "kid-phone-1", "kid-phone-2",
+    "kid-pc", "kid-chromebook", "kid-roku", "kid-ipad", "kid-phone-finn",
+    # still to identify and add: the iPad mini and the second phone (among .104/.120/.122/.125)
 ]
 ```
 
@@ -77,6 +78,22 @@ copied rather than remembered.
 - The agent can do the client and lease entries through AdGuard's API once bastion's `.env`
   holds `ADGUARD_USER` / `ADGUARD_PASSWORD` (the same admin login as the UI; the file is 600
   and never leaves the host). **[you]** to put them there.
+
+> **Step 1 progress, 2026-09-27 17:30:** five devices done through the API — static lease and
+> persistent client (tag `user_child`, safe search on for every engine including YouTube
+> restricted mode; say if that last one is unwanted):
+>
+> | Client | MAC | Static IP | Was |
+> |---|---|---|---|
+> | kid-pc | `c8:60:00:2b:90:6f` | .150 | .124 mainpcworkstation |
+> | kid-chromebook | `bc:d2:2c:87:d4:b5` | .151 | .126 |
+> | kid-roku | `d4:ab:cd:57:dd:cc` | .152 | .119 playroom |
+> | kid-ipad | `1c:0d:7d:17:08:fa` | .153 | .121 robbys-ipad |
+> | kid-phone-finn | `f6:99:f3:7b:b5:f7` | .154 | .106 iphone (Private Address already Fixed) |
+>
+> Each device moves to its static address at its next DHCP renewal (or reconnect) without
+> dropping. Still to identify: the iPad mini and the second phone, candidates `.104`, `.120`,
+> `.122`, `.125`; they get `.155` and `.156`.
 
 **2. AdGuard, always-on part [agent].** For every `user_child` client: SafeSearch on, and a
 blocked-services list that applies at all hours — the agent proposes one from what the
