@@ -86,7 +86,10 @@
     },
     "deny": [
       "group:web",
-      "browser"
+      "browser",
+      "automations",
+      "gateway",
+      "plugins"
     ],
     "elevated": {
       "enabled": false
@@ -106,18 +109,40 @@
       "webhookPath": "/slack/events",
       "enabled": true,
       "userTokenReadOnly": true,
-      "groupPolicy": "open",
       "streaming": {
         "mode": "partial",
         "nativeTransport": false
       },
-      "replyToMode": "off"
+      "replyToMode": "off",
+      "groupPolicy": "allowlist",
+      "channels": {
+        "C0C3XSNE71T": {
+          "enabled": true,
+          "requireMention": false,
+          "users": [
+            "U01E91JBPPG"
+          ]
+        },
+        "C0C3MAXLSRK": {
+          "enabled": true,
+          "requireMention": false,
+          "users": [
+            "U01E91JBPPG"
+          ]
+        }
+      },
+      "dmPolicy": "allowlist",
+      "allowFrom": [
+        "U01E91JBPPG"
+      ]
     }
   },
   "gateway": {
     "mode": "local",
     "controlUi": {
-      "dangerouslyAllowHostHeaderOriginFallback": true
+      "allowedOrigins": [
+        "http://192.168.0.12:18789"
+      ]
     },
     "auth": {
       "mode": "token"
@@ -253,6 +278,48 @@
         "enabled": false
       },
       "xurl": {
+        "enabled": false
+      },
+      "clawhub": {
+        "enabled": false
+      },
+      "control-ui": {
+        "enabled": false
+      },
+      "skill-creator": {
+        "enabled": false
+      },
+      "node-connect": {
+        "enabled": false
+      },
+      "node-inspect-debugger": {
+        "enabled": false
+      },
+      "python-debugpy": {
+        "enabled": false
+      },
+      "spike": {
+        "enabled": false
+      },
+      "taskflow": {
+        "enabled": false
+      },
+      "taskflow-inbox-triage": {
+        "enabled": false
+      },
+      "notion": {
+        "enabled": false
+      },
+      "weather": {
+        "enabled": false
+      },
+      "meme-maker": {
+        "enabled": false
+      },
+      "diagram-maker": {
+        "enabled": false
+      },
+      "visualize": {
         "enabled": false
       }
     }
