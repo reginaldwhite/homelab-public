@@ -80,8 +80,9 @@ copied rather than remembered.
   and never leaves the host). **[you]** to put them there.
 
 > **Step 1 progress, 2026-09-27 17:30:** five devices done through the API — static lease and
-> persistent client (tag `user_child`, safe search on for every engine including YouTube
-> restricted mode; say if that last one is unwanted):
+> persistent client (tag `user_child`, safe search on for every engine, YouTube restricted mode
+> **off** by decision, and AdGuard's **parental control** (adult-content filter) on — per client,
+> so the adults' devices are untouched):
 >
 > | Client | MAC | Static IP | Was |
 > |---|---|---|---|
