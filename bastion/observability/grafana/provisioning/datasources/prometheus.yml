@@ -1,0 +1,14 @@
+# Grafana data sources, provisioned from the repo. The uid is fixed so the dashboard JSON in
+# ../dashboards can reference it by name rather than by whatever Grafana would generate.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s

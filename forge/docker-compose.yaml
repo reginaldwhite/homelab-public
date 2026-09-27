@@ -161,6 +161,40 @@ services:
     networks:
       - ai-network
 
+  # --- observability exporters (docs/plan-observability.md) -------------------------------
+  # Host network so they see the real interfaces and cgroups and so a host firewall applies
+  # to them; Prometheus on bastion scrapes 9100 and 9200. Same two services on every host.
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=:9100
+    volumes:
+      - /:/host:ro,rslave
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: cadvisor
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --port=9200
+      - --housekeeping_interval=30s
+      - --docker_only=true
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+
 volumes:
   ollama_data:
   openwebui_data:

@@ -1,0 +1,116 @@
+# Observability stack on bastion: Prometheus, Grafana, blackbox, node exporter, cAdvisor.
+# Deployed by ../apply.sh from /home/robby/homelab-deployed/bastion/observability; validated
+# (compose config, promtool, blackbox --config.check, dashboard JSON) before anything applies.
+# Design and phasing: docs/plan-observability.md.
+#
+# Two networking rules, both deliberate:
+#   * Prometheus, Grafana and blackbox join the vaultwarden stack's network rather than their
+#     own, so Caddy can reverse-proxy Grafana by service name and nothing here publishes a
+#     port on the LAN. Prometheus and Grafana are reachable only from other containers on
+#     that network -- Caddy, and later the Loki/Postgres services.
+#   * node exporter and cAdvisor run in host network mode, because that is how they see the
+#     host's interfaces and cgroups, and because a host firewall then applies to them (Docker's
+#     own port publishing bypasses ufw). Same shape on forge and cinema, same ports.
+#
+# Pinned tags, like everything else here. Bump from the runbooks in
+# .claude/skills/homelab-upgrades/packages/.
+name: observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=90d
+      - --storage.tsdb.retention.size=8GB
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    networks:
+      - vaultwarden_default
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: blackbox
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+    # ICMP needs a raw socket; the image drops everything else.
+    cap_add:
+      - NET_RAW
+    # Resolve through AdGuard, not Docker's fallback resolver: the vault probe must see the
+    # LAN rewrite, exactly as a phone on the WiFi does.
+    dns:
+      - 192.168.0.10
+    networks:
+      - vaultwarden_default
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=robby
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SERVER_ROOT_URL=https://grafana.robbywhite.net
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+      - GF_NEWS_NEWS_FEED_ENABLED=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/node-exporter-full.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - vaultwarden_default
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/textfile
+      - --web.listen-address=:9100
+    volumes:
+      - /:/host:ro,rslave
+      # Where bastion's own scripts drop their .prom files (job outcomes, expected-up, AdGuard
+      # stats). Created by apply.sh; read-only from here.
+      - /home/robby/observability/textfile:/textfile:ro
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: cadvisor
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --port=9200
+      - --housekeeping_interval=30s
+      - --docker_only=true
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  vaultwarden_default:
+    external: true

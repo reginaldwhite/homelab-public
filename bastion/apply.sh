@@ -12,6 +12,14 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STACK_DIR="$HERE/vaultwarden"
+# The observability stack (docs/plan-observability.md): its own compose project, joining the
+# vaultwarden network. Its variables come from this host's .env, which lives beside apply.sh
+# in the deployed copy and is absent from staging -- so validation tolerates a missing file
+# (compose then warns about unset variables, which is fine) and apply insists on it.
+OBS_DIR="$HERE/observability"
+OBS_ENV="$HERE/.env"
+# Where bastion's scripts drop .prom files for node exporter's textfile collector.
+TEXTFILE_DIR="/home/robby/observability/textfile"
 VW_DATA="/home/robby/vaultwarden/vw-data"
 VW_BACKUPS="/home/robby/vw-backups"
 
@@ -56,6 +64,27 @@ if [[ $VALIDATE -eq 1 ]]; then
     # script whose breakage locks the agent out rather than just failing a job.
     if [[ -e "$HERE/scripts/openclaw-cmd" ]]; then bash -n "$HERE/scripts/openclaw-cmd"; fi
     say "compose file, Caddyfile and scripts valid"
+
+    # Observability: compose config, then each config file against the exact image that will
+    # read it, so a typo in prometheus.yml or blackbox.yml stops the deploy here rather than
+    # crash-looping a container on the vault host.
+    if [[ -d "$OBS_DIR" ]]; then
+        obs_env=(); [[ -f "$OBS_ENV" ]] && obs_env=(--env-file "$OBS_ENV")
+        docker compose "${obs_env[@]}" -f "$OBS_DIR/docker-compose.yml" config --quiet
+        prom_image=$(docker compose "${obs_env[@]}" -f "$OBS_DIR/docker-compose.yml" config --images | grep '^prom/prometheus' | head -1)
+        bb_image=$(docker compose "${obs_env[@]}" -f "$OBS_DIR/docker-compose.yml" config --images | grep '^prom/blackbox' | head -1)
+        if ! out=$(docker run --rm -v "$OBS_DIR/prometheus:/etc/prometheus:ro" --entrypoint promtool \
+                "$prom_image" check config /etc/prometheus/prometheus.yml 2>&1); then
+            echo "prometheus.yml failed validation:" >&2; echo "$out" >&2; exit 1
+        fi
+        if ! out=$(docker run --rm -v "$OBS_DIR/blackbox:/etc/blackbox:ro" \
+                "$bb_image" --config.file=/etc/blackbox/blackbox.yml --config.check 2>&1); then
+            echo "blackbox.yml failed validation:" >&2; echo "$out" >&2; exit 1
+        fi
+        python3 -c "import json,sys; [json.load(open(f)) for f in sys.argv[1:]]" \
+            "$OBS_DIR"/grafana/dashboards/*.json
+        say "observability: compose, prometheus.yml, blackbox.yml and $(ls "$OBS_DIR"/grafana/dashboards/*.json | wc -l | tr -d ' ') dashboards valid"
+    fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
     crontab -l 2>/dev/null | diff -u --label installed --label repo - "$HERE/crontab" \
@@ -102,3 +131,17 @@ say "caddy config reloaded"
 
 docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
 [[ "$have_vw" != "$want_vw" ]] && docker logs vaultwarden 2>&1 | grep -m1 -i 'version' || true
+
+# --- observability ----------------------------------------------------------------------
+if [[ -d "$OBS_DIR" ]]; then
+    if [[ ! -f "$OBS_ENV" ]] || ! grep -qE '^GRAFANA_ADMIN_PASSWORD=.+' "$OBS_ENV"; then
+        echo "observability: GRAFANA_ADMIN_PASSWORD is not set in $OBS_ENV; not starting the stack" >&2
+        echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
+        exit 1
+    fi
+    mkdir -p "$TEXTFILE_DIR"
+    cd "$OBS_DIR"
+    docker compose --env-file "$OBS_ENV" up -d
+    docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
+    cd "$STACK_DIR"
+fi

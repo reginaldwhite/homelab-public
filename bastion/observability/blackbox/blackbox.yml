@@ -1,0 +1,31 @@
+# blackbox exporter modules. Referenced by name from prometheus/prometheus.yml.
+modules:
+  # A client's view of an HTTPS service: status 200, TLS valid, IPv4 only (the LAN has no
+  # routed IPv6). probe_ssl_earliest_cert_expiry comes out of this one for free.
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_not_ssl: true
+
+  # Ask AdGuard for the vault's name and insist on the LAN answer. Anything else means the
+  # rewrite is gone and clients are hairpinning through the router again.
+  dns_vault_rewrite:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: vault.robbywhite.net
+      query_type: A
+      preferred_ip_protocol: ip4
+      validate_answer_rrs:
+        fail_if_not_matches_regexp:
+          - 'vault\.robbywhite\.net\.\t.*\tIN\tA\t192\.168\.0\.10'
+
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4

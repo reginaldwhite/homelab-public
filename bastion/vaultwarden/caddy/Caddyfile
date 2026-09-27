@@ -31,3 +31,17 @@ dns.robbywhite.net {
         abort
     }
 }
+
+# Grafana, LAN-only, same guard as the AdGuard page above. Grafana runs in the observability
+# compose project but joins this stack's network, so it is reached by service name and never
+# publishes a port. AdGuard rewrites the name to 192.168.0.10; there is no public record.
+grafana.robbywhite.net {
+    tls internal
+    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
+    handle @lan {
+        reverse_proxy grafana:3000
+    }
+    handle {
+        abort
+    }
+}

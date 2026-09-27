@@ -1,0 +1,106 @@
+# Prometheus on bastion. Deployed by ../../apply.sh; validated with `promtool check config`
+# before anything is applied. See docs/plan-observability.md.
+#
+# Every target is a static address, on purpose: the fleet is four machines with fixed IPs and
+# the point of the `host` label is that it matches the names used everywhere else in this
+# repo (bastion, forge, cinema, vault), not the hostnames the machines call themselves.
+#
+# forge and cinema sleep by design. A target that is down is not an alert by itself; the alert
+# rules (phase 3) combine `up` with `homelab_host_expected_up`, which bastion's own wake and
+# sleep scripts set via the textfile collector.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels: { host: bastion }
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels: { host: bastion }
+
+  # Host metrics. node exporter runs in host network mode on every host, port 9100, with the
+  # textfile collector reading /home/robby/observability/textfile on bastion.
+  - job_name: node
+    static_configs:
+      - targets: ["192.168.0.10:9100"]
+        labels: { host: bastion }
+      - targets: ["192.168.0.12:9100"]
+        labels: { host: forge }
+      - targets: ["192.168.0.13:9100"]
+        labels: { host: cinema }
+
+  # Container metrics. cAdvisor on 9200 everywhere -- 8080 is open-webui's on forge.
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["192.168.0.10:9200"]
+        labels: { host: bastion }
+      - targets: ["192.168.0.12:9200"]
+        labels: { host: forge }
+      - targets: ["192.168.0.13:9200"]
+        labels: { host: cinema }
+
+  # --- blackbox probes: the view from outside a service --------------------------------
+  # The vault, as a client sees it. bastion resolves vault.robbywhite.net to itself (AdGuard
+  # rewrite) so this hits Caddy locally, but the certificate is the real Let's Encrypt one,
+  # which is what probe_ssl_earliest_cert_expiry reads.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    static_configs:
+      - targets: ["https://vault.robbywhite.net/alive"]
+        labels: { host: bastion, service: vault }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # AdGuard answering, and answering correctly: the rewrite for the vault must return
+  # bastion's LAN address, or every phone in the house is back to hairpinning.
+  - job_name: blackbox-dns
+    metrics_path: /probe
+    params: { module: [dns_vault_rewrite] }
+    static_configs:
+      - targets: ["192.168.0.10:53"]
+        labels: { host: bastion, service: adguard }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Reachability of every machine, including the router and vault. vault is off except in its
+  # Sunday window; forge and cinema sleep. Down is data here, not an alert.
+  - job_name: blackbox-icmp
+    metrics_path: /probe
+    params: { module: [icmp] }
+    static_configs:
+      - targets: ["192.168.0.1"]
+        labels: { host: router }
+      - targets: ["192.168.0.10"]
+        labels: { host: bastion }
+      - targets: ["192.168.0.12"]
+        labels: { host: forge }
+      - targets: ["192.168.0.13"]
+        labels: { host: cinema }
+      - targets: ["192.168.0.212"]
+        labels: { host: vault }
+      - targets: ["192.168.0.2"]
+        labels: { host: access-point }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
