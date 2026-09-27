@@ -26,7 +26,11 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 | `caddy` | `caddy` (pinned tag) | 80, 443 | Reverse proxy / TLS termination. Bump from `.claude/skills/homelab-upgrades/packages/caddy.md` |
 | `adguardhome` | `adguard/adguardhome` (pinned tag) | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
 
-> **Most clients never reach AdGuard.** The BGW320-500 advertises *itself* as the DNS server
+> **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
+> client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that
+> and why it mattered; the runbook records how it was done.
+>
+> **Until then, most clients never reached AdGuard.** The BGW320-500 advertises *itself* as the DNS server
 > over DHCP and resolves publicly rather than forwarding to AdGuard, so only hosts with DNS set
 > statically to `192.168.0.10` (forge) are filtered.
 >

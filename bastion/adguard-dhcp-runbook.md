@@ -1,7 +1,17 @@
 # Moving DHCP to AdGuard Home
 
 Plan for making AdGuard the LAN's DHCP server so every client is told to use it for DNS.
-**Not yet executed.** Nothing in this document has been applied.
+**Executed 2026-09-27.** Two of the assumptions below turned out wrong on the day, and the
+outcome is recorded in [docs/plan-2026-09-27.md](../docs/plan-2026-09-27.md) section 2:
+
+- The BGW320-500 **does** have a *DHCP Server Enable* toggle on Subnets & DHCP. Starving the pool
+  was tried first and lost races to the router, so the router's DHCP is now **off** and AdGuard is
+  the only server.
+- WiFi is served by a TP-Link EAP772 access point at `192.168.0.2`. Restarting the router does not
+  make WiFi clients re-lease; rebooting the AP does.
+- AdGuard's DHCPv6 side starts whenever the config carries a `range_start`, and the UI refuses to
+  save that field empty. It was cleared in the YAML and the container restarted. Saving the DHCP
+  settings page in the UI again will put it back.
 
 ## Why
 
