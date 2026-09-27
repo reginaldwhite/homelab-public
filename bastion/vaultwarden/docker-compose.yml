@@ -34,9 +34,10 @@ services:
     # this is what terminates TLS for the vault. `:latest` only moves when something
     # runs `docker compose pull`, which nothing does on a schedule — so the tag says
     # "latest" while the binary quietly ages, exactly how Vaultwarden sat on 1.35.3
-    # for seven months. This is the version that was already running when it was
-    # pinned, so pinning changed nothing; upgrading is now a deliberate edit.
-    image: caddy:2.10.2
+    # for seven months. Bump by hand from the runbook at
+    # .claude/skills/homelab-upgrades/packages/caddy.md; apply.sh validates the
+    # Caddyfile against the NEW image before anything is applied.
+    image: caddy:2.11.4
     container_name: caddy
     restart: unless-stopped
     ports:
