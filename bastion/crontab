@@ -18,6 +18,10 @@
 # it has stopped, and silence is not an alert.
 0 9 * * * /home/robby/homelab-deployed/bastion/scripts/digest-watchdog.py
 
+# Nightly copies of the events database and Grafana's own database into ~/backups, ahead of
+# the Sunday push. Prometheus and Loki data are history, not state, and are not copied.
+30 1 * * * /home/robby/homelab-deployed/bastion/scripts/backup-observability.sh
+
 # AdGuard's numbers for Prometheus every minute (totals, blocked, latency, top clients) and
 # its client table into the events database every five, for the Network dashboard.
 * * * * * /home/robby/homelab-deployed/bastion/scripts/adguard-stats.py --stats

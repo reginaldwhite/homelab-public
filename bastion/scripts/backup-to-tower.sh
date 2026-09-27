@@ -165,6 +165,20 @@ if [[ -d "$VW_BACKUPS" ]]; then
         "$TOWER_DEST/vaultwarden-pre-upgrade/" >> "$LOG" 2>&1 || EXIT=$?
 fi
 
+# The observability stack's nightly copies (events database dumps, Grafana's volume) and
+# bastion's own logs -- the IoT and job history lives in both. Mirrored, so the 14-day
+# rotation in ~/backups carries across; the logs are append-only and small.
+if [[ -d /home/robby/backups ]]; then
+    rsync -az --delete --mkpath \
+        -e "$VAULT_RSYNC_SSH" \
+        /home/robby/backups/ \
+        "$TOWER_DEST/bastion-backups/" >> "$LOG" 2>&1 || EXIT=$?
+fi
+rsync -az --mkpath \
+    -e "$VAULT_RSYNC_SSH" \
+    /home/robby/logs/ \
+    "$TOWER_DEST/bastion-logs/" >> "$LOG" 2>&1 || EXIT=$?
+
 # Note: forge (7700k) data is synced directly to tower by sync-forge.sh at 3:00am
 
 record_job backup-to-tower "$EXIT"
