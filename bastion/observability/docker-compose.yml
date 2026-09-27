@@ -130,6 +130,9 @@ services:
       - /run/log/journal:/run/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
       - alloy_data:/var/lib/alloy/data
+      # AdGuard's query log, for the adguard-querylog source in config.alloy. Root-owned on
+      # the host; Alloy runs as root in its container and the mount is read-only.
+      - /home/robby/vaultwarden/agh-work/data:/adguard:ro
     networks:
       - vaultwarden_default
 

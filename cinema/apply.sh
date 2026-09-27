@@ -88,4 +88,15 @@ fi
 wait_for_docker || exit 1
 
 docker compose up -d
+# Alloy's config is a bind mount, which `up -d` does not watch. Restart it when the shared
+# file's content changed since the last apply (bastion does the same for its whole stack).
+if [[ -e "$HERE/scripts/alloy/config.alloy" ]] && docker inspect alloy >/dev/null 2>&1; then
+    applied="/home/robby/.alloy-config.sha256"
+    now=$(sha256sum "$HERE/scripts/alloy/config.alloy" | cut -c1-64)
+    if [[ "$(cat "$applied" 2>/dev/null)" != "$now" ]]; then
+        docker compose restart alloy >/dev/null && say "alloy restarted for new config"
+        echo "$now" > "$applied"
+    fi
+fi
+
 docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'

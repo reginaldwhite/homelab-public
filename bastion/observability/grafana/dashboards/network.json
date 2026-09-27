@@ -18,7 +18,44 @@
   "list": []
  },
  "templating": {
-  "list": []
+  "list": [
+   {
+    "name": "client",
+    "type": "query",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "label": "client IP",
+    "query": {
+     "label": "client",
+     "refId": "LokiVariableQueryEditor-VariableQuery",
+     "stream": "{job=\"adguard-querylog\"}",
+     "type": 1
+    },
+    "definition": "label_values({job=\"adguard-querylog\"}, client)",
+    "includeAll": true,
+    "multi": true,
+    "current": {
+     "text": "All",
+     "value": [
+      "$__all"
+     ]
+    },
+    "refresh": 1,
+    "sort": 1
+   },
+   {
+    "name": "domain",
+    "type": "textbox",
+    "label": "domain contains",
+    "query": "",
+    "current": {
+     "text": "",
+     "value": ""
+    }
+   }
+  ]
  },
  "panels": [
   {
@@ -564,6 +601,140 @@
      }
     },
     "overrides": []
+   }
+  },
+  {
+   "id": 30,
+   "type": "row",
+   "title": "DNS lookups (AdGuard query log via Loki, 30 days)",
+   "gridPos": {
+    "x": 0,
+    "y": 32,
+    "w": 24,
+    "h": 1
+   },
+   "collapsed": false,
+   "panels": []
+  },
+  {
+   "id": 31,
+   "type": "timeseries",
+   "title": "Lookups per client, per 5 min",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 33,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum by (client) (count_over_time({job=\"adguard-querylog\", client=~\"$client\"} |~ \"(?i)$domain\" [5m]))",
+     "legendFormat": "{{client}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "right"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 32,
+   "type": "timeseries",
+   "title": "Blocked per client, per 5 min",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 33,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum by (client) (count_over_time({job=\"adguard-querylog\", client=~\"$client\", filtered=\"true\"} |~ \"(?i)$domain\" [5m]))",
+     "legendFormat": "{{client}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 60
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "right"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 33,
+   "type": "logs",
+   "title": "Lookups",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 41,
+    "w": 24,
+    "h": 12
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "{job=\"adguard-querylog\", client=~\"$client\"} |~ \"(?i)$domain\""
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": false,
+    "sortOrder": "Descending",
+    "dedupStrategy": "none",
+    "enableLogDetails": true
    }
   }
  ]
