@@ -2,7 +2,7 @@
 # os-update.sh — apply Ubuntu package updates on this host and reboot if the kernel asks.
 #
 #   os-update.sh              update, upgrade, autoremove; then reboot if required (asks first)
-#   os-update.sh --dry-run    show what would be upgraded and whether a reboot is pending
+#   os-update.sh --dry-run    show what would be upgraded and whether a reboot is pending (no sudo)
 #   os-update.sh --no-reboot  upgrade but never reboot, even if one is required
 #   os-update.sh --yes        do not ask before rebooting
 #
@@ -32,6 +32,24 @@ for arg in "$@"; do
     esac
 done
 
+host=$(hostname)
+kernel_now=$(uname -r)
+kernel_newest=$(ls /boot/vmlinuz-* 2>/dev/null | sort -V | tail -1 | sed 's|.*/vmlinuz-||')
+
+# The dry run needs no privilege and asks for none, so the agent's health checks and a
+# quick look from the laptop can use it. It reads the package lists as they are --
+# unattended-upgrades refreshes them daily -- rather than running apt-get update.
+if [[ $DRY -eq 1 ]]; then
+    pending=$(apt list --upgradable 2>/dev/null | grep -c upgradable)
+    echo "== $host: $pending package(s) upgradable (lists as last refreshed)"
+    apt-get -s full-upgrade 2>/dev/null | grep -E '^(Inst|Remv)' | awk '{print "   " $1, $2, $3}'
+    [[ -e /var/run/reboot-required ]] \
+        && echo "== reboot already pending: $(tr '\n' ' ' < /var/run/reboot-required.pkgs 2>/dev/null)" \
+        || echo "== no reboot pending"
+    echo "== kernel running $kernel_now, newest installed $kernel_newest"
+    exit 0
+fi
+
 # Re-run under sudo, so `os-update.sh` from a normal shell prompts once for the password.
 if [[ $EUID -ne 0 ]]; then
     exec sudo -- "$0" "$@"
@@ -43,25 +61,9 @@ mkdir -p "$(dirname "$LOG")"
 touch "$LOG" && chown "$OWNER":"$OWNER" "$LOG" 2>/dev/null
 log() { echo "$(date -Iseconds) [os-update] $*" | tee -a "$LOG"; }
 
-host=$(hostname)
 export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
-
-# What is pending, before touching anything.
 apt-get update -qq 2>&1 | tail -3
 pending=$(apt list --upgradable 2>/dev/null | grep -c upgradable)
-kernel_now=$(uname -r)
-kernel_newest=$(ls /boot/vmlinuz-* 2>/dev/null | sort -V | tail -1 | sed 's|.*/vmlinuz-||')
-
-if [[ $DRY -eq 1 ]]; then
-    echo "== $host: $pending package(s) upgradable"
-    apt-get -s full-upgrade 2>/dev/null | grep -E '^(Inst|Remv)' | awk '{print "   " $1, $2, $3}'
-    [[ -e /var/run/reboot-required ]] \
-        && echo "== reboot already pending: $(tr '\n' ' ' < /var/run/reboot-required.pkgs 2>/dev/null)" \
-        || echo "== no reboot pending"
-    echo "== kernel running $kernel_now, newest installed $kernel_newest"
-    exit 0
-fi
-
 log "$host: starting, $pending package(s) upgradable, kernel $kernel_now"
 
 # apt's own output goes to the log in full; the terminal gets a count. The exit status
