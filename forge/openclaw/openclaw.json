@@ -141,7 +141,13 @@
       "ollama": {
         "enabled": true
       }
-    }
+    },
+    "allow": [
+      "ollama",
+      "slack",
+      "memory-core",
+      "device-pair"
+    ]
   },
   "memory": {
     "search": {
