@@ -82,3 +82,54 @@ loki.source.docker "containers" {
   labels        = { job = "docker" }
   forward_to    = [loki.write.default.receiver]
 }
+
+// ---- AdGuard Home query log (bastion only) --------------------------------------------
+// AdGuard writes one JSON object per lookup to querylog.json. On bastion the compose file
+// mounts that directory read-only at /adguard; on every other host the path does not exist,
+// the matcher finds nothing, and this whole block is inert. Labels stay low-cardinality:
+// the client's IP (a few dozen values) and whether the answer was filtered. The domain is in
+// the line, so "which device asked for what" is a line filter, never a label.
+local.file_match "adguard" {
+  path_targets = [{ __path__ = "/adguard/querylog.json" }]
+}
+
+loki.source.file "adguard" {
+  targets    = local.file_match.adguard.targets
+  forward_to = [loki.process.adguard.receiver]
+}
+
+loki.process "adguard" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.json {
+    expressions = {
+      T        = "T",
+      client   = "IP",
+      domain   = "QH",
+      qtype    = "QT",
+      filtered = "Result.IsFiltered",
+      reason   = "Result.Reason",
+      rule     = "Result.Rule",
+      upstream = "Upstream",
+    }
+  }
+  stage.timestamp {
+    source = "T"
+    format = "RFC3339Nano"
+  }
+  stage.labels {
+    values = { client = "", filtered = "" }
+  }
+  stage.static_labels {
+    values = { job = "adguard-querylog" }
+  }
+  // Rewrite the line: the raw record carries the whole DNS answer base64-encoded, which
+  // nobody searches for. What is left is what a person reads.
+  stage.template {
+    source   = "line"
+    template = "{{ .client }} {{ .domain }} {{ .qtype }} filtered={{ .filtered }} reason={{ .reason }}{{ if .rule }} rule={{ .rule }}{{ end }} upstream={{ .upstream }}"
+  }
+  stage.output {
+    source = "line"
+  }
+}
