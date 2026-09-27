@@ -117,6 +117,12 @@ loki.process "adguard" {
     source = "T"
     format = "RFC3339Nano"
   }
+  // AdGuard omits Result for an unfiltered answer and Upstream for a filtered one; give the
+  // label a definite value either way so {filtered="false"} is a real selector.
+  stage.template {
+    source   = "filtered"
+    template = "{{ if eq .filtered \"true\" }}true{{ else }}false{{ end }}"
+  }
   stage.labels {
     values = { client = "", filtered = "" }
   }
@@ -127,7 +133,7 @@ loki.process "adguard" {
   // nobody searches for. What is left is what a person reads.
   stage.template {
     source   = "line"
-    template = "{{ .client }} {{ .domain }} {{ .qtype }} filtered={{ .filtered }} reason={{ .reason }}{{ if .rule }} rule={{ .rule }}{{ end }} upstream={{ .upstream }}"
+    template = "{{ .client }} {{ .domain }} {{ .qtype }} filtered={{ .filtered }}{{ if .reason }} reason={{ .reason }}{{ end }}{{ if .rule }} rule={{ .rule }}{{ end }}{{ if .upstream }} upstream={{ .upstream }}{{ end }}"
   }
   stage.output {
     source = "line"
