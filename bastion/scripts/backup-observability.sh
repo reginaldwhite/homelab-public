@@ -39,8 +39,9 @@ fi
 
 # The volume is read through a throwaway container, so nothing on the host needs to know
 # where Docker keeps it. Grafana keeps running; its SQLite is small and written rarely.
+# plugins/ is skipped: it is the bundled plugin cache (100+ MB) and comes back with the image.
 if docker run --rm -v observability_grafana_data:/d:ro -v "$OUT:/out" alpine \
-        tar czf "/out/grafana-$DAY.tgz" -C /d . 2>>"$LOG"; then
+        tar czf "/out/grafana-$DAY.tgz" --exclude=./plugins -C /d . 2>>"$LOG"; then
     log "grafana volume archived ($(du -h "$OUT/grafana-$DAY.tgz" | cut -f1))"
 else
     log "ERROR: could not archive the grafana volume"
