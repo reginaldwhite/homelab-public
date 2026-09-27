@@ -59,7 +59,9 @@ if [[ $VALIDATE -eq 1 ]]; then
     for f in "$HERE"/scripts/*.py; do [[ -e "$f" ]] && python3 -m py_compile "$f"; done
     rm -rf "$HERE/scripts/__pycache__"
 
-    want=$(docker compose config --images | head -1)
+    # Plex specifically: the exporters share this compose file now, and `head -1` picked
+    # cAdvisor and reported a phantom Plex upgrade on every deploy.
+    want=$(docker compose config --images | grep '^plexinc/' | head -1)
     have=$(docker inspect plex --format '{{.Config.Image}}' 2>/dev/null || true)
     [[ -n "$have" && "$have" != "$want" ]] && say "plex: $have -> $want"
 
