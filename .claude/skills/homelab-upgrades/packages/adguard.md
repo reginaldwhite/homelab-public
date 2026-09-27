@@ -42,6 +42,18 @@ network indirection to hide behind.
 - The admin UI is deliberately **not** exposed to the internet. It was, until 2026-09-26. If an
   upgrade changes how the UI binds, do not "fix" it by publishing the port.
 
+## What an upgrade does to the config
+
+- **`config_migrator` bumps `schema_version` in `AdGuardHome.yaml` on first start** (33 → 34 on
+  the last patch-level hop) and the migration is one-way, which is why the copy above is taken
+  before, not after. The log line is `config_migrator: upgrade yaml from=N to=M`.
+- **Expect one `dnsproxy: exchange failed upstream=…` error in the first ten seconds after
+  start** — the DoH upstream is not ready before the first query arrives. It is not a regression
+  unless it repeats: count them with `docker logs adguardhome 2>&1 | grep -c 'exchange failed'`
+  and verify with a *second* query, not the first.
+- The DHCP check below only applies if `dhcp.enabled` is `true` in the YAML. It was `false` at the
+  last upgrade — the router still serves leases — so resolution is the whole verification.
+
 ## Verify after
 
 ```bash

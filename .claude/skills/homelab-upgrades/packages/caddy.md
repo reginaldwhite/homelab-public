@@ -47,8 +47,18 @@ ssh robby@192.168.0.10 "docker logs --tail 40 caddy"
 Check the certificate is the real one and not a self-signed fallback:
 
 ```bash
-echo | openssl s_client -connect vault.robbywhite.net:443 2>/dev/null \
+openssl s_client -connect vault.robbywhite.net:443 -servername vault.robbywhite.net </dev/null 2>/dev/null \
   | openssl x509 -noout -issuer -dates
+```
+
+Then the LAN-only admin vhost, **with `--resolve`**, not a `Host:` header. curl takes SNI from
+the URL, so `-H 'Host: dns.robbywhite.net' https://192.168.0.10/` offers SNI `192.168.0.10`,
+Caddy has no certificate for an IP, and since 2.11 it answers with a TLS alert rather than some
+other vhost's certificate — which looks exactly like the `abort` branch firing and is not:
+
+```bash
+curl -k -s -o /dev/null -w '%{http_code}\n' --resolve dns.robbywhite.net:443:192.168.0.10 https://dns.robbywhite.net/
+# 302 from a LAN address (it redirects to AdGuard's login); a TLS alert or nothing from anywhere else
 ```
 
 ## Rollback
