@@ -72,6 +72,16 @@
       "host": "gateway",
       "security": "full",
       "ask": "off"
+    },
+    "deny": [
+      "group:web",
+      "browser"
+    ],
+    "elevated": {
+      "enabled": false
+    },
+    "fs": {
+      "workspaceOnly": true
     }
   },
   "commands": {

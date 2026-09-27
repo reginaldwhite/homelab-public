@@ -51,7 +51,13 @@ release **before** bumping the tag.
 2. **The container's command line.** `docker-compose.yaml` runs
    `node openclaw.mjs gateway --allow-unconfigured --bind lan`. A renamed or removed flag means the
    container will not start.
-3. **`agents/main/agent/models.json` and `contextWindow`.** Both `openclaw.json` and `models.json`
+3. **The tool-policy keys in `openclaw.json`.** `tools.deny: ["group:web","browser"]`,
+   `tools.elevated.enabled: false` and `tools.fs.workspaceOnly: true` are deliberate security
+   settings, not defaults. If a release renames or restructures any of them, the deny silently stops
+   applying and the agent quietly regains web tools and unconfined filesystem access — with nothing
+   failing to announce it. After any upgrade, run `docker exec openclaw node openclaw.mjs security
+   audit` and confirm it does **not** report open web tools or elevated being enabled.
+4. **`agents/main/agent/models.json` and `contextWindow`.** Both `openclaw.json` and `models.json`
    are deploy-managed and declare `contextWindow: 16384`. OpenClaw enforces a minimum around 16000;
    ollama's own default lands below it and stops the agent running at all. If the model config
    schema changed, both files need updating together.
@@ -68,6 +74,20 @@ release **before** bumping the tag.
 - This is the largest backlog of any package here. **Plan intermediate hops** rather than crossing
   many months at once, and expect the release notes not to fit in forge's own context — read them on
   the laptop.
+
+**Sandboxing is a reason to upgrade.** 2026.3.2 can only sandbox tool execution in **Docker**, which
+this container cannot reach — it has no Docker socket and no Docker CLI, so `sandbox explain` reports
+`runtime: direct`. Granting the host socket would be worse than the risk it mitigates: sandboxing
+needs `container create`, and anything that can create a container with arbitrary bind mounts on the
+host daemon is root. A socket proxy does not help, because proxies filter by endpoint rather than by
+payload.
+
+Current releases add **Podman, SSH, OpenShell and Crabbox** backends. Podman rootless would sidestep
+the host-socket problem entirely. When that becomes available, the mode to want is
+`sandbox.mode: "non-main"` — group and channel sessions count as non-main, so Slack messages (the
+prompt-injection surface) get sandboxed while the main session stays on the host. Note also that
+sandboxing never covers the gateway process itself, which is what holds the Slack and gateway
+tokens, and that `tools.elevated` runs exec outside the sandbox — which is why it is disabled above.
 
 ## Verify after
 
