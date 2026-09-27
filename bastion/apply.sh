@@ -20,6 +20,8 @@ OBS_DIR="$HERE/observability"
 OBS_ENV="$HERE/.env"
 # Where bastion's scripts drop .prom files for node exporter's textfile collector.
 TEXTFILE_DIR="/home/robby/observability/textfile"
+# Hashes of the config trees as last applied, so a changed bind-mounted config reloads its service.
+OBS_APPLIED="/home/robby/observability/.applied"
 VW_DATA="/home/robby/vaultwarden/vw-data"
 VW_BACKUPS="/home/robby/vw-backups"
 
@@ -150,9 +152,38 @@ if [[ -d "$OBS_DIR" ]]; then
         echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
         exit 1
     fi
-    mkdir -p "$TEXTFILE_DIR"
+    mkdir -p "$TEXTFILE_DIR" "$OBS_APPLIED"
     cd "$OBS_DIR"
+    # Configs are bind mounts, so `up -d` does not notice when their contents change. Each
+    # service's config tree is hashed and compared with what was applied last time; a change
+    # reloads or restarts just that service. Dashboards need nothing: Grafana re-reads the
+    # dashboards directory on its own. Data sources do not, hence the restart.
+    obs_changed() {  # <name> <path...>  -> 0 if the content differs from the last applied
+        local name=$1; shift
+        local now; now=$(find "$@" -type f -print0 2>/dev/null | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | cut -c1-64)
+        [[ "$(cat "$OBS_APPLIED/$name" 2>/dev/null)" == "$now" ]] && return 1
+        echo "$now" > "$OBS_APPLIED/$name"
+        return 0
+    }
     docker compose --env-file "$OBS_ENV" up -d
+    if obs_changed prometheus prometheus; then
+        docker exec prometheus wget -qO- --post-data '' http://localhost:9090/-/reload >/dev/null \
+            && say "observability: prometheus config reloaded"
+    fi
+    if obs_changed blackbox blackbox; then
+        docker exec blackbox wget -qO- --post-data '' http://localhost:9115/-/reload >/dev/null 2>&1 \
+            || docker compose --env-file "$OBS_ENV" restart blackbox >/dev/null
+        say "observability: blackbox config reloaded"
+    fi
+    if obs_changed loki loki; then
+        docker compose --env-file "$OBS_ENV" restart loki >/dev/null && say "observability: loki restarted for new config"
+    fi
+    if obs_changed alloy "$HERE/scripts/alloy"; then
+        docker compose --env-file "$OBS_ENV" restart alloy >/dev/null && say "observability: alloy restarted for new config"
+    fi
+    if obs_changed grafana-provisioning grafana/provisioning; then
+        docker compose --env-file "$OBS_ENV" restart grafana >/dev/null && say "observability: grafana restarted for new provisioning"
+    fi
     docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
     cd "$STACK_DIR"
 fi

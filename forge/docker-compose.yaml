@@ -205,6 +205,8 @@ services:
     restart: unless-stopped
     environment:
       - CONTAINERS=1
+      # Alloy's Docker discovery also lists networks to label targets; both are GET-only.
+      - NETWORKS=1
       - POST=0
       - LOG_LEVEL=warning
     volumes:
