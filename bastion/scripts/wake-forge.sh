@@ -4,6 +4,9 @@
 # Forge's NIC must be armed for WoL (see README): a packet sent to a machine that
 # isn't listening is silently dropped, so success is judged by forge answering ping.
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/textfile-metrics.sh"
+
 FORGE_IP="192.168.0.12"
 FORGE_MAC="88:d7:f6:13:14:3a"
 BOOT_TIMEOUT=300   # seconds; a normal boot answers ping in well under a minute
@@ -15,6 +18,7 @@ forge_up() { ping -c1 -W2 "$FORGE_IP" &>/dev/null; }
 
 if forge_up; then
     echo "$(date -Iseconds) [wake-forge] Forge already up, nothing to do" >> "$LOG"
+    set_expected_up forge 1
     exit 0
 fi
 
@@ -47,6 +51,7 @@ SECONDS=0
 while (( SECONDS < BOOT_TIMEOUT )); do
     if forge_up; then
         echo "$(date -Iseconds) [wake-forge] Forge is up (${SECONDS}s)" >> "$LOG"
+        set_expected_up forge 1
         exit 0
     fi
     sleep 5

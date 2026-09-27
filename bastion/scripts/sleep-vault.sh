@@ -22,6 +22,7 @@ DRY=0
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/vault-common.sh"
+. "$HERE/textfile-metrics.sh"
 
 LOG="/home/robby/logs/power.log"
 
@@ -61,6 +62,7 @@ if [[ $DRY -eq 1 ]]; then
     exit 0
 fi
 
+set_expected_up vault 0
 log "sending powerdown to vault..."
 vault_ssh "nohup /usr/local/sbin/powerdown >/tmp/powerdown.log 2>&1 &" 2>/dev/null
 

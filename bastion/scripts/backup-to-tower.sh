@@ -12,6 +12,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/vault-common.sh"
+. "$HERE/textfile-metrics.sh"
 
 TOWER_DEST="$VAULT_SSH:/mnt/user/backups"
 LOG="/home/robby/logs/backup.log"
@@ -44,11 +45,12 @@ for i in $(seq 1 20); do
 done
 if [[ $READY -eq 0 ]]; then
     log "ERROR: tower never came online, aborting"
+    record_job backup-to-tower 1
     exit 1
 fi
 
 # The gate. /mnt/user is RAM until the array starts; see vault-common.sh.
-vault_require_array backup-to-tower "$LOG" || exit 1
+vault_require_array backup-to-tower "$LOG" || { record_job backup-to-tower 1; exit 1; }
 
 log "Starting weekly backup to tower..."
 
@@ -165,6 +167,7 @@ fi
 
 # Note: forge (7700k) data is synced directly to tower by sync-forge.sh at 3:00am
 
+record_job backup-to-tower "$EXIT"
 if [[ $EXIT -eq 0 ]]; then
     log "Weekly backup complete"
 else

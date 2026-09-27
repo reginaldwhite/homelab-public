@@ -7,6 +7,7 @@
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/vault-common.sh"
+. "$HERE/textfile-metrics.sh"
 
 FORGE_IP="192.168.0.12"
 FORGE_USER="robby"
@@ -40,13 +41,14 @@ for i in $(seq 1 12); do
 done
 if [[ $TOWER_READY -eq 0 ]]; then
     echo "$(date -Iseconds) [sync-forge] ERROR: tower did not come online, aborting" >> "$LOG"
+    record_job sync-forge 1
     exit 1
 fi
 
 # Reachable is not writable. With the array stopped, /mnt/user is Unraid's RAM root
 # and --mkpath below would create the destination there, transfer everything, and
 # report success for data that is gone at the next boot. See vault-common.sh.
-vault_require_array sync-forge "$LOG" || exit 1
+vault_require_array sync-forge "$LOG" || { record_job sync-forge 1; exit 1; }
 
 # Wait for forge to be reachable (woken by wake-forge.sh 15min ago)
 echo "$(date -Iseconds) [sync-forge] Waiting for forge to come online..." >> "$LOG"
@@ -62,6 +64,7 @@ for i in $(seq 1 24); do
 done
 if [[ $FORGE_READY -eq 0 ]]; then
     echo "$(date -Iseconds) [sync-forge] ERROR: forge did not come online, aborting" >> "$LOG"
+    record_job sync-forge 1
     exit 1
 fi
 
@@ -100,6 +103,7 @@ $SSH_CMD "$FORGE_USER@$FORGE_IP" \
 RC2=$?
 
 EXIT=$(( RC1 | RC2 ))
+record_job sync-forge "$EXIT"
 
 if [[ $EXIT -eq 0 ]]; then
     echo "$(date -Iseconds) [sync-forge] Forge -> tower sync complete" >> "$LOG"

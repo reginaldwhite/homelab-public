@@ -3,6 +3,9 @@
 # Runs on bastion (file). Requires SSH key auth: ssh-copy-id robby@192.168.0.12
 # Needs passwordless sudo for shutdown on forge.
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/textfile-metrics.sh"
+
 FORGE_IP="192.168.0.12"
 FORGE_USER="robby"
 SSH_KEY="/home/robby/.ssh/id_ed25519"
@@ -20,6 +23,8 @@ if ! forge_up; then
     exit 0
 fi
 
+# Recorded before the shutdown is sent: from here on, forge being down is intended.
+set_expected_up forge 0
 echo "$(date -Iseconds) [sleep-forge] Sending shutdown to forge ($FORGE_IP)..." >> "$LOG"
 
 ssh -o StrictHostKeyChecking=accept-new \

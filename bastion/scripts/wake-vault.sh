@@ -28,6 +28,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # particular, because the two backup jobs need the identical one and cron runs them
 # whether or not this script succeeded.
 . "$HERE/vault-common.sh"
+. "$HERE/textfile-metrics.sh"
 
 # eth0 permanent (= the address the bond presents) and eth1 permanent.
 VAULT_MACS=("e0:cb:4e:9d:02:6a" "e0:cb:4e:80:92:3d")
@@ -101,3 +102,4 @@ if ! vault_array_started; then
 fi
 
 log "vault is ready: ssh up and array STARTED"
+set_expected_up vault 1
