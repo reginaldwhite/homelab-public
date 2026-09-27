@@ -149,9 +149,13 @@ is ever wanted, it queries the same tables.
 - forge's digester needs Prometheus and Loki. It gets `metrics.robbywhite.net` on Caddy, LAN-only
   plus `basic_auth`, with the credential in forge's `.env`. Nothing else on the LAN can query
   the stores.
-- node exporter and cAdvisor on forge and cinema listen on the LAN (`:9100`, `:8080`) because
-  Prometheus on bastion must reach them. They expose no secrets; `ufw` on each host limits them
-  to bastion's address. **[you]** for the `ufw` rules, once per host.
+- node exporter and cAdvisor on forge and cinema listen on the LAN (`:9100`, `:9200` — 8080 is
+  open-webui's on forge) because Prometheus on bastion must reach them. They expose no secrets.
+  **Checked 2026-09-27: `ufw` is inactive on forge and cinema**, so there is nothing to add a
+  rule to, and enabling it is a separate change — deny-by-default would take SSH, Ollama,
+  open-webui and the gateway with it until each is allowed. Accepted: the exporters are readable
+  from the LAN, like Ollama and Plex already are. Both run in host network mode so that a future
+  `ufw` (see *Deferred*) would actually apply to them; Docker's own port publishing bypasses it.
 - Alloy on forge and cinema pushes to Loki, so Loki needs one LAN-reachable ingest path: Caddy
   again, `loki.robbywhite.net` with basic auth, credential per host in its `.env`.
 - Nothing here touches the internet-facing vault vhost.
@@ -171,10 +175,10 @@ is ever wanted, it queries the same tables.
 
 ### Phase 0 — prerequisites [you + agent], an hour
 
-- AdGuard rewrites for `grafana`, `metrics` and `loki` `.robbywhite.net` → `192.168.0.10` (agent,
-  through the API once the AdGuard credential is in bastion's `.env` — the same prerequisite as
-  the kids plan).
-- `ufw` on forge and cinema: allow `9100/tcp` and `8080/tcp` from `192.168.0.10` only (you).
+- [x] AdGuard rewrites for `grafana`, `metrics` and `loki` `.robbywhite.net` → `192.168.0.10`
+      (done 2026-09-27 through the API; the AdGuard, Rachio and HUUM credentials in bastion's
+      `.env` are all verified).
+- [x] `ufw` on forge and cinema: found inactive; no rules, decision recorded under *Security*.
 - `bastion/observability/` in the repo: compose file, Prometheus config, blackbox modules,
   Grafana provisioning tree, Postgres init SQL. `bastion/apply.sh` learns to validate and `up`
   a second compose project.
@@ -241,6 +245,12 @@ and the same day's `#homelab-logs` is empty.
 
 **Done when:** the next real alert arrives with a threaded explanation that names the right
 runbook, and the morning narrative mentions something that only seven days of data could show.
+
+**Deferred: a host firewall on forge and cinema.** `ufw` is inactive on both. Turning it on
+properly means an explicit allow list per host (SSH from the LAN; on forge Ollama 11434,
+open-webui 8080, the gateway 18789/18791; on cinema Plex 32400 and its discovery ports) and a
+test from another machine before the session that enabled it is closed. Worth doing, its own
+evening, not this plan's.
 
 **Deferred, as a gate rather than a phase:** letting the agent run the read-only health verbs
 itself when an alert fires and *propose* a fix. The forced-command verbs make it safe to try;
