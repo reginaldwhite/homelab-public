@@ -55,8 +55,8 @@ WINDOW = {            # local time, America/Chicago
     "weekend": ("07:00", "21:30"),  # Fri and Sat nights end at 21:30
 }
 KIDS = [              # AdGuard persistent-client names, one per device (step 1)
-    "kid-pc", "kid-chromebook", "kid-roku", "kid-ipad", "kid-phone-finn",
-    # still to identify and add: the iPad mini and the second phone (among .104/.120/.122/.125)
+    "kid-pc", "kid-chromebook", "kid-roku", "kid-ipad", "kid-phone-finn", "kid-phone-ava",
+    # still to identify and add: the iPad mini (among .104/.120/.122)
 ]
 ```
 
@@ -91,10 +91,10 @@ copied rather than remembered.
 > | kid-roku | `d4:ab:cd:57:dd:cc` | .152 | .119 playroom |
 > | kid-ipad | `1c:0d:7d:17:08:fa` | .153 | .121 robbys-ipad |
 > | kid-phone-finn | `f6:99:f3:7b:b5:f7` | .154 | .106 iphone (Private Address already Fixed) |
+> | kid-phone-ava | `32:b2:62:ef:e8:29` | .155 | .125 (Private Address Fixed) |
 >
 > Each device moves to its static address at its next DHCP renewal (or reconnect) without
-> dropping. Still to identify: the iPad mini and the second phone, candidates `.104`, `.120`,
-> `.122`, `.125`; they get `.155` and `.156`.
+> dropping. Still to identify: the iPad mini, candidates `.104`, `.120`, `.122`; it gets `.156`.
 
 **2. AdGuard, always-on part [agent].** For every `user_child` client: SafeSearch on, and a
 blocked-services list that applies at all hours — the agent proposes one from what the
