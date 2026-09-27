@@ -223,6 +223,33 @@ queries and blocks, with the children's devices tagged) and a *Logs* dashboard.
 **Done when:** a sauna session shows up as a row with minutes and peak temperature; `journalctl`
 on any host is answered by a Loki query; the *Network* dashboard lists every lease AdGuard holds.
 
+> **Phase 2 done 2026-09-27 17:00–17:15 CDT, commits `ee1e987`…`eecbd53`.**
+> Loki holds journald and container streams from all three hosts (173 units and 11 containers
+> on bastion alone), shipped by Alloy through a read-only Docker socket proxy and, for forge and
+> cinema, through Caddy's `loki.robbywhite.net` with basic auth. Postgres `events` and
+> `lan_clients` tables live; `event.sh` records backup, sync and power outcomes; the sauna and
+> sprinkler poller publishes gauges every five minutes and records sessions and runs as events;
+> `adguard-stats.py` feeds the Network dashboard (22 devices in the client map on day one).
+> Seven dashboards provisioned: Hosts, Containers, Edge, Jobs, Logs, Network, Sauna and Sprinklers.
+> `apply.sh` now reloads or restarts a service whose bind-mounted config changed, by content hash.
+>
+> Found on the way:
+> - **bastion itself does not resolve through AdGuard**: `/etc/resolv.conf` is a static
+>   `nameserver 9.9.9.9`, so on the host the vault name resolves to the public IP and the LAN-only
+>   names not at all. Containers are unaffected (blackbox pins AdGuard; the rest use service
+>   names). **[you]**: point the host at itself — `sudo nmcli con mod netplan-enp3s0 ipv4.dns
+>   "127.0.0.1 1.1.1.1" && sudo nmcli dev reapply enp3s0`, then check `/etc/resolv.conf` follows;
+>   if it stays static, it is being written by something else (`ls -l /etc/resolv.conf` shows
+>   whether it is a symlink to systemd-resolved's stub).
+> - A line appended to bastion's `.env` without a trailing newline glued `LOKI_USER=alloy` onto
+>   the Grafana password, so Grafana initialised with the wrong admin password; repaired with
+>   `grafana cli admin reset-admin-password`. `.env` edits should end with a newline.
+> - Alloy's Docker discovery needs `NETWORKS=1` on the socket proxy as well as `CONTAINERS=1`.
+> - The Loki image has no shell tools; query it through Grafana's container (`wget` to
+>   `http://loki:3100`).
+> - Still to do from this phase's backup section: nightly `pg_dump` of the events database and
+>   the Grafana volume into the Sunday push (next commit).
+
 ### Phase 3 — alerting, and Slack stops being the database [agent], one evening
 
 Grafana alert rules, provisioned from git, one per rule that lives in `health-digest.py` and

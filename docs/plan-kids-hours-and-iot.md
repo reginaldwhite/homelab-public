@@ -188,6 +188,13 @@ token), one module per device, credentials in bastion's `.env`
 - **No control.** The script reads. Turning the sauna on from Slack is a nice idea and a
   separate decision, because it means the agent holding credentials that can heat a room.
 
+> **Built 2026-09-27 as part of the observability plan's phase 2**, with one change: the data
+> goes to Prometheus gauges and the Postgres events table on bastion and is read in Grafana's
+> *Sauna and Sprinklers* dashboard, rather than to JSON files and a Slack report. Findings (an
+> emergency stop, a dry steamer, Rachio offline for a day, a poll failing for hours) become
+> Grafana alert rules in that plan's phase 3. HUUM's real host is `api.huum.eu`; the password had
+> to be reset before it was accepted. Rachio: one Gen-1 8-zone controller, two zones enabled.
+
 ### Steps
 
 1. **[you]** Put `HUUM_USERNAME`, `HUUM_PASSWORD` and `RACHIO_API_KEY` in
