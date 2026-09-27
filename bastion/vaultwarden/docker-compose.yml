@@ -53,7 +53,7 @@ services:
       - caddy_config:/config
   adguardhome:
     # Was completely untagged, which means :latest. Pinned to what was running.
-    image: adguard/adguardhome:v0.107.72
+    image: adguard/adguardhome:v0.107.79
     container_name: adguardhome
     restart: unless-stopped
     network_mode: "host"
