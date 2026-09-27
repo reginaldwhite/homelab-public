@@ -96,6 +96,15 @@ itself). The direct jump migrated cleanly in one pass. So:
    against the copy in a throwaway container (dummy `OPENCLAW_GATEWAY_TOKEN`, no Slack tokens, no
    published ports) and poll `/startupz` and `/readyz` from inside it — startup runs migrations
    doctor does not, and this is the only way to see them without touching the live agent.
+
+   **A copy taken while a 2026.9-line gateway is running carries its owner lease**, and the copy
+   then refuses to start with *"Another Gateway owner lease is still active for this state
+   directory"* — nothing to do with whatever you were rehearsing. The lease is a row in
+   `state/openclaw.sqlite` (`state_leases`, `scope='gateway-owner'`, expiring five minutes after
+   the last heartbeat, which the copy never receives) plus lock files under `tmp/openclaw-1000/`.
+   In the **copy only**: `rm -rf <copy>/tmp` and delete that row, e.g.
+   `python3 -c "import sqlite3;c=sqlite3.connect('<copy>/state/openclaw.sqlite');c.execute(\"delete from state_leases where scope='gateway-owner'\");c.commit()"`.
+   Never touch the live state's lease.
 2. **Fix what doctor will not.** Some renamed keys are validation errors rather than migrations:
    in the move to 2026.9, `channels.slack.nativeStreaming` had to go and `channels.slack.streaming`
    had to become `{ "mode": "partial", "nativeTransport": true }` by hand before doctor would run
