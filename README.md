@@ -453,11 +453,14 @@ loading each model at a forced `num_ctx` and reading `ollama ps`:
 
 `gpt-oss:20b` alone would run at 32768, but `OLLAMA_CONTEXT_LENGTH` is a single server-wide
 default, so raising it past 16384 would push the two dense models into CPU offload. If you ever
-change it, update `contextWindow` in both `openclaw.json` and `agents/main/agent/models.json`
-together, and keep `maxTokens` well under it to leave room for input.
+change it, update both `contextWindow` and `params.num_ctx` on every model under
+`models.providers.ollama.models` in `openclaw.json`, and keep `maxTokens` well under it to leave
+room for input. (`agents/main/agent/models.json` used to carry a second copy that had to be kept
+in step; since OpenClaw 2026.9 the agent regenerates that file itself and deploy no longer
+manages it.)
 
-Because model ids must match exactly, both `openclaw.json` and the agent's `models.json` register
-the Apriel model under its full `hf.co/...:Q4_K_M` id.
+Because model ids must match exactly, `openclaw.json` registers the Apriel model under its full
+`hf.co/...:Q4_K_M` id.
 
 `openclaw` and `open-webui` depend on `ollama` being healthy, not on `model-loader` completing,
 so a failed model pull doesn't keep the gateway down on boot.
@@ -476,8 +479,7 @@ so a failed model pull doesn't keep the gateway down on boot.
 
 **The agent's live state is not in the repo or the deployed copy.** It lives at
 `/home/robby/openclaw-state/`, bind-mounted by absolute path. Only a config subset is tracked —
-`openclaw.json`, `models.json` and the power scripts — and deploy **copies those in and never
-deletes**. Sessions, memory, `workspace/` (its own git repo), identity, devices and credentials
+`openclaw.json` and the power scripts — and deploy **copies those in and never deletes**. Sessions, memory, `workspace/` (its own git repo), identity, devices and credentials
 exist only there; an `rsync --delete` of the whole directory would destroy the agent.
 
 That split is also why `sync-forge.sh` backs up `/home/robby/openclaw-state/` separately: it used
@@ -969,8 +971,7 @@ Homelab/
     │   ├── gpu-guard.sh              — every 15min; restarts ollama when it loses the GPU
     │   └── health-digest.py          — 10-min triage worker + daily digest of #homelab-logs
     └── openclaw/                     — the config subset deploy copies into ~/openclaw-state/
-        ├── openclaw.json             — gateway, models, channels
-        ├── models.json               — per-model context windows
+        ├── openclaw.json             — gateway, models (incl. context windows), channels
         └── scripts/
             ├── plex-power.py         — cinema (plex) wake/sleep agent tool
             └── forge-power.py        — forge wake/sleep agent tool

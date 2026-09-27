@@ -35,9 +35,16 @@ say() { echo "    $*"; }
 # read and not execute, and the container runs as uid 1000 exactly as the host owner
 # does. They would need 700 to be allowlisted by resolved path under
 # tools.exec.security="allowlist" -- see .claude/skills/homelab-upgrades/packages/openclaw.md.
+#
+# agents/main/agent/models.json is NOT here any more. It was tracked and copied in
+# until the move to OpenClaw 2026.9: since then the agent regenerates it from
+# openclaw.json's models.providers plus whatever plugins are loaded, and the
+# rehearsed upgrade rewrote our ollama-only copy to `providers: []` on first start.
+# Managing it would have meant "content differs" -- and an agent restart -- on every
+# single deploy. Model context windows live in openclaw.json now (contextWindow and
+# params.num_ctx on each model).
 CONFIG=(
     "openclaw/openclaw.json:openclaw.json:600"
-    "openclaw/models.json:agents/main/agent/models.json:600"
     "openclaw/scripts/forge-power.py:scripts/forge-power.py:600"
     "openclaw/scripts/plex-power.py:scripts/plex-power.py:600"
 )
@@ -60,7 +67,7 @@ if [[ $VALIDATE -eq 1 ]]; then
     cd "$HERE"
     docker compose config --quiet
     python3 -c "import json,sys; [json.load(open(f)) for f in sys.argv[1:]]" \
-        openclaw/openclaw.json openclaw/models.json
+        openclaw/openclaw.json
     for f in openclaw/scripts/*.py; do python3 -m py_compile "$f"; done
     rm -rf openclaw/scripts/__pycache__
     for f in scripts/*.sh; do [[ -e "$f" ]] && bash -n "$f"; done

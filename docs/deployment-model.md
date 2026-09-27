@@ -171,8 +171,11 @@ deployed copy, referenced by absolute path.
 |---|---|---|
 | `/home/robby/openclaw-state/` | all live agent state | **no** — never touched by deploy |
 | `forge/openclaw/openclaw.json` | gateway config | yes, copied into live state |
-| `forge/openclaw/models.json` | agent model definitions | yes, copied into live state |
 | `forge/openclaw/scripts/*.py` | power-control tools | yes, copied into live state |
+
+`agents/main/agent/models.json` was in that table until the move to OpenClaw 2026.9. The agent
+now regenerates it from `openclaw.json` and the loaded plugins, so it is neither tracked nor
+deployed; the steps below that mention it describe the original migration as it was done.
 
 Everything else under `openclaw-state` stops being tracked. `credentials/`, `exec-approvals.json`
 and `logs/` are runtime state that happened to get committed early; they contain no secrets

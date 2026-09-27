@@ -19,7 +19,10 @@
               "cacheWrite": 0
             },
             "contextWindow": 16384,
-            "maxTokens": 4096
+            "maxTokens": 4096,
+            "params": {
+              "num_ctx": 16384
+            }
           },
           {
             "id": "gpt-oss:20b",
@@ -36,7 +39,10 @@
               "cacheWrite": 0
             },
             "contextWindow": 16384,
-            "maxTokens": 4096
+            "maxTokens": 4096,
+            "params": {
+              "num_ctx": 16384
+            }
           },
           {
             "id": "hf.co/ServiceNow-AI/Apriel-1.6-15b-Thinker-GGUF:Q4_K_M",
@@ -54,7 +60,10 @@
               "cacheWrite": 0
             },
             "contextWindow": 16384,
-            "maxTokens": 4096
+            "maxTokens": 4096,
+            "params": {
+              "num_ctx": 16384
+            }
           }
         ]
       }
@@ -65,13 +74,15 @@
       "model": {
         "primary": "ollama/gpt-oss:20b"
       }
+    },
+    "entries": {
+      "main": {}
     }
   },
   "tools": {
     "exec": {
       "host": "gateway",
-      "security": "full",
-      "ask": "off"
+      "mode": "full"
     },
     "deny": [
       "group:web",
@@ -87,8 +98,7 @@
   "commands": {
     "native": "auto",
     "nativeSkills": "auto",
-    "restart": true,
-    "ownerDisplay": "raw"
+    "restart": true
   },
   "channels": {
     "slack": {
@@ -97,8 +107,10 @@
       "enabled": true,
       "userTokenReadOnly": true,
       "groupPolicy": "open",
-      "nativeStreaming": true,
-      "streaming": "partial"
+      "streaming": {
+        "mode": "partial",
+        "nativeTransport": true
+      }
     }
   },
   "gateway": {
@@ -111,7 +123,131 @@
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.3.2",
-    "lastTouchedAt": "2026-03-07T01:32:13.757Z"
+    "lastTouchedVersion": "2026.9.6",
+    "migrations": {
+      "modelPolicyAllowlist": true,
+      "utilityModelSeparation": true
+    }
+  },
+  "plugins": {
+    "entries": {
+      "codex": {
+        "enabled": false
+      },
+      "slack": {
+        "enabled": true
+      },
+      "ollama": {
+        "enabled": true
+      }
+    }
+  },
+  "memory": {
+    "search": {
+      "enabled": false
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-09-27T02:48:59.773Z",
+    "lastRunVersion": "2026.9.6",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "skills": {
+    "entries": {
+      "1password": {
+        "enabled": false
+      },
+      "blogwatcher": {
+        "enabled": false
+      },
+      "blucli": {
+        "enabled": false
+      },
+      "camsnap": {
+        "enabled": false
+      },
+      "coding-agent": {
+        "enabled": false
+      },
+      "eightctl": {
+        "enabled": false
+      },
+      "gemini": {
+        "enabled": false
+      },
+      "gh-issues": {
+        "enabled": false
+      },
+      "gifgrep": {
+        "enabled": false
+      },
+      "github": {
+        "enabled": false
+      },
+      "gog": {
+        "enabled": false
+      },
+      "goplaces": {
+        "enabled": false
+      },
+      "himalaya": {
+        "enabled": false
+      },
+      "mcporter": {
+        "enabled": false
+      },
+      "model-usage": {
+        "enabled": false
+      },
+      "nano-pdf": {
+        "enabled": false
+      },
+      "obsidian": {
+        "enabled": false
+      },
+      "openai-whisper": {
+        "enabled": false
+      },
+      "openai-whisper-api": {
+        "enabled": false
+      },
+      "openhue": {
+        "enabled": false
+      },
+      "oracle": {
+        "enabled": false
+      },
+      "ordercli": {
+        "enabled": false
+      },
+      "sag": {
+        "enabled": false
+      },
+      "sherpa-onnx-tts": {
+        "enabled": false
+      },
+      "songsee": {
+        "enabled": false
+      },
+      "sonoscli": {
+        "enabled": false
+      },
+      "spotify-player": {
+        "enabled": false
+      },
+      "summarize": {
+        "enabled": false
+      },
+      "tmux": {
+        "enabled": false
+      },
+      "trello": {
+        "enabled": false
+      },
+      "xurl": {
+        "enabled": false
+      }
+    }
   }
 }

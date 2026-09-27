@@ -57,10 +57,17 @@ release **before** bumping the tag.
    applying and the agent quietly regains web tools and unconfined filesystem access — with nothing
    failing to announce it. After any upgrade, run `docker exec openclaw node openclaw.mjs security
    audit` and confirm it does **not** report open web tools or elevated being enabled.
-4. **`agents/main/agent/models.json` and `contextWindow`.** Both `openclaw.json` and `models.json`
-   are deploy-managed and declare `contextWindow: 16384`. OpenClaw enforces a minimum around 16000;
-   ollama's own default lands below it and stops the agent running at all. If the model config
-   schema changed, both files need updating together.
+4. **`contextWindow` and `params.num_ctx` in `openclaw.json`.** Every model under
+   `models.providers.ollama.models` declares `contextWindow: 16384`, and since the 2026.9 line
+   also `params.num_ctx: 16384` (doctor added it). OpenClaw enforces a minimum around 16000;
+   ollama's own default lands below it and stops the agent running at all. `agents/main/agent/
+   models.json` is **generated** by the agent from `openclaw.json` and the loaded plugins — it is
+   not tracked, not deployed, and not where anything is configured.
+5. **Exec approvals live in SQLite, not `exec-approvals.json`.** The 2026.9 startup migration
+   imported the JSON file into shared SQLite state and removed it. `autoAllowSkills` is still on
+   in there and `security audit` now flags it; it has to be changed through the `openclaw` CLI
+   or Control UI rather than by editing a file. Set it false before any move to
+   `tools.exec.mode: "allowlist"`, or this skill's runbooks silently re-widen exec.
 
 ## Before upgrading
 
@@ -74,6 +81,39 @@ release **before** bumping the tag.
 - This is the largest backlog of any package here. **Plan intermediate hops** rather than crossing
   many months at once, and expect the release notes not to fit in forge's own context — read them on
   the laptop.
+
+## Upgrade path: rehearse, and do not assume an intermediate hop is safer
+
+The general rule in `SKILL.md` — cross a deep backlog in hops — was **wrong for this package**, and
+the rehearsal is what showed it. Going through the last release of the previous line first (the
+`extended-stable` tag) left an agent database at an older schema that the target release's
+`doctor` then refused to inspect (*"uses schema version 1; run doctor --fix"* — from doctor
+itself). The direct jump migrated cleanly in one pass. So:
+
+1. **Rehearse on a copy before deciding.** `cp -a` the state dir, then run the target image
+   against the copy: `docker run --rm -v <copy>:/home/node/.openclaw <image> node openclaw.mjs
+   doctor --fix --non-interactive`. Exit 0 with `Errors: 0` is the bar. Then start the gateway
+   against the copy in a throwaway container (dummy `OPENCLAW_GATEWAY_TOKEN`, no Slack tokens, no
+   published ports) and poll `/startupz` and `/readyz` from inside it — startup runs migrations
+   doctor does not, and this is the only way to see them without touching the live agent.
+2. **Fix what doctor will not.** Some renamed keys are validation errors rather than migrations:
+   in the move to 2026.9, `channels.slack.nativeStreaming` had to go and `channels.slack.streaming`
+   had to become `{ "mode": "partial", "nativeTransport": true }` by hand before doctor would run
+   at all. Doctor's own error names the key.
+3. **The rehearsal's output is the new tracked `openclaw.json`.** Doctor and startup rewrite the
+   file (exec `security`/`ask` → `mode`, `meta.lastTouchedAt` and the cron store → SQLite,
+   `memorySearch` → `memory.search`, a `plugins.entries` block, a `skills.entries` block disabling
+   every bundled skill). Commit the migrated file **with** the tag bump; otherwise `apply.sh`
+   copies the old shape back over it on the next deploy and the docs say plainly that doctor
+   "does not update a stale deployment source". A plain restart does not rewrite the file, so
+   tracked == live holds once that is done.
+4. **Disable the bundled `codex` plugin** (`plugins.entries.codex.enabled: false`) before the first
+   start on a new line. Left enabled it bootstraps `agents/main/agent/codex-home/` with its own
+   SQLite stores and skills, and registers a cloud provider catalog — none of which this agent uses.
+5. **Verify with the probes.** `/healthz`, `/startupz`, `/readyz` on 18789 answer without auth and
+   already existed on the old line, so they are a before/after check.
+
+Only hop if the direct rehearsal fails.
 
 **Sandboxing is a reason to upgrade.** 2026.3.2 can only sandbox tool execution in **Docker**, which
 this container cannot reach — it has no Docker socket and no Docker CLI, so `sandbox explain` reports

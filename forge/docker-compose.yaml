@@ -100,10 +100,11 @@ services:
       - ai-network
 
   openclaw:
-    # Pinned to what was running. Worth knowing when this was done: the container
-    # was on 2026.3.2 while the newest published tag was 2026.5.22 — about two
-    # months behind, on a tag called "latest". Bump deliberately.
-    image: ghcr.io/openclaw/openclaw:2026.3.2
+    # Pinned deliberately. Bump by hand from the runbook at
+    # .claude/skills/homelab-upgrades/packages/openclaw.md, which says how to
+    # rehearse the migration on a copy of the state dir first. No "how far behind"
+    # note here: the previous one said two months when it had become six.
+    image: ghcr.io/openclaw/openclaw:2026.9.6
     container_name: openclaw
     restart: unless-stopped
     # Depends on ollama itself, not model-loader: a failed model pull should
