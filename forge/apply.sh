@@ -146,7 +146,7 @@ PYVALIDATE
         for skill_dir in "$HERE/skills"/*/; do
             [[ -d "$skill_dir" ]] || continue
             name=$(basename "$skill_dir")
-            if [[ -n "$(rsync -ain --delete "$skill_dir" "$STATE/skills/$name/" 2>/dev/null)" ]]; then
+            if ! diff -rq "$skill_dir" "$STATE/skills/$name" >/dev/null 2>&1; then
                 say "skill differs: $name (agent will be restarted)"
             fi
         done
@@ -206,7 +206,13 @@ if [[ -d "$HERE/skills" ]]; then
         [[ -d "$skill_dir" ]] || continue
         name=$(basename "$skill_dir")
         mkdir -p "$STATE/skills/$name"
-        if [[ -n "$(rsync -ai --delete "$skill_dir" "$STATE/skills/$name/")" ]]; then
+        # Content, not timestamps. `rsync -ai` reports a difference when only the mtime
+        # differs, and two git checkouts of identical content on two machines have
+        # different mtimes -- so deploying from a different origin than last time
+        # reported "skill differs" and restarted the agent for nothing, dropping Slack
+        # each time. diff -rq compares bytes and says nothing about when they arrived.
+        if ! diff -rq "$skill_dir" "$STATE/skills/$name" >/dev/null 2>&1; then
+            rsync -a --delete "$skill_dir" "$STATE/skills/$name/"
             say "installed skill $name"
             openclaw_changed=1
         fi

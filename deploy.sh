@@ -153,9 +153,19 @@ if [[ $FORCE -eq 0 && $CHECK -eq 0 && "$head" != "$merged" ]]; then
     exit 1
 fi
 
+# Every address on this machine. `hostname -I` is Linux-only -- on macOS it fails with
+# "illegal option -- I" three times per deploy, and the function then reports "not
+# local" for everything by accident rather than by decision. That answer happens to be
+# right on a laptop, which is why this went unnoticed, but it would be wrong the moment
+# this ran on a host that IS one of the targets.
+local_ips() {
+    if hostname -I 2>/dev/null; then return 0; fi
+    ifconfig 2>/dev/null | awk '/inet /{print $2}'
+}
+
 is_local() {
     local ip=${HOST_SSH[$1]#*@}
-    hostname -I | tr ' ' '\n' | grep -qx "$ip"
+    local_ips | tr ' ' '\n' | grep -qx "$ip"
 }
 
 # Run a command string on the host: locally, or over ssh.
