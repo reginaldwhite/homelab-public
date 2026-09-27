@@ -83,7 +83,18 @@ if [[ $VALIDATE -eq 1 ]]; then
         fi
         python3 -c "import json,sys; [json.load(open(f)) for f in sys.argv[1:]]" \
             "$OBS_DIR"/grafana/dashboards/*.json
-        say "observability: compose, prometheus.yml, blackbox.yml and $(ls "$OBS_DIR"/grafana/dashboards/*.json | wc -l | tr -d ' ') dashboards valid"
+        loki_image=$(docker compose "${obs_env[@]}" -f "$OBS_DIR/docker-compose.yml" config --images | grep '^grafana/loki' | head -1)
+        alloy_image=$(docker compose "${obs_env[@]}" -f "$OBS_DIR/docker-compose.yml" config --images | grep '^grafana/alloy' | head -1)
+        if ! out=$(docker run --rm -v "$OBS_DIR/loki:/etc/loki:ro" "$loki_image" -config.file=/etc/loki/loki.yml -verify-config 2>&1); then
+            echo "loki.yml failed validation:" >&2; echo "$out" >&2; exit 1
+        fi
+        # The shipper config is the shared one every host mounts; dummy values stand in for
+        # the environment it reads at run time.
+        if ! out=$(docker run --rm -e LOKI_URL=http://loki:3100/loki/api/v1/push -e LOKI_USER=x -e LOKI_PASSWORD=x -e ALLOY_HOST=x \
+                -v "$HERE/scripts/alloy/config.alloy:/etc/alloy/config.alloy:ro" "$alloy_image" validate /etc/alloy/config.alloy 2>&1); then
+            echo "config.alloy failed validation:" >&2; echo "$out" >&2; exit 1
+        fi
+        say "observability: compose, prometheus.yml, blackbox.yml, loki.yml, config.alloy and $(ls "$OBS_DIR"/grafana/dashboards/*.json | wc -l | tr -d ' ') dashboards valid"
     fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"

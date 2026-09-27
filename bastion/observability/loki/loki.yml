@@ -1,0 +1,57 @@
+# Loki on bastion: single binary, filesystem storage, 30 days of logs. Validated by
+# `loki -verify-config` against the pinned image in ../../apply.sh before it is applied.
+#
+# No authentication of its own (auth_enabled: false). It is reachable only on the compose
+# network; the two remote shippers come in through Caddy's loki.robbywhite.net vhost, which
+# is LAN-only and asks for basic auth. See docs/plan-observability.md.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: "2026-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # Age and size both bound the store: a chatty container cannot fill the disk unnoticed.
+  retention_period: 720h
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  max_query_series: 5000
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  allow_structured_metadata: true
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+  compaction_interval: 10m
+
+ruler:
+  enable_api: false
+
+analytics:
+  reporting_enabled: false

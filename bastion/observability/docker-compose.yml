@@ -75,6 +75,60 @@ services:
     networks:
       - vaultwarden_default
 
+  loki:
+    image: grafana/loki:3.7.8
+    container_name: loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./loki:/etc/loki:ro
+      - loki_data:/loki
+    networks:
+      - vaultwarden_default
+
+  # --- log shipping (docs/plan-observability.md) ---------------------------------------------
+  # Alloy reads journald and container logs and pushes them to Loki on bastion. It reaches the
+  # Docker API only through the socket proxy below, which permits read-only container calls
+  # and nothing else -- the real socket would be root on this host.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: docker-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - POST=0
+      - LOG_LEVEL=warning
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - vaultwarden_default
+
+  alloy:
+    image: grafana/alloy:v1.20.0
+    container_name: alloy
+    restart: unless-stopped
+    depends_on:
+      - docker-proxy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      - ALLOY_HOST=bastion
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
+      - LOKI_USER=${LOKI_USER}
+      - LOKI_PASSWORD=${LOKI_PASSWORD}
+    volumes:
+      # The one config for every host; shared/alloy/ lands in scripts/ on deploy.
+      - ../scripts/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - alloy_data:/var/lib/alloy/data
+    networks:
+      - vaultwarden_default
+
   node-exporter:
     image: prom/node-exporter:v1.12.1
     container_name: node-exporter
@@ -113,6 +167,8 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alloy_data:
 
 networks:
   vaultwarden_default:

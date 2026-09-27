@@ -32,6 +32,23 @@ dns.robbywhite.net {
     }
 }
 
+# Loki ingest for the shippers on forge and cinema. LAN-only like the others, plus basic auth:
+# the credential is LOKI_USER/LOKI_PASSWORD in each host's .env, and this is its bcrypt hash
+# (a hash, so it can live in git). bastion's own shipper talks to loki:3100 directly.
+loki.robbywhite.net {
+    tls internal
+    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
+    handle @lan {
+        basic_auth {
+            alloy $2a$14$REDACTED-set-your-own-bcrypt-hash-here
+        }
+        reverse_proxy loki:3100
+    }
+    handle {
+        abort
+    }
+}
+
 # Grafana, LAN-only, same guard as the AdGuard page above. Grafana runs in the observability
 # compose project but joins this stack's network, so it is reached by service name and never
 # publishes a port. AdGuard rewrites the name to 192.168.0.10; there is no public record.

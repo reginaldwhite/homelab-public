@@ -1,0 +1,84 @@
+// config.alloy — ship this host's logs to Loki on bastion. One file for every host; the host
+// name and the Loki endpoint arrive as environment variables from the compose file, so the
+// same configuration runs on bastion (straight to loki:3100 on the compose network) and on
+// forge and cinema (through Caddy's loki.robbywhite.net with basic auth).
+//
+// Lives in shared/ and is merged into each host's scripts/ by deploy.sh, which is why the
+// compose files mount it from ./scripts/alloy/config.alloy. See docs/plan-observability.md.
+//
+// Two sources:
+//   * journald — every unit on the host, labelled by unit and priority. This is what the old
+//     health verb grepped with `journalctl -p err`.
+//   * Docker — every container's stdout/stderr, labelled by container name. Alloy reaches the
+//     Docker API through a socket proxy that only allows read-only container calls, so this
+//     shipper never holds the real socket (which would be root on the host).
+
+loki.write "default" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+    basic_auth {
+      username = sys.env("LOKI_USER")
+      password = sys.env("LOKI_PASSWORD")
+    }
+    tls_config {
+      // Caddy's LAN-only vhost uses its internal CA. The hop is inside the house and the
+      // credentials above are what actually gate ingestion.
+      insecure_skip_verify = true
+    }
+  }
+  external_labels = {
+    host = sys.env("ALLOY_HOST"),
+  }
+}
+
+// ---- journald ------------------------------------------------------------------------
+loki.relabel "journal" {
+  forward_to = []
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal__transport"]
+    target_label  = "transport"
+  }
+}
+
+loki.source.journal "journal" {
+  path          = "/var/log/journal"
+  max_age       = "12h"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { job = "journal" }
+  forward_to    = [loki.write.default.receiver]
+}
+
+// ---- Docker containers ---------------------------------------------------------------
+discovery.docker "containers" {
+  host             = "tcp://docker-proxy:2375"
+  refresh_interval = "30s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "project"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "tcp://docker-proxy:2375"
+  targets       = discovery.relabel.containers.output
+  relabel_rules = discovery.relabel.containers.rules
+  labels        = { job = "docker" }
+  forward_to    = [loki.write.default.receiver]
+}
