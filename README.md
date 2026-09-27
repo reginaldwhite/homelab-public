@@ -26,6 +26,13 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 | `caddy` | `caddy` (pinned tag) | 80, 443 | Reverse proxy / TLS termination. Bump from `.claude/skills/homelab-upgrades/packages/caddy.md` |
 | `adguardhome` | `adguard/adguardhome` (pinned tag) | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
 
+> **Observability (2026-09-27):** Prometheus, Grafana, blackbox, node exporter and cAdvisor run on
+> bastion as a second compose project, [bastion/observability/](bastion/observability/), joining
+> the vaultwarden network. Grafana is LAN-only at `https://grafana.robbywhite.net` (user `robby`,
+> password in bastion's `.env`); dashboards are provisioned from git. node exporter and cAdvisor
+> also run on forge and cinema (ports 9100 and 9200, host network). Design and phases:
+> [docs/plan-observability.md](docs/plan-observability.md).
+>
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that
 > and why it mattered; the runbook records how it was done.

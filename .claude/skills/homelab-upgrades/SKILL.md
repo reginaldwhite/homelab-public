@@ -20,7 +20,7 @@ behind.
 
 | Tier | Packages | Handling |
 |---|---|---|
-| **Watch** | Caddy, Vaultwarden, AdGuard Home, OpenClaw | Drifting far is unacceptable — either internet-facing, or holding credentials and able to execute. Check often, upgrade in small hops, and never let one reach six months behind. A security release here is worth interrupting someone for. |
+| **Watch** | Caddy, Vaultwarden, AdGuard Home, OpenClaw, Grafana, Prometheus | Drifting far is unacceptable — either internet-facing, or holding credentials and able to execute. Check often, upgrade in small hops, and never let one reach six months behind. A security release here is worth interrupting someone for. |
 | **Drift** | Plex, ollama, open-webui | LAN-only, failure is self-announcing, and nothing else in the homelab depends on them. Report them so they are never invisible, but do not queue them. Upgrade one when you actually want something from it, accepting it will be a project. |
 
 A Drift package sitting a year behind is the intended behaviour, not a backlog. Say so plainly
@@ -160,6 +160,8 @@ and then its runbook:
 | Vaultwarden | `packages/vaultwarden.md` | Watch |
 | AdGuard Home | `packages/adguard.md` | Watch |
 | OpenClaw | `packages/openclaw.md` | Watch |
+| Grafana | `packages/grafana.md` | Watch |
+| Prometheus | `packages/prometheus.md` | Watch |
 | Plex | `packages/plex.md` | Drift |
 | ollama | `packages/ollama.md` | Drift |
 | open-webui | `packages/open-webui.md` | Drift |

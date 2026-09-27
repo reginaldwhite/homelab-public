@@ -195,6 +195,24 @@ script. Provisioned dashboards: *Hosts* (the node exporter full dashboard, one r
 red; *Edge* shows the certificate expiring 2026-12-21; *Jobs* shows Sunday's backup window
 end to end. Nothing in the existing Slack pipeline has changed.
 
+> **Phase 1 done 2026-09-27 16:20–16:45 CDT, commit `2bdddc1`.** 16/16 Prometheus targets up
+> across three hosts; vault probe passing with 85 days left on the certificate; AdGuard rewrite
+> probe passing; Grafana at `https://grafana.robbywhite.net` (user `robby`) through Caddy with the
+> three provisioned dashboards. Found on the way:
+>
+> - **bastion's `ufw` blocks container → host traffic** (it arrives on the Docker bridge, deny
+>   by default). One rule was needed and is now in place:
+>   `ufw allow from 172.16.0.0/12 to 192.168.0.10 port 443,9100,9200 proto tcp`. Caddy → AdGuard
+>   on 8888 must have had its own rule all along; this is the shape any future service on bastion
+>   that a container has to reach on the host will need.
+> - **cinema's `ufw` is active** (the earlier check had read forge's); its two rules for
+>   9100/9200 from bastion are in. forge has no firewall.
+> - The first `compose up` after a Docker engine upgrade recreates every container (the config
+>   hash changes), which cost the vault stack three seconds. Expect it once after each Docker
+>   update, and prefer to deploy bastion right after such an update rather than be surprised later.
+> - Grafana fetched a bundled-plugin update from grafana.com on first start;
+>   `GF_PLUGINS_PREINSTALL_DISABLED=true` now stops that.
+
 ### Phase 2 — logs, events, the network map [agent], two evenings
 
 Loki and Alloy; Postgres and `event.py`; the sauna and sprinkler pollers from the IoT plan

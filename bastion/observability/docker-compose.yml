@@ -64,6 +64,9 @@ services:
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
       - GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
       - GF_NEWS_NEWS_FEED_ENABLED=false
+      # Grafana 12+ downloads and updates bundled plugins from grafana.com at start-up unless
+      # told not to. Self-hosted means no surprise fetches; plugins are pinned with the image.
+      - GF_PLUGINS_PREINSTALL_DISABLED=true
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/node-exporter-full.json
     volumes:
       - grafana_data:/var/lib/grafana
