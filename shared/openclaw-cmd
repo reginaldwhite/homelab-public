@@ -190,7 +190,7 @@ NOISE=(
     ' systemd\[[0-9]+\]: Failed to start fwupd-refresh\.service - Refresh fwupd metadata and update motd\.$'
     # cinema's iGPU drives an HDMI bridge (LSPCON) that is still asleep on every resume;
     # the link recovers by itself and nothing is watching that output
-    ' kernel: i915 0000:00:02\.0: \[drm\] \*ERROR\* (LSPCON |DPCD |Failed to write infoframes)'
+    ' kernel: i915 0000:00:02\.0: \[drm\] \*ERROR\* (LSPCON |DPCD |Error reading LSPCON|Failed to write infoframes)'
 )
 
 # journalctl, minus NOISE. Captured first so a failing journalctl still reports CHECK FAILED,
