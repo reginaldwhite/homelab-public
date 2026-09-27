@@ -109,8 +109,9 @@
       "groupPolicy": "open",
       "streaming": {
         "mode": "partial",
-        "nativeTransport": true
-      }
+        "nativeTransport": false
+      },
+      "replyToMode": "off"
     }
   },
   "gateway": {
