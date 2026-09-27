@@ -39,9 +39,11 @@ SECONDS=0
 while (( SECONDS < DOWN_TIMEOUT )); do
     if ! forge_up; then
         echo "$(date -Iseconds) [sleep-forge] Forge is down (${SECONDS}s)" >> "$LOG"
+        "$HERE/event.sh" power sleep-forge ok --detail "{\"seconds\": $SECONDS}"
         exit 0
     fi
     sleep 5
 done
 echo "$(date -Iseconds) [sleep-forge] ERROR: forge still answering ping ${DOWN_TIMEOUT}s after shutdown" >> "$LOG"
+"$HERE/event.sh" power sleep-forge error --detail "{\"reason\": \"still up after ${DOWN_TIMEOUT}s\"}"
 exit 1

@@ -19,3 +19,18 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: false
+
+  - name: Events
+    uid: events
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: events-db:5432
+    user: homelab
+    editable: false
+    secureJsonData:
+      password: $EVENTS_DB_PASSWORD
+    jsonData:
+      database: homelab
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: false

@@ -67,6 +67,8 @@ services:
       # Grafana 12+ downloads and updates bundled plugins from grafana.com at start-up unless
       # told not to. Self-hosted means no surprise fetches; plugins are pinned with the image.
       - GF_PLUGINS_PREINSTALL_DISABLED=true
+      # Expanded inside provisioning/datasources/*.yml for the Events data source.
+      - EVENTS_DB_PASSWORD=${EVENTS_DB_PASSWORD}
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/node-exporter-full.json
     volumes:
       - grafana_data:/var/lib/grafana
@@ -131,6 +133,29 @@ services:
     networks:
       - vaultwarden_default
 
+  # The events store: one table of things with a start, an end and a result, and the LAN
+  # client map. Written by scripts/event.sh and adguard-stats.py through `docker exec psql`,
+  # read by Grafana. Never published on any port. The volume is the data; pg_dump nightly
+  # (phase 2, backups) carries it to vault.
+  events-db:
+    image: postgres:17.6-alpine
+    container_name: events-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=homelab
+      - POSTGRES_PASSWORD=${EVENTS_DB_PASSWORD}
+      - POSTGRES_DB=homelab
+    volumes:
+      - events_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homelab -d homelab"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vaultwarden_default
+
   node-exporter:
     image: prom/node-exporter:v1.12.1
     container_name: node-exporter
@@ -171,6 +196,7 @@ volumes:
   grafana_data:
   loki_data:
   alloy_data:
+  events_data:
 
 networks:
   vaultwarden_default:

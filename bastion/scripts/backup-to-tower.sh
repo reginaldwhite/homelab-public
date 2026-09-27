@@ -168,6 +168,7 @@ fi
 # Note: forge (7700k) data is synced directly to tower by sync-forge.sh at 3:00am
 
 record_job backup-to-tower "$EXIT"
+"$HERE/event.sh" backup backup-to-tower "$([[ $EXIT -eq 0 ]] && echo ok || echo error)" --detail "{\"exit\": $EXIT}"
 if [[ $EXIT -eq 0 ]]; then
     log "Weekly backup complete"
 else

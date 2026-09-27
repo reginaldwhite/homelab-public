@@ -68,8 +68,9 @@ vault_ssh "nohup /usr/local/sbin/powerdown >/tmp/powerdown.log 2>&1 &" 2>/dev/nu
 
 SECONDS=0
 while (( SECONDS < 300 )); do
-    vault_pings || { log "vault is down (${SECONDS}s)"; exit 0; }
+    vault_pings || { log "vault is down (${SECONDS}s)"; "$HERE/event.sh" power sleep-vault ok --detail "{\"seconds\": $SECONDS}"; exit 0; }
     sleep 5
 done
 log "ERROR: vault still answering ping 300s after powerdown"
+"$HERE/event.sh" power sleep-vault error --detail '{"reason": "still up after 300s"}'
 exit 1

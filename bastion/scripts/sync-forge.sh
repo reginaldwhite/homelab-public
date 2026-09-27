@@ -104,6 +104,7 @@ RC2=$?
 
 EXIT=$(( RC1 | RC2 ))
 record_job sync-forge "$EXIT"
+"$HERE/event.sh" backup sync-forge "$([[ $EXIT -eq 0 ]] && echo ok || echo error)" --detail "{\"documents\": $RC1, \"openclaw_state\": $RC2}"
 
 if [[ $EXIT -eq 0 ]]; then
     echo "$(date -Iseconds) [sync-forge] Forge -> tower sync complete" >> "$LOG"

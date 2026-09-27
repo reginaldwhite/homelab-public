@@ -18,6 +18,15 @@
 # it has stopped, and silence is not an alert.
 0 9 * * * /home/robby/homelab-deployed/bastion/scripts/digest-watchdog.py
 
+# AdGuard's numbers for Prometheus every minute (totals, blocked, latency, top clients) and
+# its client table into the events database every five, for the Network dashboard.
+* * * * * /home/robby/homelab-deployed/bastion/scripts/adguard-stats.py --stats
+*/5 * * * * /home/robby/homelab-deployed/bastion/scripts/adguard-stats.py --clients
+
+# The sauna and the sprinklers: gauges every five minutes, a session or run recorded as an
+# event when it finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2.
+*/5 * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll
+
 # === Sunday backup window ===
 # vault is woken and shut down by bastion now, not by the smart plug. Wake-on-LAN on
 # that board needed the NIC's PCIe root port enabled as well as the NIC itself, which

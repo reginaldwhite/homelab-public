@@ -76,6 +76,7 @@ else
     done
     if ! vault_pings; then
         log "ERROR: vault did not answer ping within ${PING_TIMEOUT}s of WoL"
+        "$HERE/event.sh" power wake-vault error --detail "{\"reason\": \"no ping within ${PING_TIMEOUT}s\"}"
         exit 1
     fi
     log "vault answers ping (${SECONDS}s)"
@@ -98,8 +99,10 @@ while (( SECONDS < ARRAY_TIMEOUT )); do
 done
 if ! vault_array_started; then
     log "ERROR: vault is up but the array never started — /mnt/user is not mounted, so a backup now would write to its RAM filesystem and be lost"
+    "$HERE/event.sh" power wake-vault error --detail '{"reason": "array not started"}'
     exit 1
 fi
 
 log "vault is ready: ssh up and array STARTED"
 set_expected_up vault 1
+"$HERE/event.sh" power wake-vault ok

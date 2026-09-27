@@ -52,9 +52,11 @@ while (( SECONDS < BOOT_TIMEOUT )); do
     if forge_up; then
         echo "$(date -Iseconds) [wake-forge] Forge is up (${SECONDS}s)" >> "$LOG"
         set_expected_up forge 1
+        "$HERE/event.sh" power wake-forge ok --detail "{\"seconds\": $SECONDS}"
         exit 0
     fi
     sleep 5
 done
 echo "$(date -Iseconds) [wake-forge] ERROR: forge did not answer ping within ${BOOT_TIMEOUT}s of WoL" >> "$LOG"
+"$HERE/event.sh" power wake-forge error --detail "{\"reason\": \"no ping within ${BOOT_TIMEOUT}s\"}"
 exit 1

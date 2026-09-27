@@ -147,11 +147,13 @@ docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
 
 # --- observability ----------------------------------------------------------------------
 if [[ -d "$OBS_DIR" ]]; then
-    if [[ ! -f "$OBS_ENV" ]] || ! grep -qE '^GRAFANA_ADMIN_PASSWORD=.+' "$OBS_ENV"; then
-        echo "observability: GRAFANA_ADMIN_PASSWORD is not set in $OBS_ENV; not starting the stack" >&2
-        echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
-        exit 1
-    fi
+    for var in GRAFANA_ADMIN_PASSWORD EVENTS_DB_PASSWORD; do
+        if [[ ! -f "$OBS_ENV" ]] || ! grep -qE "^$var=.+" "$OBS_ENV"; then
+            echo "observability: $var is not set in $OBS_ENV; not starting the stack" >&2
+            echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
+            exit 1
+        fi
+    done
     mkdir -p "$TEXTFILE_DIR" "$OBS_APPLIED"
     cd "$OBS_DIR"
     # Configs are bind mounts, so `up -d` does not notice when their contents change. Each
