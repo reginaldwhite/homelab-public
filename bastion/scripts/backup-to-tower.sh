@@ -23,7 +23,7 @@ STAGING="/home/robby/backup-staging"
 # apply.sh writes immediately before a version upgrade and which is never rotated —
 # those mark known-risky moments and should outlive any schedule.
 SNAPSHOT_DIR="/home/robby/vw-snapshots"
-SNAPSHOT_KEEP=8
+SNAPSHOT_KEEP=14   # matches snapshot-vaultwarden.sh, which writes the same files nightly
 VW_BACKUPS="/home/robby/vw-backups"
 
 mkdir -p "$(dirname "$LOG")"

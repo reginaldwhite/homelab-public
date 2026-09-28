@@ -18,6 +18,10 @@
 # it has stopped, and silence is not an alert.
 0 9 * * * /home/robby/homelab-deployed/bastion/scripts/digest-watchdog.py
 
+# A dated copy of the vault's data every night into ~/vw-snapshots (vaultwarden stopped for a
+# few seconds), so the recovery point is a day, not a week. Sunday's push mirrors the directory.
+15 1 * * * /home/robby/homelab-deployed/bastion/scripts/snapshot-vaultwarden.sh
+
 # Nightly copies of the events database and Grafana's own database into ~/backups, ahead of
 # the Sunday push. Prometheus and Loki data are history, not state, and are not copied.
 30 1 * * * /home/robby/homelab-deployed/bastion/scripts/backup-observability.sh
@@ -30,6 +34,14 @@
 # The sauna and the sprinklers: gauges every five minutes, a session or run recorded as an
 # event when it finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2.
 */5 * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll
+
+# The children's internet window (docs/plan-kids-hours-and-iot.md part 1, layer 2). The
+# script is deployed and testable (--status, --dry-run) but NOT scheduled until the first
+# evening is chosen: uncomment these three lines to turn it on. The 15-minute line is the
+# self-heal; the boundary lines only make the change land on the minute.
+#*/15 * * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+#0 7,20 * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+#30 21 * * 5,6 /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
 
 # === Sunday backup window ===
 # vault is woken and shut down by bastion now, not by the smart plug. Wake-on-LAN on

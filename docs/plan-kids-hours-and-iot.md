@@ -101,13 +101,20 @@ blocked-services list that applies at all hours — the agent proposes one from 
 query log already shows (TikTok is the obvious entry; Roblox and YouTube are yours to decide).
 This is independent of the hours.
 
+> **Built 2026-09-28**, deployed to bastion and tested with `--status` and `--dry-run`; its
+> three crontab lines are in `bastion/crontab` **commented out** until the first evening is
+> chosen (step 6). The rule is `||*^$client='kid-pc'|…` — AdGuard's "every domain" form, since a
+> bare `*` is not a rule. One existing rule, `@@||plex.direct^$important`, outranks it, so the
+> children can still reach Plex on cinema off-hours; decide whether that is a feature.
+
 **3. AdGuard, the hours [agent].** `kids-hours.py` on bastion's crontab at every boundary
 (07:00 daily, 20:00 Sun–Thu, 21:30 Fri–Sat) plus every 15 minutes as a self-heal. At each run
 it computes whether the window is open *now* and makes AdGuard's custom rules match:
 
 ```
-! kids-hours: off-hours block, managed by bastion/scripts/kids-hours.py — do not edit by hand
-*$client='kid-pc'|'kid-chromebook'|'kid-roku'|'kid-ipad'|'kid-phone-finn'|'kid-phone-ava'
+! kids-hours: begin (managed by bastion/scripts/kids-hours.py -- do not edit by hand)
+||*^$client='kid-pc'|'kid-chromebook'|'kid-roku'|'kid-ipad'|'kid-phone-finn'|'kid-phone-ava'
+! kids-hours: end
 ```
 
 present when closed, absent when open, written through `POST /control/filtering/set_rules`
