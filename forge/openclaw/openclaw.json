@@ -73,6 +73,10 @@
     "defaults": {
       "model": {
         "primary": "ollama/gpt-oss:20b"
+      },
+      "heartbeat": {
+        "every": "0m",
+        "target": "none"
       }
     },
     "entries": {
