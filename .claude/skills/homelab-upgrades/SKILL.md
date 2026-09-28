@@ -73,6 +73,13 @@ curl -fsS https://plex.tv/api/downloads/5.json \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["computer"]["Linux"]["version"])'
 ```
 
+**From the OpenClaw agent on forge** the exec allowlist permits only the two `curl` lookups
+above, exactly as written (no `| sed`, no `| python3 -c`; read `tag_name` or `version` out of
+the JSON yourself, and `| head -c 2000` is allowed if the body is long). `docker inspect` and
+`ssh` are not available to the agent; the running-version half of the comparison comes from
+the laptop, or from the last digest that carried it. Say which half is missing rather than
+guessing.
+
 Two traps when comparing:
 
 - **Tag normalisation differs per package.** Each package file declares `tag_from_release` as

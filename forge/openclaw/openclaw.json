@@ -86,7 +86,8 @@
   "tools": {
     "exec": {
       "host": "gateway",
-      "mode": "full"
+      "mode": "allowlist",
+      "strictInlineEval": true
     },
     "deny": [
       "group:web",

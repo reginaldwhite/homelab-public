@@ -1,0 +1,43 @@
+// exec-approvals.json5 — the host approvals document for OpenClaw's exec tool on forge.
+//
+// This is NOT applied by apply.sh: OpenClaw keeps it in SQLite and it has to go in through the
+// CLI, which checks the stored hash so a concurrent edit is rejected rather than overwritten:
+//
+//   docker exec -i openclaw node openclaw.mjs approvals set --stdin < exec-approvals.json5
+//   docker exec openclaw node openclaw.mjs approvals get           # confirm the effective policy
+//
+// Effective policy is the STRICTER of this document and tools.exec in openclaw.json, and both
+// say allowlist: the agent may run exactly what is listed here and nothing else, and a miss is
+// denied outright (askFallback: deny) because no approval UI is ever connected. Since
+// 2026-09-28; before that exec was "full", which the security audit flagged because any
+// prompt-injected turn could run anything as the container user.
+//
+// Every entry names the binary (resolved through PATH) and pins its arguments with a regex over
+// the joined argv, so "python3" alone is never allowed — only the three relay scripts with the
+// verbs they accept. strictInlineEval in openclaw.json makes `python3 -c` and friends an
+// approval-only form on top of that. Shell chaining (&&, ;) is allowed only when every segment
+// matches; pipes into sed/awk/jq miss (they are not safe bins); head/tail/cut/tr/wc/uniq are
+// OpenClaw's built-in safe bins and need no entry.
+{
+  version: 1,
+  defaults: { security: "allowlist", ask: "off", askFallback: "deny", autoAllowSkills: false },
+  agents: {
+    "*": {
+      security: "allowlist", ask: "off", askFallback: "deny", autoAllowSkills: false,
+      allowlist: [
+        // plex-power skill (workspace) and the two repo scripts: fixed verbs only
+        { pattern: "python3",
+          argPattern: "^/home/node/\\.openclaw/scripts/plex-power\\.py (wake|sleep|status)$" },
+        { pattern: "python3",
+          argPattern: "^/home/node/\\.openclaw/scripts/forge-power\\.py (wake|sleep|status)$" },
+        { pattern: "python3",
+          argPattern: "^/home/node/\\.openclaw/scripts/kids-internet\\.py (status|open|close|open ava|open finn|close ava|close finn)$" },
+        // homelab-upgrades skill: the two upstream version lookups, nothing else on the web
+        { pattern: "curl",
+          argPattern: "^-fsS https://api\\.github\\.com/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/latest$" },
+        { pattern: "curl",
+          argPattern: "^-fsS https://plex\\.tv/api/downloads/5\\.json$" },
+      ],
+    },
+  },
+}

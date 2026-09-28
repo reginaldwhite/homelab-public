@@ -66,8 +66,13 @@ release **before** bumping the tag.
 5. **Exec approvals live in SQLite, not `exec-approvals.json`.** The 2026.9 startup migration
    imported the JSON file into shared SQLite state and removed it. `autoAllowSkills` is still on
    in there and `security audit` now flags it; it has to be changed through the `openclaw` CLI
-   or Control UI rather than by editing a file. Set it false before any move to
-   `tools.exec.mode: "allowlist"`, or this skill's runbooks silently re-widen exec.
+   or Control UI rather than by editing a file. It is false, and since 2026-09-28 exec is
+   `allowlist` on both layers: `tools.exec.mode` in `openclaw.json` and the host document kept
+   at `forge/openclaw/exec-approvals.json5` (applied with `approvals set --stdin`, see the
+   comment in that file). A new agent-runnable script means a new entry there, pinned by
+   `argPattern`; a skill that tells the agent to run anything else will simply be denied.
+   After an upgrade, `approvals get` must still show `allowlist` on both sides — a release
+   that migrates the document could reset it.
 
 ## Before upgrading
 
