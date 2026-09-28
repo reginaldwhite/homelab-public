@@ -35,13 +35,16 @@
 # event when it finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2.
 */5 * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll
 
-# The children's internet window (docs/plan-kids-hours-and-iot.md part 1, layer 2). The
-# script is deployed and testable (--status, --dry-run) but NOT scheduled until the first
-# evening is chosen: uncomment these three lines to turn it on. The 15-minute line is the
-# self-heal; the boundary lines only make the change land on the minute.
-#*/15 * * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
-#0 7,20 * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
-#30 21 * * 5,6 /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+# The children's internet windows (docs/plan-kids-hours-and-iot.md part 1, layer 2), live
+# since 2026-09-28. The 15-minute line is the self-heal and would do the job alone; the boundary
+# lines make each change land on the minute. Windows and devices live in the script.
+*/15 * * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+30 5 * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+0 6 * * * /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+30 21 * * 0-4 /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+0 22 * * 0-4 /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+15 22 * * 5,6 /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
+0 23 * * 5,6 /home/robby/homelab-deployed/bastion/scripts/kids-hours.py
 
 # === Sunday backup window ===
 # vault is woken and shut down by bastion now, not by the smart plug. Wake-on-LAN on

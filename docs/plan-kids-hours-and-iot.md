@@ -17,12 +17,17 @@ app, or a device in your hand.
 
 - **Scope: all internet**, not just entertainment. Off-hours, a child's device can reach the LAN
   and nothing else.
-- **Window: 07:00–20:00 on school nights, 07:00–21:30 on Friday and Saturday nights.** One
-  place holds it (below); changing it there changes every layer.
-- **Devices:** the main PC (`mainpcworkstation`, `.124`), the Chromebook (`.126`), an Apple
-  device at `.125`, the playroom Roku (`.119`), two phones, an iPad mini, and the iPad named
-  `robbys-ipad` (`.121`) — *not* `robby's ipad (2)`, which is yours. The phones and iPad mini
-  are not yet matched to leases; step 1 does that.
+- **Two windows, one per child** (revised 2026-09-28 from a single 07:00–20:00 window):
+  Ava (15) Sun–Thu 05:30–22:00, Fri–Sat 05:30–23:00; Finn (13) Sun–Thu 06:00–21:30,
+  Fri–Sat 06:00–22:15. One place holds them (below); changing it there changes every layer.
+- **Plex is off with the rest.** The children's block carries `important`, so it outranks the
+  `@@||plex.direct^` allow rule (which lost its own `$important` for this).
+- **Nothing blocked always-on yet**; revisit with a week of the query log.
+- **Devices, by child:** Finn — the main PC (`finn-pc`, .150), the Chromebook
+  (`finn-chromebook`, .151, school-managed), the playroom Roku (`finn-roku`, .152, the Plex
+  client), the iPad named `robbys-ipad` (`finn-ipad`, .153) and his phone (`finn-phone`, .154).
+  Ava — her phone (`ava-phone`, .155) and the iPad mini (`ava-ipad-mini`, .156, still to be
+  pinned: candidates `.120` and `.122`). `robby's ipad (2)` is yours.
 
 ### How enforcement works, and why three layers
 
@@ -45,20 +50,22 @@ profiles). That covers every WiFi device but not the wired PC, which would then 
 a smart plug on its switch port. It is the fallback rather than the plan because it forces the
 children onto their own SSID and the main password out of their hands, which is more to manage.
 
-### The one place the window lives
+### The one place the windows live
 
-`bastion/scripts/kids-hours.py` carries it as data, and everything below reads it from there:
+`bastion/scripts/kids-hours.py` carries them as data, and everything below reads them from there:
 
 ```python
-WINDOW = {            # local time, America/Chicago
-    "school": ("07:00", "20:00"),   # Sun–Thu nights end at 20:00
-    "weekend": ("07:00", "21:30"),  # Fri and Sat nights end at 21:30
+CHILDREN = {          # local time, America/Chicago; AdGuard persistent-client names
+    "ava":  {"school": ("05:30", "22:00"), "weekend": ("05:30", "23:00"),
+              "devices": ["ava-phone"]},                     # + ava-ipad-mini once pinned
+    "finn": {"school": ("06:00", "21:30"), "weekend": ("06:00", "22:15"),
+              "devices": ["finn-pc", "finn-chromebook", "finn-roku", "finn-ipad", "finn-phone"]},
 }
-KIDS = [              # AdGuard persistent-client names, one per device (step 1)
-    "kid-pc", "kid-chromebook", "kid-roku", "kid-ipad", "kid-phone-finn", "kid-phone-ava",
-    # still to identify and add: the iPad mini (among .104/.120/.122)
-]
 ```
+
+AdGuard's client tags are a fixed list (`user_child`, `device_phone`, …) with no custom values,
+so the child is carried in the client *name* (`ava-…`, `finn-…`) and the script groups by that
+prefix. `kids-hours.py --times` prints both windows for copying into layers 1 and 3.
 
 Layer 1 and layer 3 are set by hand to the same times; the script prints them so they can be
 copied rather than remembered.
@@ -86,34 +93,36 @@ copied rather than remembered.
 >
 > | Client | MAC | Static IP | Was |
 > |---|---|---|---|
-> | kid-pc | `c8:60:00:2b:90:6f` | .150 | .124 mainpcworkstation |
-> | kid-chromebook | `bc:d2:2c:87:d4:b5` | .151 | .126 |
-> | kid-roku | `d4:ab:cd:57:dd:cc` | .152 | .119 playroom |
-> | kid-ipad | `1c:0d:7d:17:08:fa` | .153 | .121 robbys-ipad |
-> | kid-phone-finn | `f6:99:f3:7b:b5:f7` | .154 | .106 iphone (Private Address already Fixed) |
-> | kid-phone-ava | `32:b2:62:ef:e8:29` | .155 | .125 (Private Address Fixed) |
+> | finn-pc *(was kid-pc)* | `c8:60:00:2b:90:6f` | .150 | .124 mainpcworkstation |
+> | finn-chromebook | `bc:d2:2c:87:d4:b5` | .151 | .126 |
+> | finn-roku | `d4:ab:cd:57:dd:cc` | .152 | .119 playroom |
+> | finn-ipad | `1c:0d:7d:17:08:fa` | .153 | .121 robbys-ipad |
+> | finn-phone | `f6:99:f3:7b:b5:f7` | .154 | .106 iphone (Private Address already Fixed) |
+> | ava-phone | `32:b2:62:ef:e8:29` | .155 | .125 (Private Address Fixed) |
 >
 > Each device moves to its static address at its next DHCP renewal (or reconnect) without
-> dropping. Still to identify: the iPad mini, candidates `.104`, `.120`, `.122`; it gets `.156`.
+> dropping. Renamed from `kid-*` to carry the child on 2026-09-28. Still to identify: the iPad
+> mini (Ava's), candidates `.120` and `.122`; it gets `.156` as `ava-ipad-mini`.
 
 **2. AdGuard, always-on part [agent].** For every `user_child` client: SafeSearch on, and a
 blocked-services list that applies at all hours — the agent proposes one from what the
 query log already shows (TikTok is the obvious entry; Roblox and YouTube are yours to decide).
 This is independent of the hours.
 
-> **Built 2026-09-28**, deployed to bastion and tested with `--status` and `--dry-run`; its
-> three crontab lines are in `bastion/crontab` **commented out** until the first evening is
-> chosen (step 6). The rule is `||*^$client='kid-pc'|…` — AdGuard's "every domain" form, since a
-> bare `*` is not a rule. One existing rule, `@@||plex.direct^$important`, outranks it, so the
-> children can still reach Plex on cinema off-hours; decide whether that is a feature.
+> **Built 2026-09-28 and live the same evening**: one rule per child between the markers,
+> `||*^$client='finn-pc'|…,important` — AdGuard's "every domain" form, since a bare `*` is not
+> a rule — on bastion's crontab every 15 minutes plus each boundary minute. `--open`/`--close`
+> take `--child ava|finn`. Metrics `homelab_kids_window_open{child}` and
+> `homelab_kids_rule_present{child}`.
 
 **3. AdGuard, the hours [agent].** `kids-hours.py` on bastion's crontab at every boundary
-(07:00 daily, 20:00 Sun–Thu, 21:30 Fri–Sat) plus every 15 minutes as a self-heal. At each run
-it computes whether the window is open *now* and makes AdGuard's custom rules match:
+plus every 15 minutes as a self-heal. At each run it computes whether each child's window is
+open *now* and makes AdGuard's custom rules match:
 
 ```
 ! kids-hours: begin (managed by bastion/scripts/kids-hours.py -- do not edit by hand)
-||*^$client='kid-pc'|'kid-chromebook'|'kid-roku'|'kid-ipad'|'kid-phone-finn'|'kid-phone-ava'
+||*^$client='ava-phone',important
+||*^$client='finn-pc'|'finn-chromebook'|'finn-roku'|'finn-ipad'|'finn-phone',important
 ! kids-hours: end
 ```
 
@@ -135,12 +144,12 @@ window.
 
 | At | Check | Pass |
 |---|---|---|
-| 19:55 | a child's device loads a web page | works |
-| 20:05 | same device, same page | fails; AdGuard query log shows the block against its name |
-| 20:05 | same device with DNS set by hand to `8.8.8.8` | still fails — that is layer 1 working; if it loads, layer 1 is not enforcing and the EAP fallback is next |
-| 20:05 | your own phone | works |
-| 07:05 | the child's device | works again without anyone touching anything |
-| next morning | the digest | a `kids` line: window closed 20:00, N blocked queries from M devices overnight |
+| 21:25 | one of Finn's devices loads a web page | works |
+| 21:35 | same device, same page | fails; AdGuard query log shows the block against its name; Ava's phone still works |
+| 21:35 | same device with DNS set by hand to `8.8.8.8` | still fails — that is layer 1 working; if it loads, layer 1 is not enforcing and the EAP fallback is next |
+| 22:05 | Ava's phone | fails too |
+| 06:05 | Finn's device | works again without anyone touching anything (Ava's from 05:30) |
+| next morning | the *Network* dashboard | blocked queries per child overnight; `homelab_kids_rule_present` back to 0 |
 
 **7. Rollback.** `kids-hours.py --open` removes the rule block and exits; delete the AT&T
 profile; the persistent clients and static leases can stay (they are just names).
