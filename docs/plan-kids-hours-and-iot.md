@@ -20,8 +20,12 @@ app, or a device in your hand.
 - **Two windows, one per child** (revised 2026-09-28 from a single 07:00–20:00 window):
   Ava (15) Sun–Thu 05:30–22:00, Fri–Sat 05:30–23:00; Finn (13) Sun–Thu 06:00–21:30,
   Fri–Sat 06:00–22:15. One place holds them (below); changing it there changes every layer.
-- **Plex is off with the rest.** The children's block carries `important`, so it outranks the
-  `@@||plex.direct^` allow rule (which lost its own `$important` for this).
+- **Plex is off with the rest, probably.** The children's block carries `important`, so it
+  outranks the `@@||plex.direct^` allow rule (which lost its own `$important` for this). But
+  AdGuard answers DNS *rewrites* before it evaluates rules, so `*.plex.direct` names still
+  resolve for a blocked device; what the block removes is `plex.tv`, which the Plex app needs to
+  sign in and find the server. Whether the Roku's Plex app still plays at 21:35 is the test; if
+  it does, the rewrite has to go (Plex publishes those names publicly anyway).
 - **Nothing blocked always-on yet**; revisit with a week of the query log.
 - **Devices, by child:** Finn — the main PC (`finn-pc`, .150), the Chromebook
   (`finn-chromebook`, .151, school-managed), the playroom Roku (`finn-roku`, .152, the Plex
