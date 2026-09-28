@@ -258,7 +258,10 @@ on any host is answered by a Loki query; the *Network* dashboard lists every lea
 >   names). **[you]**: point the host at itself — `sudo nmcli con mod netplan-enp3s0 ipv4.dns
 >   "127.0.0.1 1.1.1.1" && sudo nmcli dev reapply enp3s0`, then check `/etc/resolv.conf` follows;
 >   if it stays static, it is being written by something else (`ls -l /etc/resolv.conf` shows
->   whether it is a symlink to systemd-resolved's stub).
+>   whether it is a symlink to systemd-resolved's stub). *Done 2026-09-28: NetworkManager is set
+>   to `dns=systemd-resolved` and that service is disabled, so nothing writes the file; it was
+>   written by hand (`127.0.0.1`, then `1.1.1.1` as the fallback) and the host now resolves LAN
+>   names and gets blocked answers like every other client.*
 > - A line appended to bastion's `.env` without a trailing newline glued `LOKI_USER=alloy` onto
 >   the Grafana password, so Grafana initialised with the wrong admin password; repaired with
 >   `grafana cli admin reset-admin-password`. `.env` edits should end with a newline.
