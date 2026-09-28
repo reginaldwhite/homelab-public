@@ -78,10 +78,10 @@ upgrades skill gains a package file for each Watch-tier one.
 | cAdvisor | bastion, forge, cinema | per-container CPU, memory, restarts | Drift |
 | blackbox exporter | bastion | HTTPS probes of `vault.robbywhite.net` (status, certificate days), DNS probes of AdGuard, ICMP to every host and to vault's schedule | Drift |
 | Alloy | bastion, forge, cinema | ships journald and Docker logs to Loki; replaces Promtail, which is end-of-life | Drift |
-| Loki | bastion | log store, 30-day retention | Drift |
-| Postgres | bastion | one `events` table for things with a start, an end and a result | Watch (the sauna and sprinkler credentials are not in it, but it is a database on the vault host) |
+| Loki | bastion | log store, 30-day retention; also holds AdGuard's query log (see *Security*) | Drift |
+| Postgres | bastion | one `events` table for things with a start, an end and a result | Drift (never published, reachable only on the stack's own network, holds nothing secret; a database on the vault host is why it is in the skill at all) |
 | Grafana | bastion | dashboards, alert rules, Slack contact point | Watch (a login on the vault host, LAN-only) |
-| Caddy | bastion, exists | `grafana.robbywhite.net` LAN-only; `metrics.robbywhite.net` with basic auth for forge's digester | already Watch |
+| Caddy | bastion, exists | `grafana.robbywhite.net` and `loki.robbywhite.net` LAN-only; `metrics.robbywhite.net` with basic auth for forge's digester comes with phase 4 (its AdGuard rewrite already exists, the vhost does not) | already Watch |
 
 **Not used, deliberately:** a third-party AdGuard exporter. The two well-known ones are
 archived and the most active survivor is small; any of them would hold the AdGuard admin
@@ -131,7 +131,7 @@ create table events (
 ```
 
 Grafana reads it directly, so "every sauna session this year" and "backup outcomes by week"
-are queries, not scraping. Written by a tiny `bastion/scripts/event.py` helper the existing
+are queries, not scraping. Written by a tiny `bastion/scripts/event.sh` helper the existing
 scripts call at the point where they already write their log line.
 
 This is where the Postgres-and-React idea landed: Postgres, yes, for events; Grafana instead of
@@ -140,8 +140,16 @@ is ever wanted, it queries the same tables.
 
 ## Security and exposure
 
-- Prometheus (`:9090`), Loki (`:3100`) and Postgres (`:5432`) bind to `127.0.0.1` and the
-  compose network only. Grafana reaches them by service name.
+- Prometheus (`:9090`), Loki (`:3100`) and Postgres (`:5432`) publish nothing; they live on the
+  stack's own `observability_internal` network and Grafana reaches them by service name. Only
+  Grafana and Loki also join `vaultwarden_default`, because Caddy proxies those two. **This split
+  was missing on day one**: every service sat on the vault stack's network, and the Docker socket
+  proxy there hands back each container's environment — Grafana's admin password included — to
+  any container that asks, which Caddy, the one container facing the internet, could. Fixed
+  2026-09-28.
+- Grafana encrypts data-source secrets with `GRAFANA_SECRET_KEY` from bastion's `.env`. Its
+  first day ran on Grafana's published default key, so the events-db password in the nightly
+  Grafana archive was recoverable; the volume was rebuilt under the new key on 2026-09-28.
 - Grafana is reachable only as `grafana.robbywhite.net` through Caddy, with the same
   `remote_ip 192.168.0.0/24` handle and `abort` as the AdGuard vhost, `tls internal`, and an
   AdGuard rewrite to `192.168.0.10`. Its admin password lives in bastion's `.env`; anonymous
@@ -151,22 +159,32 @@ is ever wanted, it queries the same tables.
   the stores.
 - node exporter and cAdvisor on forge and cinema listen on the LAN (`:9100`, `:9200` — 8080 is
   open-webui's on forge) because Prometheus on bastion must reach them. They expose no secrets.
-  **Checked 2026-09-27: `ufw` is inactive on forge and cinema**, so there is nothing to add a
-  rule to, and enabling it is a separate change — deny-by-default would take SSH, Ollama,
-  open-webui and the gateway with it until each is allowed. Accepted: the exporters are readable
-  from the LAN, like Ollama and Plex already are. Both run in host network mode so that a future
-  `ufw` (see *Deferred*) would actually apply to them; Docker's own port publishing bypasses it.
+  **Checked 2026-09-27: `ufw` is inactive on forge** (enabling it is a separate change —
+  deny-by-default would take SSH, Ollama, open-webui and the gateway with it until each is
+  allowed) **and active on cinema**, where the two exporter ports are allowed from bastion only.
+  Accepted on forge: the exporters are readable from the LAN, like Ollama already is. Both run in
+  host network mode so that a host firewall actually applies to them; Docker's own port
+  publishing bypasses it.
 - Alloy on forge and cinema pushes to Loki, so Loki needs one LAN-reachable ingest path: Caddy
-  again, `loki.robbywhite.net` with basic auth, credential per host in its `.env`.
+  again, `loki.robbywhite.net` with basic auth. Built with **one shared credential** (`alloy`)
+  in every host's `.env` rather than one per host: revoking it means rotating three files, which
+  is acceptable for a credential that can only append log lines. Alloy skips verification of
+  Caddy's internal-CA certificate on that hop (`insecure_skip_verify` in `config.alloy`); the
+  credential, not the certificate, is what gates ingestion, and the hop never leaves the house.
+- **AdGuard's query log is in Loki** (job `adguard-querylog`, 30 days, client IP as a label,
+  domain in the line) on top of AdGuard's own 90-day log. It is every device's DNS history,
+  readable by anyone with a Grafana login — today only `robby`. If Grafana ever gains a second
+  user, this stream is the reason to think about per-user data-source permissions first.
 - Nothing here touches the internet-facing vault vhost.
 
 ## Backups
 
 - **Grafana:** dashboards, data sources and alert rules are provisioned from the repo, so the
-  running instance is reproducible from git. Its SQLite holds only users and preferences; it is
-  copied into `backup-to-tower.sh`'s staging like `vw-data`.
-- **Postgres:** `pg_dump` nightly to `~/backups/events-YYYY-MM-DD.sql.gz`, kept 14 days
-  locally, mirrored to vault on Sunday with the rest.
+  running instance is reproducible from git. Its SQLite holds only users and preferences;
+  `backup-observability.sh` archives the volume nightly to `~/backups/grafana-YYYY-MM-DD.tgz`.
+- **Postgres:** the same script runs `pg_dump` nightly to `~/backups/events-YYYY-MM-DD.sql.gz`.
+  Fourteen of each are kept, mode 600, and `backup-to-tower.sh` mirrors `~/backups/` to vault
+  on Sunday with the rest.
 - **Prometheus and Loki data:** not backed up. Ninety days of metrics and thirty of logs are
   regenerable in the sense that losing them costs history, not correctness, and they are the
   bulk of the disk.
@@ -178,7 +196,7 @@ is ever wanted, it queries the same tables.
 - [x] AdGuard rewrites for `grafana`, `metrics` and `loki` `.robbywhite.net` → `192.168.0.10`
       (done 2026-09-27 through the API; the AdGuard, Rachio and HUUM credentials in bastion's
       `.env` are all verified).
-- [x] `ufw` on forge and cinema: found inactive; no rules, decision recorded under *Security*.
+- [x] `ufw`: inactive on forge (no rules, decision recorded under *Security*); active on cinema and on bastion, both given the rules the exporters need.
 - `bastion/observability/` in the repo: compose file, Prometheus config, blackbox modules,
   Grafana provisioning tree, Postgres init SQL. `bastion/apply.sh` learns to validate and `up`
   a second compose project.
@@ -247,8 +265,11 @@ on any host is answered by a Loki query; the *Network* dashboard lists every lea
 > - Alloy's Docker discovery needs `NETWORKS=1` on the socket proxy as well as `CONTAINERS=1`.
 > - The Loki image has no shell tools; query it through Grafana's container (`wget` to
 >   `http://loki:3100`).
-> - Still to do from this phase's backup section: nightly `pg_dump` of the events database and
->   the Grafana volume into the Sunday push (next commit).
+> - The backup section's nightly `pg_dump` and Grafana archive landed the same evening as
+>   `backup-observability.sh` (01:30, mirrored to vault on Sunday).
+> - **Review on 2026-09-28** found two security gaps in what phase 2 built, both recorded under
+>   *Security* and fixed: the socket proxy and the stores shared Caddy's network, and Grafana
+>   ran on its default secret key.
 
 ### Phase 3 — alerting, and Slack stops being the database [agent], one evening
 
@@ -291,11 +312,10 @@ and the same day's `#homelab-logs` is empty.
 **Done when:** the next real alert arrives with a threaded explanation that names the right
 runbook, and the morning narrative mentions something that only seven days of data could show.
 
-**Deferred: a host firewall on forge and cinema.** `ufw` is inactive on both. Turning it on
-properly means an explicit allow list per host (SSH from the LAN; on forge Ollama 11434,
-open-webui 8080, the gateway 18789/18791; on cinema Plex 32400 and its discovery ports) and a
-test from another machine before the session that enabled it is closed. Worth doing, its own
-evening, not this plan's.
+**Deferred: a host firewall on forge.** `ufw` is inactive there (cinema's is active). Turning
+it on properly means an explicit allow list (SSH from the LAN, Ollama 11434, open-webui 8080,
+the gateway 18789/18791, the two exporters from bastion) and a test from another machine before
+the session that enabled it is closed. Worth doing, its own evening, not this plan's.
 
 **Deferred, as a gate rather than a phase:** letting the agent run the read-only health verbs
 itself when an alert fires and *propose* a fix. The forced-command verbs make it safe to try;
@@ -317,8 +337,10 @@ whether it is worth having is a decision for after phase 4 has run for a month.
 - **bastion's blast radius grows.** Four more services on the host that runs DNS, DHCP and the
   vault. Mitigated by principle 3; accepted because the alternative is a fourth always-on
   machine.
-- **Loki volume surprises.** A chatty container can fill it. Retention is enforced by size as
-  well as age, and the *Logs* dashboard shows ingest rate per source from day one.
+- **Loki volume surprises.** A chatty container can fill it. Retention is by age only (30 days);
+  the guard against a runaway source is the per-tenant ingestion rate limit (8 MB/s, burst 16)
+  and the *Logs* dashboard, which shows ingest rate per source from day one. Prometheus, by
+  contrast, is capped at 8 GB as well as 90 days.
 - **Alert fatigue from sleeping hosts.** The whole point of `homelab_host_expected_up`; the
   first week of phase 3 is spent watching for false alerts before `health-report.py` is retired.
 - **Two alerting paths during phases 3–4.** Grafana and the old digester both post until the

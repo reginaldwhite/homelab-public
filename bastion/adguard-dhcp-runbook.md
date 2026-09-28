@@ -165,6 +165,9 @@ Back in **Home Network → Subnets & DHCP**, set DHCPv4 start `192.168.0.101`, e
 `192.168.0.102`. Two addresses is the minimum the UI accepts; it cannot be set to zero and the
 server cannot be turned off.
 
+> **Wrong on the day (2026-09-27):** the page has a *DHCP Server Enable* toggle, and starving the
+> pool was not enough — the router kept answering first. The toggle is Off now; see the header.
+
 ### 5. Verify on a real client
 
 Forget and rejoin the WiFi on your phone (or `dhclient -r && dhclient` on a laptop), then check:

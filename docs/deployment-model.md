@@ -345,6 +345,28 @@ Worth fixing independently of any deploy trigger: give that key forced commands 
 each host's `authorized_keys`, limited to the power scripts it actually needs. That is the same
 mechanism the trigger would use, so both can land together.
 
+## What one deploy pushes today
+
+Written down 2026-09-28 because the script had grown past the description above. For a host
+`h`, `deploy.sh h` refuses unless `HEAD` equals `origin/main`, then:
+
+1. rsyncs `h/` to `~/homelab-deployed/.staging/h/` on the host, excluding everything git ignores
+   under `h/` plus `.env` and `.secrets.env` — so a deploy never carries live data or secrets;
+2. merges `shared/` into that staging `scripts/` (the health report, the agent's forced-command
+   verb, `os-update.sh`, the Alloy config) so every host runs the identical copy;
+3. on forge only, stages `.claude/skills/` as `skills/`, which `forge/apply.sh` installs into the
+   agent's state directory — a skill change therefore restarts the agent, like an
+   `openclaw.json` change;
+4. runs `apply.sh --validate` in staging (compose config, Caddyfile, promtool, blackbox, Loki, Alloy,
+   dashboard JSON on bastion; Plex image on cinema; OpenClaw config on forge) and stops on any
+   failure;
+5. rsyncs staging over `~/homelab-deployed/h/` and runs its `apply.sh`, which brings compose
+   projects up, reloads or restarts only the services whose bind-mounted config changed (by
+   content hash), and installs the crontab.
+
+`--check` stops after step 4. The dirty-tree check covers `h/`, `shared/` and, for forge,
+`.claude/skills/`, because an uncommitted edit in any of them would otherwise ship.
+
 ## Closing the class of bug
 
 After forge migrates, every remaining "runtime reads from the git tree" instance is gone. To keep

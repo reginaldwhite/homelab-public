@@ -4,10 +4,14 @@
 # Design and phasing: docs/plan-observability.md.
 #
 # Two networking rules, both deliberate:
-#   * Prometheus, Grafana and blackbox join the vaultwarden stack's network rather than their
-#     own, so Caddy can reverse-proxy Grafana by service name and nothing here publishes a
-#     port on the LAN. Prometheus and Grafana are reachable only from other containers on
-#     that network -- Caddy, and later the Loki/Postgres services.
+#   * Two networks. `internal` is this project's own bridge and is where everything talks to
+#     everything: Grafana to its stores, Prometheus to blackbox, Alloy to Loki and to the
+#     Docker socket proxy. Only Grafana and Loki ALSO join the vaultwarden stack's network,
+#     because Caddy has to reverse-proxy those two by service name. Nothing here publishes a
+#     port on the LAN. The split matters: the socket proxy returns every container's
+#     environment (passwords included) to anyone who can reach it, and Prometheus and Loki
+#     answer without authentication -- so the internet-facing Caddy container must not share a
+#     network with them. Found 2026-09-27, when it did.
 #   * node exporter and cAdvisor run in host network mode, because that is how they see the
 #     host's interfaces and cgroups, and because a host firewall then applies to them (Docker's
 #     own port publishing bypasses ufw). Same shape on forge and cinema, same ports.
@@ -31,7 +35,7 @@ services:
       - ./prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
     networks:
-      - vaultwarden_default
+      - internal
 
   blackbox:
     image: prom/blackbox-exporter:v0.28.0
@@ -48,7 +52,7 @@ services:
     dns:
       - 192.168.0.10
     networks:
-      - vaultwarden_default
+      - internal
 
   grafana:
     image: grafana/grafana:13.2.2
@@ -57,6 +61,10 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=robby
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      # Encrypts data-source secrets in Grafana's own database. Without it Grafana uses a
+      # published default, and the nightly copy of that database would carry the events-db
+      # password in a form anyone can decrypt. Set once; changing it later means a fresh volume.
+      - GF_SECURITY_SECRET_KEY=${GRAFANA_SECRET_KEY}
       - GF_SERVER_ROOT_URL=https://grafana.robbywhite.net
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
@@ -75,6 +83,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
+      - internal
       - vaultwarden_default
 
   loki:
@@ -86,6 +95,8 @@ services:
       - ./loki:/etc/loki:ro
       - loki_data:/loki
     networks:
+      - internal
+      # Caddy's loki.robbywhite.net vhost, for the shippers on forge and cinema.
       - vaultwarden_default
 
   # --- log shipping (docs/plan-observability.md) ---------------------------------------------
@@ -105,7 +116,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - vaultwarden_default
+      - internal
 
   alloy:
     image: grafana/alloy:v1.20.0
@@ -134,7 +145,7 @@ services:
       # the host; Alloy runs as root in its container and the mount is read-only.
       - /home/robby/vaultwarden/agh-work/data:/adguard:ro
     networks:
-      - vaultwarden_default
+      - internal
 
   # The events store: one table of things with a start, an end and a result, and the LAN
   # client map. Written by scripts/event.sh and adguard-stats.py through `docker exec psql`,
@@ -157,7 +168,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - vaultwarden_default
+      - internal
 
   node-exporter:
     image: prom/node-exporter:v1.12.1
@@ -202,5 +213,7 @@ volumes:
   events_data:
 
 networks:
+  internal:
+    name: observability_internal
   vaultwarden_default:
     external: true

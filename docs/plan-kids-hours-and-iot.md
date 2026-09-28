@@ -107,7 +107,7 @@ it computes whether the window is open *now* and makes AdGuard's custom rules ma
 
 ```
 ! kids-hours: off-hours block, managed by bastion/scripts/kids-hours.py — do not edit by hand
-*$client='kid-pc'|'kid-chromebook'|'kid-roku'|'kid-ipad-mini'|'kid-ipad'|'kid-phone-1'|'kid-phone-2'
+*$client='kid-pc'|'kid-chromebook'|'kid-roku'|'kid-ipad'|'kid-phone-finn'|'kid-phone-ava'
 ```
 
 present when closed, absent when open, written through `POST /control/filtering/set_rules`
@@ -142,18 +142,17 @@ profile; the persistent clients and static leases can stay (they are just names)
 
 - No packet-level enforcement on the homelab itself. bastion is not a router and making it
   one is a re-architecture the DHCP runbook already declined.
-- No content filtering beyond SafeSearch and the services list. That is a different
-  conversation.
+- No content filtering beyond SafeSearch, AdGuard's parental-control filter (adult content,
+  turned on per child client on 2026-09-27) and the services list. Anything finer is a
+  different conversation.
 - No attempt to catch DNS-over-HTTPS. Layer 1 makes it unnecessary; layer 2 would need
   AdGuard's DoH-blocking lists and still miss some.
 
 ### Reporting
 
-A `kids` section in bastion's daily `iot` report (Part 2) rather than a report of its own:
-whether the window is closed right now, when it last changed, the count of blocked off-hours
-queries per device since the last report, and a finding if `kids-hours.py` failed to reach
-AdGuard. The digester already prints non-health kinds with a `[kind]` prefix and their metrics,
-so nothing changes on forge.
+Superseded by the observability plan: `kids-hours.py` will publish `homelab_kids_window_open`
+and a per-client blocked count through the textfile collector, the *Network* dashboard shows
+them, and a failed run becomes a Grafana alert rule in that plan's phase 3. No Slack report.
 
 ---
 
@@ -163,7 +162,7 @@ so nothing changes on forge.
 
 | Device | Reachable how | Auth | What we can read | Status |
 |---|---|---|---|---|
-| **HUUM sauna (UKU WiFi)** | cloud only, `https://sauna.huum.eu/action/home/status` | HUUM app username + password, HTTP basic | status code (offline / heating / not heating / locked / emergency stop), temperature, target, door open, humidity and steamer if fitted, light, session start/end | **usable now** |
+| **HUUM sauna (UKU WiFi)** | cloud only, `https://api.huum.eu/action/home/status` (the `sauna.huum.eu` host in the library docs answers empty) | HUUM app username + password, HTTP basic | status code (offline / heating / not heating / locked / emergency stop), temperature, target, door open, humidity and steamer if fitted, light, session start/end | **usable now** |
 | **Rachio** | cloud only, `https://api.rach.io/1/public/…` | API key from the app (Profile → API key → Copy), `Authorization: Bearer` | device online, rain delay, current schedule, zones, and a per-day event list (schedules and zones started, stopped, completed, weather skips); webhooks exist but need an inbound URL | **usable now**; 3 500 requests a day, reset at midnight UTC |
 | **ecobee** | cloud API | needs a developer API key — **ecobee is not accepting new developer registrations** | (temperature, humidity, HVAC mode, equipment running, remote sensors, if it were reachable) | **blocked for a script of our own** |
 
@@ -219,9 +218,9 @@ token), one module per device, credentials in bastion's `.env`
    `/home/robby/homelab-deployed/bastion/.env` (mode 600; deploy never touches it). The HUUM
    ones are the app login; the Rachio key is in the app under Profile.
 2. **[agent]** `iot-poll.py` with `--dry-run` printing what it would log; crontab entries;
-   `--report --dry-run` producing the report above from real data; deploy.
+   deploy. *Done 2026-09-27; there is no `--report`, Grafana reads the data instead.*
 3. **[agent]** Add `~/logs/` to what `backup-to-tower.sh` stages, so the IoT history and the
-   other logs reach vault weekly.
+   other logs reach vault weekly. *Done 2026-09-27 (`~/logs/` and `~/backups/` are mirrored).*
 4. **[you]** Take a sauna. **[agent]** Confirm the session appears in the next morning's digest
    with minutes and peak temperature.
 5. **[agent]** After a week, look at what the data is actually good for and prune the metrics

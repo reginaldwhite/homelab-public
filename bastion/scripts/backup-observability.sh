@@ -13,6 +13,7 @@
 # Fourteen of each are kept; backup-to-tower.sh mirrors ~/backups/ to vault weekly.
 
 set -uo pipefail
+umask 077   # the archives hold password hashes and encrypted secrets; nobody else reads them
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/textfile-metrics.sh"
@@ -40,8 +41,10 @@ fi
 # The volume is read through a throwaway container, so nothing on the host needs to know
 # where Docker keeps it. Grafana keeps running; its SQLite is small and written rarely.
 # plugins/ is skipped: it is the bundled plugin cache (100+ MB) and comes back with the image.
-if docker run --rm -v observability_grafana_data:/d:ro -v "$OUT:/out" alpine \
-        tar czf "/out/grafana-$DAY.tgz" --exclude=./plugins -C /d . 2>>"$LOG"; then
+# tar runs as root (the volume's files are not world-readable), so the archive is handed back
+# to robby and closed to everyone else before the container exits.
+if docker run --rm -v observability_grafana_data:/d:ro -v "$OUT:/out" alpine sh -c \
+        "tar czf /out/grafana-$DAY.tgz --exclude=./plugins -C /d . && chown $(id -u):$(id -g) /out/grafana-$DAY.tgz && chmod 600 /out/grafana-$DAY.tgz" 2>>"$LOG"; then
     log "grafana volume archived ($(du -h "$OUT/grafana-$DAY.tgz" | cut -f1))"
 else
     log "ERROR: could not archive the grafana volume"

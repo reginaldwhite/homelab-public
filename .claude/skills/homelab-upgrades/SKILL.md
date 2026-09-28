@@ -21,7 +21,7 @@ behind.
 | Tier | Packages | Handling |
 |---|---|---|
 | **Watch** | Caddy, Vaultwarden, AdGuard Home, OpenClaw, Grafana, Prometheus | Drifting far is unacceptable — either internet-facing, or holding credentials and able to execute. Check often, upgrade in small hops, and never let one reach six months behind. A security release here is worth interrupting someone for. |
-| **Drift** | Plex, ollama, open-webui | LAN-only, failure is self-announcing, and nothing else in the homelab depends on them. Report them so they are never invisible, but do not queue them. Upgrade one when you actually want something from it, accepting it will be a project. |
+| **Drift** | Plex, ollama, open-webui, and the observability parts that hold no login and face no one: Loki, Alloy, Postgres, blackbox, node exporter, cAdvisor | LAN-only, failure is self-announcing, and nothing else in the homelab depends on them. Report them so they are never invisible, but do not queue them. Upgrade one when you actually want something from it, accepting it will be a project. |
 
 A Drift package sitting a year behind is the intended behaviour, not a backlog. Say so plainly
 rather than presenting it as a failure.
@@ -165,6 +165,12 @@ and then its runbook:
 | Plex | `packages/plex.md` | Drift |
 | ollama | `packages/ollama.md` | Drift |
 | open-webui | `packages/open-webui.md` | Drift |
+| Loki | `packages/loki.md` | Drift |
+| Alloy | `packages/alloy.md` | Drift (three hosts, one commit) |
+| Postgres (events-db) | `packages/postgres.md` | Drift (never cross a major casually) |
+| blackbox exporter | `packages/blackbox.md` | Drift |
+| node exporter | `packages/node-exporter.md` | Drift (three hosts, one commit) |
+| cAdvisor | `packages/cadvisor.md` | Drift (three hosts, one commit) |
 
 Read the package file before touching anything. Every hazard in them was found the hard way and is
 recorded in the repo's history.
