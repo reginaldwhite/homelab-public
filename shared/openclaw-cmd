@@ -19,6 +19,13 @@
 #                           the wake/sleep jobs. Fixed commands, no arguments from the agent.
 #   shutdown     forge    — sudo NOPASSWD: /usr/sbin/shutdown
 #   suspend      cinema   — sudo NOPASSWD: /bin/systemctl suspend
+#   kids-status  bastion  — the children's internet windows (scripts/kids-hours.py): print
+#   kids-open               each child's window state and whether its block is in AdGuard;
+#   kids-close              open or close the block for both children or for one. Fixed verbs,
+#   kids-open-ava          one per action, so the agent never passes an argument. --open and
+#   kids-open-finn         --close are one-shots: the next cron run (every 15 minutes) puts
+#   kids-close-ava         the rule back where the clock says, so the worst a misuse can do
+#   kids-close-finn        is a quarter of an hour.
 #
 # Deliberately NOT granted: `shutdown` on bastion. bastion runs DNS and the vault
 # for the whole house; a prompt-injected agent should not be able to halt it.
@@ -214,7 +221,16 @@ health() {
     section "power jobs" power_jobs
 }
 
+KIDS_HOURS="/home/robby/homelab-deployed/bastion/scripts/kids-hours.py"
+
 case "$requested" in
+    kids-status)      "$KIDS_HOURS" --status; exit 0 ;;   # exit 2 there means "rule out of step", not an error here
+    kids-open)        "$KIDS_HOURS" --open  && "$KIDS_HOURS" --status ;;
+    kids-close)       "$KIDS_HOURS" --close && "$KIDS_HOURS" --status ;;
+    kids-open-ava)   "$KIDS_HOURS" --open  --child ava  && "$KIDS_HOURS" --status ;;
+    kids-open-finn)  "$KIDS_HOURS" --open  --child finn && "$KIDS_HOURS" --status ;;
+    kids-close-ava)  "$KIDS_HOURS" --close --child ava  && "$KIDS_HOURS" --status ;;
+    kids-close-finn) "$KIDS_HOURS" --close --child finn && "$KIDS_HOURS" --status ;;
     wake-forge)  wol "$FORGE_MAC" ;;
     wake-cinema) wol "$CINEMA_MAC" ;;
     wake-vault)  for m in $VAULT_MACS; do wol "$m"; done ;;

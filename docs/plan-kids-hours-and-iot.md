@@ -158,6 +158,13 @@ window.
 **7. Rollback.** `kids-hours.py --open` removes the rule block and exits; delete the AT&T
 profile; the persistent clients and static leases can stay (they are just names).
 
+**8. From Slack [agent].** Since 2026-09-28 the OpenClaw agent can do the one-shots: the
+`kids-internet` skill (`.claude/skills/kids-internet/`, deployed to forge) runs
+`scripts/kids-internet.py status|open|close [ava|finn]`, which is one SSH call to bastion
+with a fixed verb (`kids-status`, `kids-open-ava`, …) granted on the agent's key line and
+handled by `shared/openclaw-cmd`. Same shape as `plex-power`. The agent cannot change the hours,
+and the cron puts any override back within fifteen minutes of the next boundary.
+
 ### What this deliberately does not do
 
 - No packet-level enforcement on the homelab itself. bastion is not a router and making it

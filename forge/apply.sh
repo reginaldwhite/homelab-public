@@ -47,6 +47,7 @@ CONFIG=(
     "openclaw/openclaw.json:openclaw.json:600"
     "openclaw/scripts/forge-power.py:scripts/forge-power.py:600"
     "openclaw/scripts/plex-power.py:scripts/plex-power.py:600"
+    "openclaw/scripts/kids-internet.py:scripts/kids-internet.py:600"
 )
 
 # A just-woken host accepts SSH before dockerd is ready, and --validate runs
