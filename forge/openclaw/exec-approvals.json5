@@ -21,8 +21,11 @@
 {
   version: 1,
   defaults: { security: "allowlist", ask: "off", askFallback: "deny", autoAllowSkills: false },
+  // Allowlists are looked up by agent id ("main"), not through the "*" wildcard the March
+  // install left here; "*" keeps the policy floor for any agent that might be added later.
   agents: {
-    "*": {
+    "*": { security: "allowlist", ask: "off", askFallback: "deny", autoAllowSkills: false },
+    main: {
       security: "allowlist", ask: "off", askFallback: "deny", autoAllowSkills: false,
       allowlist: [
         // plex-power skill (workspace) and the two repo scripts: fixed verbs only
