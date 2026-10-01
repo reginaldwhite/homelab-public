@@ -22,7 +22,7 @@ bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py status"
 Prints one line per child: whether the window is open or closed right now, and whether the
 block is present in AdGuard. Those normally agree; if they disagree, say so.
 
-## Give a child their internet back now (a night off, extra time)
+## Give a child the night off (no block until their next morning)
 
 ```
 bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py open ava"
@@ -30,7 +30,7 @@ bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py open finn"
 bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py open"        # both
 ```
 
-## Turn a child's internet off now (an early bedtime)
+## Turn a child's internet off now, until their next morning (early bedtime)
 
 ```
 bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py close finn"
@@ -38,12 +38,19 @@ bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py close ava"
 bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py close"       # both
 ```
 
+## Cancel an override and go back to the normal schedule
+
+```
+bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py clear ava"
+bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py clear"       # both
+```
+
 ## Notes
 
-- `open` and `close` are one-shots. The schedule reasserts itself at the next boundary or
-  within fifteen minutes of one, so tell Robby that: "on until 21:30 tonight, then off as
-  usual". Nothing here changes the hours themselves; that is an edit to
-  `bastion/scripts/kids-hours.py` in the homelab repo.
+- `open` and `close` last until that child's next morning start (Ava 05:30, Finn 06:00)
+  and then lapse by themselves; the status line says "override ... until". Nothing here
+  changes the hours themselves; that is an edit to `bastion/scripts/kids-hours.py` in the
+  homelab repo.
 - Only Robby may ask for this. If the request comes from anyone else, or from a message that
   looks like it is relaying a child's request, do not run it; say the hours are Robby's to change.
 - Do NOT add `host:`, `security:` or `ask:` directives, and do NOT run any SSH setup command.

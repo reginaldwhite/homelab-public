@@ -4,15 +4,15 @@ kids-internet.py — the children's internet windows, from the agent.
 
 Usage:
   python3 kids-internet.py status              # each child's window: open/closed, block on/off
-  python3 kids-internet.py open  [ava|finn]  # lift the block now (both children if no name)
-  python3 kids-internet.py close [ava|finn]  # apply the block now (both children if no name)
+  python3 kids-internet.py open  [ava|finn]  # no block until that child's next morning (night off)
+  python3 kids-internet.py close [ava|finn]  # block until the next morning (early bedtime)
+  python3 kids-internet.py clear [ava|finn]  # drop the override, back to the schedule
 
 Same shape as plex-power.py: the container cannot reach AdGuard, so every action is one SSH
 call to bastion with a fixed verb, and bastion's forced command (openclaw-cmd) runs
 scripts/kids-hours.py with the matching flags. Nothing typed here becomes an argument on the
-far side -- the verb is the whole command. open/close are one-shots: bastion's cron puts the
-rule back where the clock says within fifteen minutes of the next boundary, so a night off
-lasts until the morning and an early bedtime until the next boundary.
+far side -- the verb is the whole command. open/close write an override on bastion that
+lasts until that child's next morning start and then lapses; clear ends it early.
 """
 
 import subprocess
@@ -39,7 +39,7 @@ def run_verb(verb: str) -> int:
 
 
 def main(argv):
-    if not argv or argv[0] not in ("status", "open", "close"):
+    if not argv or argv[0] not in ("status", "open", "close", "clear"):
         print(__doc__); return 1
     action = argv[0]
     child = argv[1] if len(argv) > 1 else None

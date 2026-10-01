@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """kids-hours.py — each child's internet window, enforced in AdGuard's custom rules.
 
-    kids-hours.py               cron: make AdGuard match every child's window right now (idempotent)
-    kids-hours.py --status      print each window's state and what AdGuard has
-    kids-hours.py --dry-run     show what a run would write, write nothing
-    kids-hours.py --open        remove every block regardless of the time (rollback / a night off)
-    kids-hours.py --close       apply every block regardless of the time (an early bedtime)
-    kids-hours.py --times       print the windows for copying into the gateway profile and Screen Time
-    --open / --close accept --child ava|finn to act on one child only.
+    kids-hours.py                        cron: make AdGuard match every child's window right now
+    kids-hours.py --status               each window's state, overrides, and what AdGuard has
+    kids-hours.py --dry-run              show what a run would write, write nothing
+    kids-hours.py --open  --child ava   lift Ava's block until her next morning start (a night off)
+    kids-hours.py --close --child finn  apply Finn's block until his next morning start (early bedtime)
+    kids-hours.py --open|--close [--child X] --until HH:MM   same, but expiring at a time of day
+    kids-hours.py --clear [--child X]    drop overrides and go back to the schedule
+    kids-hours.py --times                the windows, for the gateway profile and Screen Time
 
 This is layer 2 of docs/plan-kids-hours-and-iot.md. The windows and the device lists live here
 and nowhere else. Outside a child's window one rule for that child sits between the marker
@@ -19,14 +20,14 @@ lines below; every rule outside the markers is preserved untouched:
 
 `||*^` is AdGuard's "every domain"; `$client=` limits it to the named persistent clients, so an
 adult's device is never touched; `important` makes it outrank plain exception rules such as the
-plex.direct allow, so Plex is off too. Blocked lookups appear in the query log as "Blocked by
-custom filtering rule" against the device name, and in Loki with filtered="true".
+plex.direct allow. Blocked lookups appear in the query log as "Blocked by custom filtering
+rule" against the device name, and in Loki with filtered="true".
 
---open and --close are one-shots: the next cron run puts the rules back where the clock says
-they should be, so a night off lasts until the morning at most and an early bedtime until the
-next boundary. Publishes homelab_kids_window_open{child} (1 open, 0 closed) and
-homelab_kids_rule_present{child} through the textfile collector, so a rule stuck in the wrong
-state is one alert away.
+Overrides are stored with an expiry in OVERRIDES (one JSON object, child -> {"state", "until"})
+and honoured by every cron run until they lapse, so a night off survives the 15-minute
+self-heal and ends by itself at the next morning start. Publishes
+homelab_kids_window_open{child}, homelab_kids_rule_present{child} and
+homelab_kids_override{child} through the textfile collector.
 """
 
 import base64
@@ -36,7 +37,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 # Local time, America/Chicago. "school" nights are Sunday to Thursday, "weekend" Friday and
@@ -61,6 +62,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(os.path.dirname(HERE), ".env")
 TEXTFILE_DIR = "/home/robby/observability/textfile"
 LOG = "/home/robby/logs/kids-hours.log"
+OVERRIDES = "/home/robby/logs/kids-hours-overrides.json"
 API = "http://127.0.0.1:8888/control"
 BEGIN = "! kids-hours: begin (managed by bastion/scripts/kids-hours.py -- do not edit by hand)"
 END = "! kids-hours: end"
@@ -111,6 +113,41 @@ def window_open(child, now):
     return start <= now.time() < end, kind
 
 
+def next_morning(child, now):
+    """The child's next window start: today's if it is still ahead, else tomorrow's."""
+    start = hhmm(CHILDREN[child]["school"][0])     # mornings are the same on both kinds
+    cand = now.replace(hour=start.hour, minute=start.minute, second=0, microsecond=0)
+    return cand if cand > now else cand + timedelta(days=1)
+
+
+def load_overrides(now):
+    """{child: {"state": "open"|"closed", "until": datetime}} with expired entries dropped."""
+    try:
+        with open(OVERRIDES) as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for child, o in raw.items():
+        try:
+            until = datetime.fromisoformat(o["until"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if child in CHILDREN and o.get("state") in ("open", "closed") and until > now:
+            out[child] = {"state": o["state"], "until": until}
+    return out
+
+
+def save_overrides(ov):
+    data = {c: {"state": o["state"], "until": o["until"].isoformat()} for c, o in ov.items()}
+    if DRY:
+        print("--- overrides:", json.dumps(data)); return
+    os.makedirs(os.path.dirname(OVERRIDES), exist_ok=True)
+    with open(OVERRIDES + ".tmp", "w") as fh:
+        json.dump(data, fh)
+    os.replace(OVERRIDES + ".tmp", OVERRIDES)
+
+
 def block_rule(child):
     return "||*^$client=" + "|".join(f"'{d}'" for d in CHILDREN[child]["devices"]) + ",important"
 
@@ -130,12 +167,13 @@ def split_rules(rules):
     return rules[:b] + rules[e + 1:], rules[b + 1:e]
 
 
-def write_metrics(state):
+def write_metrics(state, overrides):
     """state: {child: (is_open, present)}"""
     lines = []
     for child, (is_open, present) in sorted(state.items()):
         lines.append(f'homelab_kids_window_open{{child="{child}"}} {int(is_open)}')
         lines.append(f'homelab_kids_rule_present{{child="{child}"}} {int(present)}')
+        lines.append(f'homelab_kids_override{{child="{child}"}} {int(child in overrides)}')
     if DRY:
         print("--- kids-hours.prom"); print("\n".join(lines)); return
     if not os.path.isdir(TEXTFILE_DIR):
@@ -171,23 +209,48 @@ def main():
     if only and only not in CHILDREN:
         log(f"ERROR: unknown child {only!r}; known: {', '.join(CHILDREN)}")
         return 1
+    targets = [only] if only else list(CHILDREN)
 
     now = datetime.now(TZ)
-    want_closed, kinds = {}, {}
+    overrides = load_overrides(now)
+
+    # --open / --close / --clear write an override with an expiry; the schedule then applies
+    # it on this run and every cron run until it lapses.
+    if "--open" in sys.argv or "--close" in sys.argv:
+        state = "open" if "--open" in sys.argv else "closed"
+        until_arg = arg_value("--until")
+        for child in targets:
+            if until_arg:
+                u = hhmm(until_arg)
+                until = now.replace(hour=u.hour, minute=u.minute, second=0, microsecond=0)
+                if until <= now:
+                    until += timedelta(days=1)
+            else:
+                until = next_morning(child, now)
+            overrides[child] = {"state": state, "until": until}
+            log(f"override: {child} {state} until {until:%a %H:%M}")
+        save_overrides(overrides)
+    if "--clear" in sys.argv:
+        for child in targets:
+            if overrides.pop(child, None):
+                log(f"override cleared: {child}")
+        save_overrides(overrides)
+
+    want_closed, kinds, why = {}, {}, {}
     for child in CHILDREN:
         is_open, kinds[child] = window_open(child, now)
         closed = not is_open
-        if "--open" in sys.argv and (only in (None, child)):
-            closed = False
-        if "--close" in sys.argv and (only in (None, child)):
-            closed = True
+        why[child] = f"{kinds[child]} window"
+        if child in overrides:
+            closed = overrides[child]["state"] == "closed"
+            why[child] = f"override {overrides[child]['state']} until {overrides[child]['until']:%a %H:%M}"
         want_closed[child] = closed
 
     try:
         current = api("/filtering/status", auth).get("user_rules", [])
     except (urllib.error.URLError, OSError) as e:
         log(f"ERROR: cannot read AdGuard rules: {e}")
-        write_metrics({c: (not want_closed[c], False) for c in CHILDREN})
+        write_metrics({c: (not want_closed[c], False) for c in CHILDREN}, overrides)
         return 1
 
     outside, inside = split_rules(current)
@@ -201,32 +264,32 @@ def main():
 
     if "--status" in sys.argv:
         for c in CHILDREN:
-            log(f"{now:%a %H:%M} {c}: {kinds[c]} window {'CLOSED' if want_closed[c] else 'OPEN'}; "
+            log(f"{now:%a %H:%M} {c}: {'CLOSED' if want_closed[c] else 'OPEN'} ({why[c]}); "
                 f"rule {'present' if present[c] else 'absent'}")
         log(f"{len(outside)} other rule(s) untouched")
-        write_metrics(state)
+        write_metrics(state, overrides)
         return 0 if all(present[c] == want_closed[c] for c in CHILDREN) else 2
 
     if (inside or []) == desired_inside:
-        write_metrics(state)
+        write_metrics(state, overrides)
         return 0   # nothing to do; the common case for the 15-minute self-heal
 
     new_rules = outside + ([BEGIN] + desired_inside + [END] if desired_inside else [])
-    changes = ", ".join(f"{c} {'closing' if want_closed[c] else 'opening'}"
+    changes = ", ".join(f"{c} {'closing' if want_closed[c] else 'opening'} ({why[c]})"
                         for c in CHILDREN if present[c] != want_closed[c])
     if DRY:
         log(f"would write rules ({changes}):")
         print("\n".join(new_rules))
-        write_metrics({c: (not want_closed[c], want_closed[c]) for c in CHILDREN})
+        write_metrics({c: (not want_closed[c], want_closed[c]) for c in CHILDREN}, overrides)
         return 0
     try:
         api("/filtering/set_rules", auth, {"rules": new_rules})
     except (urllib.error.URLError, OSError) as e:
         log(f"ERROR: cannot write AdGuard rules: {e}")
-        write_metrics(state)
+        write_metrics(state, overrides)
         return 1
     log(f"{changes} at {now:%a %H:%M}")
-    write_metrics({c: (not want_closed[c], want_closed[c]) for c in CHILDREN})
+    write_metrics({c: (not want_closed[c], want_closed[c]) for c in CHILDREN}, overrides)
     return 0
 
 
