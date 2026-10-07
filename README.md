@@ -39,6 +39,13 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that
 > and why it mattered; the runbook records how it was done.
 >
+> **Upstreams (2026-10-07):** `https://dns10.quad9.net/dns-query` and `tls://dns10.quad9.net` in
+> *parallel* mode, with `https://dns.quad9.net/dns-query` as the fallback. Set through the API
+> (`/control/dns_config`); AdGuard's YAML is outside git. With the single DoH upstream it had
+> before, about 2 % of all lookups failed with `unexpected EOF` on a stale keep-alive connection
+> and the client got SERVFAIL — around two thousand a day, visible as the sauna poller's
+> "no address associated with hostname" and as random slow first loads everywhere.
+>
 > **Until then, most clients never reached AdGuard.** The BGW320-500 advertises *itself* as the DNS server
 > over DHCP and resolves publicly rather than forwarding to AdGuard, so only hosts with DNS set
 > statically to `192.168.0.10` (forge) are filtered.
