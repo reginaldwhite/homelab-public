@@ -77,6 +77,9 @@ services:
       - GF_PLUGINS_PREINSTALL_DISABLED=true
       # Expanded inside provisioning/datasources/*.yml for the Events data source.
       - EVENTS_DB_PASSWORD=${EVENTS_DB_PASSWORD}
+      # Expanded inside provisioning/alerting/contact-points.yml: alerts post to
+      # #homelab-status with the same bot the scripts use.
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/node-exporter-full.json
     volumes:
       - grafana_data:/var/lib/grafana

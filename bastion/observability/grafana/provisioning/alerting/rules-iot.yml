@@ -1,0 +1,63 @@
+# Alert rules for the sauna controller (observability plan, phase 3; first rules provisioned
+# 2026-10-07 after the 2026-10-06 lost schedule). Rules are evaluated every 5 minutes.
+#
+#   huum-reconnects   the controller re-resolved its cloud broker more than 3 times in 6 h --
+#                     the unstable-connection state that wipes scheduled starts
+#   huum-schedule-lost  iot-poll.py recorded a sauna/schedule-lost event in the last 30 min
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: iot
+    folder: Homelab
+    interval: 5m
+    rules:
+      - uid: huum-reconnects
+        title: Sauna controller keeps reconnecting to its cloud
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'HUUM controller rebuilt its cloud connection {{ $values.B }} times in 6 h (normal is about once a week). Scheduled starts set on the controller may be lost; arm sessions from the app and consider power-cycling the controller.'
+          runbook: docs/plan-kids-hours-and-iot.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 21600, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              editorMode: code
+              expr: 'sum(count_over_time({job="adguard-querylog",client="192.168.0.128"} |= "iot.eu-central-1.amazonaws.com" [6h]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [3] } } ] }
+      - uid: huum-schedule-lost
+        title: Sauna scheduled start vanished
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'A sauna session that was armed disappeared without heating (see the Lost schedules table on the Sauna and Sprinklers dashboard). Either the controller lost it after a cloud reconnect, or it was cancelled by hand.'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: events
+            model:
+              refId: A
+              format: table
+              rawQuery: true
+              editorMode: code
+              rawSql: "select count(*)::float as lost from events where kind='sauna' and name='schedule-lost' and ts > now() - interval '30 minutes'"
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }

@@ -1,0 +1,11 @@
+# Notification policy: everything goes to #homelab-status, grouped by alert name, repeated
+# at most twice a day while it stays firing. Resolved notifications are sent too, so a
+# channel reader can see an alert end.
+apiVersion: 1
+policies:
+  - orgId: 1
+    receiver: homelab-status
+    group_by: ['alertname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 12h

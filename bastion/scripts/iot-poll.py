@@ -15,7 +15,8 @@ What comes out:
           -- the sauna's status code, temperature, target, door, session end; the sprinkler
           controller's online state, rain delay, whether a zone is running. These are the
           "right now" view that Grafana graphs.
-  events  a `sauna/session` row when a heating session ends (started_at, minutes, peak_c),
+  events  a `sauna/session` row when a heating session ends (started_at, minutes, peak_c);
+          a `sauna/schedule-lost` row when an armed start disappears without heating;
           and one `sprinkler/<what>` row per finished Rachio event (zone completed, schedule
           completed or skipped, rain delay on/off, controller offline/online), keyed by
           Rachio's own event id so re-reading a day never duplicates.
@@ -169,6 +170,7 @@ def poll_huum(env, state):
         f"huum_door_closed {door_closed}",
         f"huum_session_end_timestamp {end_ts}",
         f"huum_steamer_error {1 if s.get('steamerError') else 0}",
+        f"huum_armed {1 if (target > 0 and heating == 0 and code != 230) else 0}",
     ]
     write_prom("iot-huum", lines)
 
@@ -194,6 +196,33 @@ def poll_huum(env, state):
         h["active"] = None
     if code == 400:
         log("huum: EMERGENCY STOP reported")
+
+    # Scheduled-start tracking. A target temperature with no heating means a session is
+    # armed (a delayed start set on the controller or in the app). If that target goes back
+    # to zero before any heating happened, the schedule was lost -- which is what the
+    # controller did on 2026-10-06, four minutes after reconnecting to its cloud -- or it was
+    # cancelled by hand; the event says how long it had been armed so the two can be told
+    # apart. While the controller is offline (230) nothing is concluded: its target reads 0
+    # only because nobody can read it.
+    armed = h.get("armed")
+    if heating:
+        if armed:
+            h["armed"] = None            # started as planned
+    elif code == 230:
+        pass
+    elif target > 0:
+        if not armed:
+            h["armed"] = {"since_ts": now, "target": target}
+            log(f"huum: session armed, target {target:g}°C")
+        else:
+            armed["target"] = target
+    elif armed:
+        minutes = max(1, round((now - armed["since_ts"]) / 60))
+        detail = {"target_c": armed.get("target"), "armed_minutes": minutes,
+                  "state": HUUM_CODES.get(code, "unknown")}
+        record_event("sauna", "schedule-lost", "error", started=iso(armed["since_ts"]), detail=detail)
+        log(f"huum: ARMED SESSION VANISHED without heating after {minutes} min (target {armed.get('target')}°C)")
+        h["armed"] = None
 
 
 # --- Rachio -----------------------------------------------------------------------------

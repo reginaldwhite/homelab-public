@@ -276,6 +276,11 @@ on any host is answered by a Loki query; the *Network* dashboard lists every lea
 
 ### Phase 3 — alerting, and Slack stops being the database [agent], one evening
 
+> **Started 2026-10-07** with the alerting plumbing (`grafana/provisioning/alerting/`:
+> Slack contact point `homelab-status` using the bot token, one notification policy, folder
+> *Homelab*) and the first two rules, both about the sauna controller
+> (`rules-iot.yml`). The host and job rules listed below are still to write.
+
 Grafana alert rules, provisioned from git, one per rule that lives in `health-digest.py` and
 `health-report.py` today: filesystem over the threshold, a job's last success older than its
 schedule allows, a job's last exit non-zero, a host down while expected up, the vault probe

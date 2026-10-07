@@ -513,12 +513,163 @@
    }
   },
   {
+   "id": 101,
+   "type": "timeseries",
+   "title": "Cloud reconnects (controller re-resolving its broker)",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 13,
+    "w": 12,
+    "h": 7
+   },
+   "description": "Each lookup of the AWS IoT broker name is the HUUM controller rebuilding its cloud connection. One a week is normal; several a day is the condition that wiped the scheduled start on 2026-10-06.",
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum(count_over_time({job=\"adguard-querylog\",client=\"192.168.0.128\"} |= \"iot.eu-central-1.amazonaws.com\" [$__auto]))",
+     "queryType": "range",
+     "editorMode": "code",
+     "legendFormat": "reconnects"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 70,
+      "lineWidth": 0
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     },
+     "unit": "short",
+     "decimals": 0,
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "hidden"
+    },
+    "tooltip": {
+     "mode": "single"
+    }
+   }
+  },
+  {
+   "id": 102,
+   "type": "stat",
+   "title": "Reconnects, last 24 h",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 13,
+    "w": 4,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum(count_over_time({job=\"adguard-querylog\",client=\"192.168.0.128\"} |= \"iot.eu-central-1.amazonaws.com\" [24h]))",
+     "queryType": "instant",
+     "editorMode": "code"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 3
+       },
+       {
+        "color": "red",
+        "value": 8
+       }
+      ]
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background",
+    "graphMode": "none",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   }
+  },
+  {
+   "id": 103,
+   "type": "table",
+   "title": "Lost schedules (armed start that vanished without heating)",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 13,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "editorMode": "code",
+     "rawSql": "select started_at as armed_at, ts as lost_at, (detail->>'target_c')::numeric as target_c, (detail->>'armed_minutes')::int as armed_minutes from events where kind='sauna' and name='schedule-lost' order by ts desc limit 20"
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
    "id": 20,
    "type": "row",
    "title": "Sprinklers (Rachio)",
    "gridPos": {
     "x": 0,
-    "y": 13,
+    "y": 20,
     "w": 24,
     "h": 1
    },
@@ -535,7 +686,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 14,
+    "y": 21,
     "w": 4,
     "h": 4
    },
@@ -606,7 +757,7 @@
    },
    "gridPos": {
     "x": 4,
-    "y": 14,
+    "y": 21,
     "w": 4,
     "h": 4
    },
@@ -677,7 +828,7 @@
    },
    "gridPos": {
     "x": 8,
-    "y": 14,
+    "y": 21,
     "w": 4,
     "h": 4
    },
@@ -748,7 +899,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 14,
+    "y": 21,
     "w": 4,
     "h": 4
    },
@@ -805,7 +956,7 @@
    },
    "gridPos": {
     "x": 16,
-    "y": 14,
+    "y": 21,
     "w": 8,
     "h": 4
    },
@@ -863,7 +1014,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 18,
+    "y": 25,
     "w": 24,
     "h": 10
    },

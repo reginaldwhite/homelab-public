@@ -240,6 +240,15 @@ token), one module per device, credentials in bastion's `.env`
 > emergency stop, a dry steamer, Rachio offline for a day, a poll failing for hours) become
 > Grafana alert rules in that plan's phase 3. HUUM's real host is `api.huum.eu`; the password had
 > to be reset before it was accepted. Rachio: one Gen-1 8-zone controller, two zones enabled.
+>
+> **2026-10-07, the first thing the data was good for.** A session armed on the controller
+> for a delayed start vanished on 2026-10-06 four minutes after the controller rebuilt its
+> cloud connection (visible as a DNS lookup of its AWS IoT broker in AdGuard's log in Loki).
+> The controller had held one connection for six days until the 2026-10-04 power outage and
+> has reconnected many times a day since. Built in response: `huum_armed`, a
+> `sauna/schedule-lost` event, two dashboard panels (reconnects per day, lost schedules),
+> and the first two provisioned Grafana alert rules with a Slack contact point to
+> `#homelab-status` — the start of the observability plan's phase 3.
 
 ### Steps
 

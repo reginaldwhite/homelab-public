@@ -147,7 +147,7 @@ docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
 
 # --- observability ----------------------------------------------------------------------
 if [[ -d "$OBS_DIR" ]]; then
-    for var in GRAFANA_ADMIN_PASSWORD GRAFANA_SECRET_KEY EVENTS_DB_PASSWORD; do
+    for var in GRAFANA_ADMIN_PASSWORD GRAFANA_SECRET_KEY EVENTS_DB_PASSWORD SLACK_BOT_TOKEN; do
         if [[ ! -f "$OBS_ENV" ]] || ! grep -qE "^$var=.+" "$OBS_ENV"; then
             echo "observability: $var is not set in $OBS_ENV; not starting the stack" >&2
             echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
