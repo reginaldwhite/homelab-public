@@ -92,7 +92,7 @@ IoT-telemetry lists). Costs nothing, isolates nothing: a compromised plug can st
 vault host's SSH port — where it meets a key-only login and ufw, which is the real defence and
 already exists.
 
-**B. A second SSID for IoT, with Guest Network on.** On the EAP772: SSID `home-iot`, *Guest
+**B. A second SSID for IoT, with client isolation on.** *(2026-10-07: now planned in detail in [plan-wifi.md](plan-wifi.md), on a UniFi AC Lite placed by the sauna rather than on the EAP772.)* On the EAP772: SSID `home-iot`, *Guest
 Network* ticked, own password. Move the plugs, HUUM, the two Espressif devices and the printer
 to it; they only ever talk to their clouds and would not notice. **Do not move** the Echos if
 multi-room audio or Echo-to-Echo calling is used (they need each other on the LAN), nor the
