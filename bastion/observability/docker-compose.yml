@@ -147,6 +147,10 @@ services:
       # AdGuard's query log, for the adguard-querylog source in config.alloy. Root-owned on
       # the host; Alloy runs as root in its container and the mount is read-only.
       - /home/robby/vaultwarden/agh-work/data:/adguard:ro
+    # Syslog from LAN devices (the EAP772 access point today). Published, so it bypasses ufw
+    # like every Docker-published port; it accepts log lines and nothing else.
+    ports:
+      - "1514:1514/udp"
     networks:
       - internal
 

@@ -139,3 +139,40 @@ loki.process "adguard" {
     source = "line"
   }
 }
+
+// ---- syslog from LAN devices (bastion only) ------------------------------------------
+// The TP-Link EAP772 access point (192.168.0.2) sends its event log here (Management ->
+// System Log -> Enable Server -> 192.168.0.10:1514 UDP) since 2026-10-07; its local log holds
+// only boot entries, and client joins, leaves and deauth reasons exist nowhere else. Any other
+// LAN device that can speak syslog can be pointed at the same port. The listener is defined on
+// every host, but only bastion's compose file publishes the port, so elsewhere it is unreachable.
+// Labels: job=syslog, device (the hostname in the message), source_ip, level.
+loki.relabel "syslog" {
+  forward_to = []
+  rule {
+    source_labels = ["__syslog_connection_ip_address"]
+    target_label  = "source_ip"
+  }
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "device"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+}
+
+loki.source.syslog "lan" {
+  listener {
+    address                = "0.0.0.0:1514"
+    protocol               = "udp"
+    syslog_format          = "rfc3164"
+    // Stamp on arrival: the devices' clocks are not trusted (the AP lost two hours in the
+    // outage until it re-synced), and a line in the wrong hour is worse than one a second late.
+    use_incoming_timestamp = false
+    labels                 = { job = "syslog" }
+  }
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [loki.write.default.receiver]
+}

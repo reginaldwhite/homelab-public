@@ -33,7 +33,8 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > `https://grafana.robbywhite.net` (user `robby`, password in bastion's `.env`); dashboards are
 > provisioned from git. node exporter, cAdvisor and Alloy also run on forge and cinema (ports 9100
 > and 9200, host network; Alloy pushes to `loki.robbywhite.net`). AdGuard's query log is shipped
-> into Loki too. Design and phases: [docs/plan-observability.md](docs/plan-observability.md).
+> into Loki too, and the EAP772 access point sends its syslog to bastion on 1514/UDP (job
+> `syslog` in Loki, since 2026-10-07). Design and phases: [docs/plan-observability.md](docs/plan-observability.md).
 >
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that
