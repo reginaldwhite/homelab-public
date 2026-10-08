@@ -87,6 +87,10 @@ address through the existing 443/9100/9200-style rule pattern, one more rule for
   paired with HomeKit — those stay on the main SSID, as the LAN-groups plan says.
 - Fixed channel (1, 6 or 11, whichever the controller's scan shows emptiest), 20 MHz width,
   no band steering (there is nothing to steer to).
+- **The EAP772's 2.4 GHz radio stays on** (decided 2026-10-07): the Echos, the ecobee and the
+  Apple TVs' HomeKit traffic are 2.4 GHz devices that stay on the main SSID, and the central
+  cell is where phones fall back to at the edges of the house. The two 2.4 GHz radios take
+  different fixed channels from {1, 6, 11}, both at 20 MHz, so they do not overlap.
 
 ## Phases
 
