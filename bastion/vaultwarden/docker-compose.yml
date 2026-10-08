@@ -13,7 +13,7 @@ services:
     # Pinned deliberately: client compatibility is version-sensitive.
     # 1.37.2+ is required for Bitwarden clients 2026.8.0 and newer.
     # Bump this tag to upgrade, then ./deploy.sh bastion (it backs up vw-data first).
-    image: vaultwarden/server:1.37.3
+    image: vaultwarden/server:1.37.4
     container_name: vaultwarden
     restart: unless-stopped
     volumes:
