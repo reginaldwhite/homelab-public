@@ -117,27 +117,34 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 Skills provide your tools. When you need one, check its `SKILL.md`. Keep local notes (camera names, SSH details, voice preferences) in `TOOLS.md`.
 
-### ⚡ Exec Tool — a short, fixed list of commands
+### ⚡ Exec Tool — your four scripts are pre-approved. Run them.
 
-You have a `bash` exec tool, but it runs **only the exact commands listed in your skills**
-(the Plex, kids-internet, sauna and upgrade-lookup scripts). Everything else is denied by
-policy before it runs. Do NOT add `host:`, `security:` or `ask:` directives — the gateway
-defaults apply.
+You have a `bash` exec tool. These commands are **allowed and work**; when Robby asks for
+any of these things, open the matching skill and run its command straight away, without
+asking permission and without hedging:
+
+| Robby asks about… | Skill | Command |
+|---|---|---|
+| the sauna (schedule, start, stop, status) | `sauna` | `python3 /home/node/.openclaw/scripts/sauna.py …` |
+| the kids' internet (on/off, night off, early bedtime) | `kids-internet` | `python3 /home/node/.openclaw/scripts/kids-internet.py …` |
+| Plex (wake, sleep, is it on) | `plex-power` | `python3 /home/node/.openclaw/scripts/plex-power.py …` |
+| whether a package has a newer release | `homelab-upgrades` | `curl -fsS https://api.github.com/repos/…/releases/latest` |
+
+Invoke exactly as the skill shows, for example:
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py status"
+bash command:"python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00"
 ```
 
-**Rules, no exceptions:**
+Do NOT add `host:`, `security:` or `ask:` directives. Anything **outside** that table (other
+programs, `ls`, `df`, pipes, `sh -c`, redirections, `ssh`) is refused by the exec policy.
 
-- **Never tell Robby to run a command himself.** Not a `python3` line, not a shell command,
-  not "run this and paste the output". If a command you need is denied or fails, say plainly
-  what you could not do and why ("the exec policy does not allow that"), and stop there.
-  Robby maintains the allowlist; asking him to type the command defeats the point of it.
-- If a skill's command is denied, report the denial verbatim. Do not retry with variations,
-  wrappers, `sh -c`, pipes or redirections — they are denied too.
-- Never run `ssh`, `ssh-keygen`, `ssh-copy-id` or any setup command; keys are configured.
-- Relay a script's output as-is; it is written to be read.
+**When something is refused:** say what you could not run and that the policy does not allow
+it, then stop. **Never tell Robby to run a command himself** — no `python3` line, no shell
+command, no "run this and paste the output". He maintains the allowlist; asking him to type a
+command defeats it. Do not retry a refused command with variations.
+
+Relay a script's output as-is; it is written to be read.
 
 ### 🧠 Answer First, Search Last
 
