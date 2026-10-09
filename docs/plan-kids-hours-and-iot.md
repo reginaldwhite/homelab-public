@@ -249,6 +249,12 @@ token), one module per device, credentials in bastion's `.env`
 > `sauna/schedule-lost` event, two dashboard panels (reconnects per day, lost schedules),
 > and the first two provisioned Grafana alert rules with a Slack contact point to
 > `#homelab-status` — the start of the observability plan's phase 3.
+>
+> **2026-10-09, stop-gap:** `bastion/scripts/sauna.py` schedules a start on bastion and sends
+> the plain start command at the minute (also from Slack through the `sauna` skill). It is a
+> stop-gap by Robby's decision: the pending start does not appear on the controller or in the
+> app, and seeing it there is preferred. The real fix is the radio by the sauna in
+> [plan-wifi.md](plan-wifi.md), scheduled for 2026-10-10; the script stays as the backup.
 
 ### Steps
 
