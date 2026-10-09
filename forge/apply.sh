@@ -49,6 +49,9 @@ CONFIG=(
     "openclaw/scripts/plex-power.py:scripts/plex-power.py:600"
     "openclaw/scripts/kids-internet.py:scripts/kids-internet.py:600"
     "openclaw/scripts/sauna.py:scripts/sauna.py:600"
+    # The agent's standing instructions. Versioned here since 2026-10-09; the workspace is the
+    # agent's own, but this one file is policy and deploy overwrites it.
+    "openclaw/workspace/AGENTS.md:workspace/AGENTS.md:644"
 )
 
 # A just-woken host accepts SSH before dockerd is ready, and --validate runs
