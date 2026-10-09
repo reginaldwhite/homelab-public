@@ -20,14 +20,16 @@
 # Restarting the ollama container restores it. This checks every quarter hour and
 # does that, then reloads the model so the next request is not a cold start.
 #
-# This is a mitigation, not the cure. The cure is to stop running a graphical
-# login manager on a headless server:
-#
-#   sudo systemctl set-default multi-user.target && sudo systemctl disable gdm3
-#
-# which also removes the i915 hotplug churn and the desktop-session noise that
-# openclaw-cmd's NOISE list exists to filter. Left as a decision rather than done,
-# because it changes what you get when you sit down at the machine.
+# This is a mitigation, not the cure. GDM was disabled on 2026-09-27 (multi-user
+# target) and the symptom kept coming back at odd morning times -- 05:15, 06:15,
+# 09:00, 09:15 -- each one minutes after a `systemctl daemon-reload` triggered by
+# snapd's refresh check or the daily apt job. On cgroup v2 with Docker's systemd
+# cgroup driver, the legacy nvidia runtime hook grants the device through cgroup
+# rules that a daemon reload wipes; the host keeps the card, the container does not.
+# The cure (2026-10-09) is CDI: the compose file names `nvidia.com/gpu=all` from
+# /etc/cdi/nvidia.yaml instead of the hook, and those grants survive reloads. This
+# guard stays as the safety net; a DEGRADED line after that date means the cure has
+# not held and is worth a look.
 
 set -uo pipefail
 
