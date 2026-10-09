@@ -156,6 +156,17 @@ back. The script needs a password on every host, so this is done by a person, ne
 agent. After bastion returns: `docker ps` shows its three containers up and
 `dig @192.168.0.10 vault.robbywhite.net` answers.
 
+**forge, after an NVIDIA driver update:** ollama takes the GPU through CDI, from a spec file
+that describes the installed driver. A new driver makes that file stale and ollama will not
+start until it is regenerated, so run this before `docker compose up` or any deploy:
+
+```bash
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml && nvidia-ctk cdi list
+```
+
+`os-update.sh` prints a reminder on forge when the upgrade touched an `nvidia-` package. Why CDI
+and not the legacy hook is in the comment above the `devices:` line in `forge/docker-compose.yaml`.
+
 ## Per-package detail
 
 One file per package in `packages/`, each carrying a JSON block with the machine-readable facts

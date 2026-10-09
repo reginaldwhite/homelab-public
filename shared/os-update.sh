@@ -80,6 +80,14 @@ if [[ $rc -ne 0 ]]; then
 fi
 apt-get -y autoremove >>"$LOG" 2>&1 || log "WARNING: autoremove exited non-zero; see $LOG"
 
+# forge hands its GPU to ollama through a CDI spec that describes the installed driver
+# (forge/docker-compose.yaml). A driver upgrade makes that file stale and ollama will not
+# start on it, so say so loudly while the person who can fix it is still at the keyboard.
+if [[ -e /etc/cdi/nvidia.yaml ]] && grep -qE '^(Unpacking|Setting up) nvidia-' "$tmp"; then
+    log "$host: an NVIDIA package changed -- regenerate the CDI spec before ollama restarts:"
+    log "   sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+fi
+
 left=$(apt list --upgradable 2>/dev/null | grep -c upgradable)
 log "$host: upgrade done, $left package(s) still upgradable (phased or held), kernel newest $(ls /boot/vmlinuz-* | sort -V | tail -1 | sed 's|.*/vmlinuz-||')"
 
