@@ -76,8 +76,10 @@ def auth_header():
             "Accept": "application/json", "Content-Type": "application/json"}
 
 
-def api(path, body=None):
-    data = json.dumps(body).encode() if body is not None else None
+def api(path, body=None, post=False):
+    """status is a GET; start and stop are POSTs (stop with an empty body -- a GET on it is a 404,
+    which is how the first live stop on 2026-10-09 failed)."""
+    data = json.dumps(body).encode() if body is not None else (b"" if post else None)
     req = urllib.request.Request(API + path, data=data, method="POST" if data is not None else "GET",
                                  headers=auth_header())
     with urllib.request.urlopen(req, timeout=20) as resp:
@@ -151,7 +153,7 @@ def start_heater(target, why):
 
 
 def stop_heater(why):
-    r = api("stop")
+    r = api("stop", post=True)
     record_event("control", "ok", {"action": "stop", "why": why})
     return f"stopped ({describe(r)})"
 
