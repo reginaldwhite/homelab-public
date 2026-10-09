@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""
+sauna.py — the HUUM sauna, from the agent.
+
+Usage:
+  python3 sauna.py status                        heater state and any pending start
+  python3 sauna.py schedule HH:MM [TARGET] [MIN] heat at HH:MM (24 h clock), default 93 °C, 180 min
+  python3 sauna.py start [TARGET]                heat now
+  python3 sauna.py stop                          stop heating, drop any pending start
+  python3 sauna.py cancel                        drop the pending start only
+
+Same shape as plex-power.py: one SSH call to bastion with a verb; bastion's forced command
+validates the arguments against a fixed pattern and runs scripts/sauna.py there. The
+schedule is kept on bastion and fired by its cron, so the controller cannot lose it.
+"""
+
+import re
+import subprocess
+import sys
+
+BASTION_IP = "192.168.0.10"
+SSH_OPTS = [
+    "-o", "StrictHostKeyChecking=accept-new",
+    "-o", "UserKnownHostsFile=/home/node/.openclaw/known_hosts",
+    "-o", "ConnectTimeout=10",
+    "-i", "/home/node/.ssh/openclaw_ed25519",
+]
+TIME = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+INT = re.compile(r"^[0-9]{2,3}$")
+
+
+def run_verb(verb: str) -> int:
+    r = subprocess.run(["ssh", *SSH_OPTS, f"robby@{BASTION_IP}", verb], capture_output=True, text=True)
+    print((r.stdout + r.stderr).strip() or f"(no output from bastion for {verb})")
+    return r.returncode
+
+
+def main(argv):
+    if not argv or argv[0] not in ("status", "schedule", "start", "stop", "cancel"):
+        print(__doc__); return 1
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "schedule":
+        if not rest or not TIME.match(rest[0]) or not all(INT.match(x) for x in rest[1:3]) or len(rest) > 3:
+            print("schedule wants HH:MM (24 h), optionally a target in °C and minutes"); return 1
+        return run_verb("sauna-schedule " + " ".join(rest))
+    if cmd == "start":
+        if len(rest) > 1 or (rest and not INT.match(rest[0])):
+            print("start takes at most a target in °C"); return 1
+        return run_verb("sauna-start" + (f" {rest[0]}" if rest else ""))
+    if rest:
+        print(f"{cmd} takes no arguments"); return 1
+    return run_verb(f"sauna-{cmd}")
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -35,6 +35,8 @@
           argPattern: "^/home/node/\\.openclaw/scripts/forge-power\\.py (wake|sleep|status)$" },
         { pattern: "python3",
           argPattern: "^/home/node/\\.openclaw/scripts/kids-internet\\.py (status|(open|close|clear)( ava| finn)?)$" },
+        { pattern: "python3",
+          argPattern: "^/home/node/\\.openclaw/scripts/sauna\\.py (status|stop|cancel|start( [0-9]{2,3})?|schedule ([01][0-9]|2[0-3]):[0-5][0-9]( [0-9]{2,3}){0,2})$" },
         // homelab-upgrades skill: the two upstream version lookups, nothing else on the web
         { pattern: "curl",
           argPattern: "^-fsS https://api\\.github\\.com/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/latest$" },

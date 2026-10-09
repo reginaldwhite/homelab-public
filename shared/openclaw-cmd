@@ -29,6 +29,14 @@
 #   kids-clear              night, and the status verb shows any override in force.
 #   kids-clear-ava
 #   kids-clear-finn
+#   sauna-status    bastion  — the HUUM sauna (scripts/sauna.py): what the heater is doing and
+#   sauna-schedule             any pending start; schedule a start (the ONE verb that takes
+#   sauna-start                arguments: "sauna-schedule HH:MM [target] [minutes]", each
+#   sauna-stop                 checked against a strict pattern below before anything runs);
+#   sauna-cancel               start now ("sauna-start [target]"); stop; drop the pending start.
+#                              Starting a heater from Slack is deliberate: the API and the
+#                              script both refuse with the door open, the controller caps a
+#                              session at three hours, and the Slack allowlist is one person.
 #
 # Deliberately NOT granted: `shutdown` on bastion. bastion runs DNS and the vault
 # for the whole house; a prompt-injected agent should not be able to halt it.
@@ -44,16 +52,33 @@ BROADCAST="192.168.0.255"
 
 requested="${SSH_ORIGINAL_COMMAND:-}"
 
+# The verb is the first word. Almost every verb is the whole command; the two sauna verbs
+# that take arguments get them validated against a fixed shape right here, so nothing the
+# agent typed reaches a script unless it is a clock time and one or two small integers.
+verb="${requested%% *}"
+args=""
+[[ "$requested" == *" "* ]] && args="${requested#* }"
+
 permitted=1
 if [[ $# -gt 0 ]]; then
-    for verb in "$@"; do
-        [[ "$verb" == "$requested" ]] && permitted=0 && break
+    for allowed in "$@"; do
+        [[ "$allowed" == "$verb" ]] && permitted=0 && break
     done
 fi
 if [[ $permitted -ne 0 ]]; then
     echo "openclaw-cmd: refused '${requested:-<none>}' (this host allows: ${*:-none})" >&2
     exit 126
 fi
+case "$verb" in
+    sauna-schedule)
+        [[ "$args" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]( ([4-9][0-9]|1[01][0-9]))?( ([3-9][0-9]|1[0-7][0-9]|180))?$ ]] \
+            || { echo "openclaw-cmd: sauna-schedule wants 'HH:MM [target 40-110] [minutes 30-180]', got '$args'" >&2; exit 126; } ;;
+    sauna-start)
+        [[ -z "$args" || "$args" =~ ^([4-9][0-9]|1[01][0-9])$ ]] \
+            || { echo "openclaw-cmd: sauna-start wants '[target 40-110]', got '$args'" >&2; exit 126; } ;;
+    *)
+        [[ -z "$args" ]] || { echo "openclaw-cmd: '$verb' takes no arguments" >&2; exit 126; } ;;
+esac
 
 wol() {
     python3 - "$1" "$BROADCAST" <<'PY'
@@ -229,8 +254,14 @@ health() {
 }
 
 KIDS_HOURS="/home/robby/homelab-deployed/bastion/scripts/kids-hours.py"
+SAUNA="/home/robby/homelab-deployed/bastion/scripts/sauna.py"
 
-case "$requested" in
+case "$verb" in
+    sauna-status)     "$SAUNA" status ;;
+    sauna-schedule)   "$SAUNA" schedule $args ;;      # $args validated above: HH:MM [int] [int]
+    sauna-start)      "$SAUNA" start $args ;;
+    sauna-stop)       "$SAUNA" stop ;;
+    sauna-cancel)     "$SAUNA" cancel ;;
     kids-status)      "$KIDS_HOURS" --status; exit 0 ;;   # exit 2 there means "rule out of step", not an error here
     kids-open)        "$KIDS_HOURS" --open  && "$KIDS_HOURS" --status ;;
     kids-close)       "$KIDS_HOURS" --close && "$KIDS_HOURS" --status ;;
@@ -247,5 +278,5 @@ case "$requested" in
     shutdown)    sudo -n /usr/sbin/shutdown -h now ;;
     suspend)     sudo -n /bin/systemctl suspend ;;
     health)      health ;;
-    *)           echo "openclaw-cmd: unknown verb '$requested'" >&2; exit 126 ;;
+    *)           echo "openclaw-cmd: unknown verb '$verb'" >&2; exit 126 ;;
 esac

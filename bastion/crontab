@@ -35,6 +35,10 @@
 # event when it finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2.
 */5 * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll
 
+# The sauna schedule (scripts/sauna.py): fire a due start, stop a due end. The pending start
+# lives in ~/logs/sauna-schedule.json, so the HUUM controller cannot forget it.
+* * * * * /home/robby/homelab-deployed/bastion/scripts/sauna.py --tick
+
 # The children's internet windows (docs/plan-kids-hours-and-iot.md part 1, layer 2), live
 # since 2026-09-28. The 15-minute line is the self-heal and would do the job alone; the boundary
 # lines make each change land on the minute. Windows and devices live in the script.
