@@ -84,8 +84,8 @@ Which Echo is in which room: Alexa app → Devices → each → *About* shows th
 | `60:83:e7:42:1b:99` | .110 | .171 ✅ | **Tapo P105 "Office Stereo"** — the desktop amp's plug | -73 | `WhiteHouse_IoT`, downstairs |
 | `60:83:e7:f3:6b:4e` | .132 | .172 ✅ | **Tapo P105 "Towel Warmer"** — runs it on a 3-hour cycle instead of 24/7 | -76 | `WhiteHouse_IoT`, downstairs |
 | `3c:78:95:e3:05:d8` | — | — | Tapo P115 (`p115`) — the plug that used to power the file server (vault) on and off; **unused and unplugged** since vault's Wake-on-LAN was sorted. Not on the network; row kept so the MAC is recognised if it ever reappears | — | — |
-| `20:23:51:8b:ae:24` | .109 | .174 | Kasa HS200 switch (`hs200`) | -46 | `WhiteHouse_IoT_Up`, upstairs |
-| `20:23:51:24:c7:4b` | .111 | .175 | Kasa HS200 switch | -57 | `WhiteHouse_IoT_Up`, upstairs |
+| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | `WhiteHouse_IoT_Up`, upstairs (strongest 2.4 GHz client the upstairs AP has) |
+| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | `WhiteHouse_IoT_Up`, upstairs — or downstairs if the closet AP hears it better; decide from the map once both APs are up |
 | `d4:91:0f:13:77:99` | .116 | .176 | Amazon Smart Plug (`amazonplug09as`) | -63 | by location |
 | `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | `WhiteHouse_IoT`, downstairs |
 | `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | `WhiteHouse_IoT_Up`, upstairs |
