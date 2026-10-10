@@ -29,15 +29,32 @@ history stop.
 - Last night's `~/backups/unifi-YYYY-MM-DD.tgz` exists (the application's own autobackup
   files; the UI restores them). Across a UniFi major, also take a backup from the UI by hand.
 - Confirm the new UniFi version still lists the pinned MongoDB major as supported.
+- **AP firmware is separate from the controller** and is upgraded from the controller's
+  Devices page once adopted. A device too old to adopt (the AC Lite arrived on a 2019 build)
+  is flashed by hand first; the procedure is under phase 1 of `docs/plan-wifi.md`.
 - For a MongoDB major bump: dump first
   (`docker exec unifi-db mongodump --archive -u root -p … --authenticationDatabase admin > ~/unifi-db-pre-<ver>.archive`),
   move one major at a time, and set `featureCompatibilityVersion` between hops as MongoDB's
   own upgrade notes require.
 
+## Two things about its logs and its database password
+
+- **`server.log` prints the MongoDB connection string, password included, on every start**
+  (`Connected to database (v…@mongodb://unifi:<password>@…`). Never paste or grep that log
+  into a chat or a Slack message without masking: `sed -E 's#unifi:[^@]+@#unifi:***@#'`.
+- **Rotating the application's MongoDB password** takes three edits and a restart:
+  `changeUserPassword("unifi", …)` through `mongosh` in `unifi-db` (authenticate as `root`,
+  pass both secrets as environment variables, never on the command line); the
+  `db.mongo.uri=` line in `/config/data/system.properties`, where the colons are
+  backslash-escaped (`unifi\:<password>@` — a pattern written for a plain colon matches
+  nothing and leaves the controller unable to start); and `UNIFI_MONGO_PASSWORD` in
+  bastion's `.env`. Then `docker compose restart unifi`. Done once on 2026-10-10.
+
 ## Contracts
 
 - `bastion/wifi/unifi/init-mongo.sh` runs only on an empty volume; the `MONGO_*` variables are
-  read by the application on first run only and then live in its `system.properties`.
+  read by the application on first run only and then live in its `system.properties`
+  (`db.mongo.uri`, colons escaped).
 - The host ports in the compose file's header comment (8080 inform cannot change); AdGuard's
   `unifi` rewrite to 192.168.0.10; Caddy's `unifi.robbywhite.net` vhost.
 - Phase 4 of `docs/plan-wifi.md`: `wifi-clients.py` reads the local API with a read-only user.

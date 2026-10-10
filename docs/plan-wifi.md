@@ -118,6 +118,26 @@ MAC `80:2a:a8:78:18:6a`, and is asking DNS for `unifi`).
 **Done when:** both UIs load from the laptop, the EAP772 is listed as pending in Omada, and
 `docker stats` on bastion shows the three containers idling.
 
+**Done 2026-10-09/10.** ufw rules in, both wizards through (local accounts, no Ubiquiti or
+TP-Link cloud login), EAP772 discovered by Omada within minutes (`NO_MANAGED Device
+A8-29-48-16-DD-07 … discovered`). Idle: Omada 1.3 GB, UniFi 0.7 GB, MongoDB 76 MB (its cache
+capped at 256 MB; the default would have taken half of bastion's RAM). Three things found on
+the way, each now in the files that need them:
+
+- **Caddy rewrites `Host` for `https://` upstreams** (it keeps it for plain ones), and UniFi
+  refuses any POST whose `Origin` does not match `Host` — the setup wizard failed with
+  "Cannot configure network server" (403 in 1 ms) until both vhosts got `header_up Host {host}`.
+- **UniFi answers `/inform` with 404 until it has seen the device by L2 discovery** (UDP
+  10001). The AC Lite informed every 15–90 s and was refused each time; the controller only
+  listed it as pending after a restart with the 10001 rule already in place. If an AP is
+  informing but never appears, restart the controller before anything else.
+- **The AC Lite was on firmware 4.0.80 (2019)**, which a factory reset does not change. It was
+  flashed by hand to the current release (the UniFi firmware API and the controller's own
+  update check agreed on the version): `scp` the `.bin` to the AP's `/tmp/fwupdate.bin`,
+  `md5sum` it against the API's hash, `syswrapper.sh upgrade2 &`. The 2019 SSH stack needs
+  `-o HostKeyAlgorithms=+ssh-rsa -o KexAlgorithms=+diffie-hellman-group14-sha1` from a current
+  macOS; default login `ubnt`/`ubnt` until adoption replaces it.
+
 ### Phase 2 — the EAP772 under Omada [you, agent watching], 30 minutes, brief WiFi blip
 
 1. **[you]** From the EAP772's standalone page, write down: SSID names and passwords, 2.4 and
@@ -136,7 +156,8 @@ MAC `80:2a:a8:78:18:6a`, and is asking DNS for `unifi`).
 1. **[you]** Mount and cable the AC Lite as close to the sauna as a cable reaches, on the 24 V
    injector. Factory-reset it (hold reset ten seconds).
 2. **[you]** It appears in UniFi as pending (via the `unifi` name). Adopt, set 5 GHz off, and
-   create the IoT SSID from the section above.
+   create the IoT SSID from the section above. *Adopted and 5 GHz off on 2026-10-10, ahead
+   of the mounting — it sits on the bench broadcasting nothing until the SSID exists.*
 3. **[you]** Move the HUUM controller to the IoT SSID (its WiFi setup is in the HUUM app).
 4. **[agent]** Watch for 24 hours: the *Cloud reconnects* panel should fall to the one-a-week
    baseline it had before the outage, and the UniFi client entry should show a signal in the
