@@ -401,6 +401,17 @@ was expected to need was never needed; cinema's only sudo rule stays
 Without that check `dockerd` would create an empty `/mnt/storage/plex` on the root disk and
 Plex would start on an empty library — a failure that looks exactly like losing it.
 
+**Plex is restarted after every wake.** Plex keeps running across a suspend, and afterwards its
+cached plex.tv access tokens go stale: the owner's token is refused (`Auth: authenticating user
+as guest`, 401 on `/media/providers`), so every Plex client shows "no libraries" or "not
+authorized" until the container restarts. It recurred every couple of weeks (seen 2026-10-09,
+cleared by `docker restart plex`; the cause is the best fit to the logs, not proven).
+[cinema/scripts/plex-resume-restart.py](cinema/scripts/plex-resume-restart.py) runs from cron
+every minute and restarts Plex when the machine has slept since the last run (CLOCK_BOOTTIME
+minus CLOCK_MONOTONIC grew), once plex.tv is reachable. There is no sudo on cinema, so a
+systemd sleep hook was not an option. Output goes to `~/plex-resume-restart.log` on cinema; a
+restart interrupts anything playing at the moment of the wake.
+
 ---
 
 ### `forge` — 192.168.0.12 (Ubuntu) — 5am–11pm Daily

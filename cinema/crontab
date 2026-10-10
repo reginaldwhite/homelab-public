@@ -11,3 +11,8 @@
 # honest semantic for this host: absence is normal, and the digester never alerts
 # on cinema being quiet.
 0 */6 * * * /home/robby/homelab-deployed/cinema/scripts/health-report.py
+
+# Plex's cached plex.tv tokens go stale across a suspend and the owner then gets "no libraries"
+# / "not authorized" until it restarts. cron has no resume hook and this host has no sudo, so
+# every minute check whether the machine slept since the last run and restart Plex if so.
+* * * * * /home/robby/homelab-deployed/cinema/scripts/plex-resume-restart.py >> /home/robby/plex-resume-restart.log 2>&1
