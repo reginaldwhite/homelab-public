@@ -43,21 +43,21 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `5a:c8:92:98:1f:e6` on `WhiteHouse`, `72:b6:f7:79:f4:5a` on `WhiteHouse_Office` | .105 / .137 | .131 ✅ (the `WhiteHouse` address) | **MacBook Pro, personal** (`robby-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
 | `0e:cb:3b:51:53:d2` on `WhiteHouse`, `9a:e1:bb:5b:12:e7` on `WhiteHouse_Office` | .121 / .139 | .132 ✅ (the `WhiteHouse` address) | **MacBook, work** (`robby-work-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
 | `68:ca:c4:c7:3a:ca` | .123 | .133 | Sam's iPhone | Sam |
-| `34:f6:8d:3d:86:ab` | .119 | .134 | Robby's iPad 2 | Robby |
+| `34:f6:8d:3d:86:ab` on `WhiteHouse`, `86:a0:f8:02:8a:16` on `WhiteHouse_Office` | .119 / .138 | .134 ✅ | **Robby's iPad** (`robby-ipad`; one private address per SSID, both under the one name) | Robby |
 | `c8:60:00:2b:90:6f` | .150 ✅ | — | Finn's PC | Finn (kids group, DNS hours) |
-| `bc:d2:2c:87:d4:b5` | .151 ✅ | — | Finn's Chromebook | Finn |
+| `bc:d2:2c:87:d4:b5` (Intel radio) and `fc:01:7c:7e:75:3a` (Foxconn) | .151 ✅ / .157 ✅ | — | **Finn's Chromebook** (`finn-chromebook`) — Robby identified the Foxconn address on 2026-10-10 (first seen 10-09); the Intel one was the original identification from 09-27. Both are under the one AdGuard name so the night-time rule covers whichever is the real one; when the Chromebook is next on, the active address tells us which to keep | Finn |
 | `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku | Finn |
-| `1c:0d:7d:17:08:fa` | .153 ✅ | — | Finn's iPad | Finn |
+| `1c:0d:7d:17:08:fa` | .153 ✅ | — | **the office iPad** (`finn-ipad`) — the iPad Finn uses; kept under his name because it is in his night-time DNS rule | Finn |
 | `f6:99:f3:7b:b5:f7` | .154 ✅ | — | Finn's phone | Finn |
 | `32:b2:62:ef:e8:29` | .155 ✅ | — | Ava's phone | Ava |
 | ? | ? | .156 | Ava's iPad mini | Ava — MAC still to read from the mini |
-| `86:a0:f8:02:8a:16` | .138 | — | an iPad with a private address (hostname `ipad`), joined 2026-10-10 20:14 — the same minute as the laptops' `WhiteHouse_Office` addresses; runs the Alexa app, YouTube, iCloud | Robby's iPad 2 on the office SSID, or Ava's mini? |
 
 ## Media — `WhiteHouse`
 
 | MAC | IP | Fixed IP | Device | Notes |
 |---|---|---|---|---|
 | `c4:f7:c1:23:dc:e7` | .124 | .140 ✅ | Apple TV, living room (`living-room-appletv`) | **wired** — never seen on WiFi; HomeKit/Thread hub (advertises as IPv6 router) |
+| `d4:54:8b:b8:67:17` (WiFi) | .122 | .145 ✅ | **Playroom PC** (`playroom-pc`) — normally on Ethernet (its wired MAC is not known yet; it will show up as a lease when it next boots wired); this is its WiFi radio, last seen 2026-10-10 11:14. Not in a kids' DNS rule — decide whether it should be | shared |
 | `50:32:37:0e:81:d9` (Ethernet), `50:32:37:0e:f0:d1` (WiFi) | .113 / .127 | .141 ✅ | Apple TV, office (`office-appletv`) | **moved to Ethernet 2026-10-10**; both MACs map to the one AdGuard name, so it keeps its name if WiFi ever takes over again |
 | `2c:fe:e2:98:84:4a` | .129 | .142 ✅ | **Hisense Google TV, office** (`office-hisense-tv`; "Office TV" in Omada) | Not meant to be a smart TV — the office Apple TV plays everything. **Blocked from the WiFi in Omada** (Clients → Block) 2026-10-10, confirmed gone from the client list; unblock there if it is ever wanted online |
 | — | .228 | — | *dropped 2026-10-10*: nothing answers there; the Hisense MAC once seen was the office TV's wired port on a static address | — |
@@ -68,7 +68,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 |---|---|---|---|---|---|
 | `88:29:bf:d2:a5:6a` | .114 | .160 ✅ | **Echo Spot, Finn's room** (`finn-echo-spot`) | — | upstairs? — not in the kids' DNS rule, by choice so far |
 | `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Spot, Ava's room** (`ava-echo-spot`) | -75 (5 GHz) | by room — not in Ava's DNS rule, by choice so far |
-| `e8:9f:6d:70:fb:f1` | .117 | .163 | Echo (`amazon`) — which room? | -58 | by room |
+| `e8:9f:6d:70:fb:f1` | .117 | .163 | **Amazon-made device on an Espressif radio** (Omada: "Amazon") — Fire OS NTP and an Amazon IoT endpoint under a different account prefix than the Amazon Basics switches: a newer Amazon Smart Plug or an Echo accessory (Flex, Glow). **Not placed** on 2026-10-10; find it in the Alexa app by this MAC | -58 | by location |
 | `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Spot, office bathroom** (`office-bath-echo-spot`) | -70 | downstairs |
 | `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) | -53 | upstairs |
 | `44:61:32:63:5f:d5` | .134 | .180 ✅ | ecobee thermostat (`ecobee`) — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
@@ -86,11 +86,11 @@ Which Echo is in which room: Alexa app → Devices → each → *About* shows th
 | `3c:78:95:e3:05:d8` | — | — | Tapo P115 (`p115`) — the plug that used to power the file server (vault) on and off; **unused and unplugged** since vault's Wake-on-LAN was sorted. Not on the network; row kept so the MAC is recognised if it ever reappears | — | — |
 | `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
 | `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
-| `d4:91:0f:13:77:99` | .116 | .176 ✅ | Amazon Smart Plug (`amazon-plug`) — which outlet? | -63 | by location |
+| `d4:91:0f:13:77:99` | .116 | .176 ✅ | **Amazon Smart Plug, 1st gen** (`amazon-plug`; its own hostname `AmazonPlug09AS`) — **outlet unknown**: not one Robby could place on 2026-10-10. Find it in the Alexa app (Devices → All Devices → the plug → About shows this MAC) | -63 | by location |
 | `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | downstairs |
 | `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | upstairs |
 | `d4:8a:fc:c1:06:31` | .128 | .182 ✅ | HUUM sauna controller (`huum`) — the reconnect alert and the IoT dashboard match both .128 and .182 across the lease change | -52 on the AC Lite | downstairs (moved 2026-10-10) |
-| `0c:2a:69:0f:57:89` | .120 | .183 ✅ | Rachio sprinkler controller (`rachio`; Electric Imp module) | -74 | downstairs if the closet is nearer — where does it hang? |
+| `0c:2a:69:0f:57:89` | .120 | .183 ✅ | Rachio sprinkler controller (`rachio`; Electric Imp module) — in the office closet with the gateway and the AC Lite | -74 | downstairs — it will be a metre from the closet AP |
 | `a4:d7:3c:40:f6:c6` | .125 | .184 ✅ | Epson printer (`epson-printer`) | wired — on no controller | — |
 
 ## How to change this file
