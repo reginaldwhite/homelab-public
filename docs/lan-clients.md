@@ -87,8 +87,8 @@ Which Echo is in which room: Alexa app → Devices → each → *About* shows th
 | `20:23:51:8b:ae:24` | .109 | .174 | Kasa HS200 switch (`hs200`) | -46 | `WhiteHouse_IoT_Up`, upstairs |
 | `20:23:51:24:c7:4b` | .111 | .175 | Kasa HS200 switch | -57 | `WhiteHouse_IoT_Up`, upstairs |
 | `d4:91:0f:13:77:99` | .116 | .176 | Amazon Smart Plug (`amazonplug09as`) | -63 | by location |
-| `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — *inferred*: the app shows no network info for either switch; the stronger upstairs signal was taken as the bedroom one. Swap the two names if a toggle test says otherwise | -53 | `WhiteHouse_IoT_Up`, upstairs |
-| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — *inferred*, see above | -67 | `WhiteHouse_IoT`, downstairs |
+| `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | `WhiteHouse_IoT`, downstairs |
+| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | `WhiteHouse_IoT_Up`, upstairs |
 | `d4:8a:fc:c1:06:31` | .128 | .182 | HUUM sauna controller | -52 on the AC Lite | `WhiteHouse_IoT`, downstairs ✅ (moved 2026-10-10) |
 | `0c:2a:69:0f:57:89` | .120 | .183 | Rachio sprinkler controller (Electric Imp module) | -74 | `WhiteHouse_IoT`, downstairs if the closet is nearer — confirm where it hangs |
 | `a4:d7:3c:40:f6:c6` | .125 | .184 | Epson printer | wired? not on any controller | — |
