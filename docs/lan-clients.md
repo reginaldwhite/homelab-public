@@ -41,7 +41,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | MAC | IP | Fixed IP | Device | Owner |
 |---|---|---|---|---|
 | `fe:39:48:a3:13:8f` on `WhiteHouse`, `ee:96:db:cc:e4:46` on `WhiteHouse_Office` | .104 / .110 | .130 ✅ (the `WhiteHouse` address) | **Robby's iPhone** (`robby-iphone`) — one private address per SSID; both map to the one AdGuard name | Robby — the office-SSID address goes away with the gateway WiFi when the second EAP772 is in |
-| `5a:c8:92:98:1f:e6` | .105 | .131 ✅ | **MacBook Pro, personal** (`robby-macbook`; private address) | Robby — on `WhiteHouse_Office` at the desk until the second EAP772 |
+| `5a:c8:92:98:1f:e6` on `WhiteHouse`, `72:b6:f7:79:f4:5a` on `WhiteHouse_Office` | .105 / .137 | .131 ✅ (the `WhiteHouse` address) | **MacBook Pro, personal** (`robby-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
 | `0e:cb:3b:51:53:d2` on `WhiteHouse`, `9a:e1:bb:5b:12:e7` on `WhiteHouse_Office` | .121 / .139 | .132 ✅ (the `WhiteHouse` address) | **MacBook, work** (`robby-work-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
 | `68:ca:c4:c7:3a:ca` | .123 | .133 | Sam's iPhone | Sam |
 | `34:f6:8d:3d:86:ab` | .119 | .134 | Robby's iPad 2 | Robby |
