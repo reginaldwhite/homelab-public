@@ -206,4 +206,17 @@ those directories into `~/backups/`, which already mirrors to vault on Sunday.
 
 ## EAP772 record
 
-*(filled in at phase 2, step 1)*
+Taken from the standalone page on 2026-10-10, before adoption. This is the rollback: forget
+the AP in Omada, reset it to standalone, and put these back.
+
+- **IP** 192.168.0.2 (AdGuard static lease, MAC a8:29:48:16:dd:07); management VLAN none.
+- **SSID** `WhiteHouse` on all three bands, one password (Bitwarden). Security type not
+  noted on the standalone page — read it off the SSID's edit dialog when recreating it in
+  Omada (expect WPA2/WPA3-Personal mixed; 6 GHz requires WPA3).
+- **2.4 GHz** enabled, channel **6** (2437 MHz), **20 MHz**, b/g/n/ax/be mixed, TX 25 dBm.
+- **5 GHz** enabled, channel **40** (5200 MHz), **80 MHz**, a/n/ac/ax/be mixed, TX 25 dBm.
+- **6 GHz** enabled, channel **69** (6295 MHz), **320 MHz**, ax/be mixed, TX 23 dBm.
+- No scheduler profiles. Nothing else changed from defaults (mesh, band steering, LED).
+
+Consequence for phase 3: with the EAP772 fixed on 2.4 GHz channel 6, the AC Lite's IoT radio
+takes **1 or 11**, whichever Omada's or UniFi's scan shows emptier by the sauna.
