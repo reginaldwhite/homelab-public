@@ -70,8 +70,8 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Spot, Ava's room** (`ava-echo-spot`) | -75 (5 GHz) | by room — not in Ava's DNS rule, by choice so far |
 | `e8:9f:6d:70:fb:f1` | .117 | .163 | Echo (`amazon`) — which room? | -58 | by room |
 | `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Spot, office bathroom** (`office-bath-echo-spot`) | -70 | downstairs |
-| `34:d2:70:80:e7:fa` | .126 | .164 | fifth Amazon device doing Alexa calling (Echo Show? Fire tablet?) | -53 | identify in the Alexa app |
-| `44:61:32:63:5f:d5` | .134 | .180 | ecobee thermostat | -50 | upstairs |
+| `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) | -53 | upstairs |
+| `44:61:32:63:5f:d5` | .134 | .180 | ecobee thermostat — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
 | `20:f8:5e:37:50:3f` | .112 | .181 | Haiku ceiling fan, master bedroom (SenseME) | -68 | upstairs |
 
 Which Echo is in which room: Alexa app → Devices → each → *About* shows the MAC.
@@ -87,8 +87,8 @@ Which Echo is in which room: Alexa app → Devices → each → *About* shows th
 | `20:23:51:8b:ae:24` | .109 | .174 | Kasa HS200 switch (`hs200`) | -46 | `WhiteHouse_IoT_Up`, upstairs |
 | `20:23:51:24:c7:4b` | .111 | .175 | Kasa HS200 switch | -57 | `WhiteHouse_IoT_Up`, upstairs |
 | `d4:91:0f:13:77:99` | .116 | .176 | Amazon Smart Plug (`amazonplug09as`) | -63 | by location |
-| `ac:0b:fb:11:2f:68` | .118 | .177 | Amazon device on an Espressif radio (Fire OS NTP, Amazon IoT) — smart plug or Echo accessory | -53 | identify in the Alexa app |
-| `ac:0b:fb:7c:67:7a` | .133 | .178 | same kind as .118 | -67 | identify in the Alexa app |
+| `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — *inferred*: the app shows no network info for either switch; the stronger upstairs signal was taken as the bedroom one. Swap the two names if a toggle test says otherwise | -53 | `WhiteHouse_IoT_Up`, upstairs |
+| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — *inferred*, see above | -67 | `WhiteHouse_IoT`, downstairs |
 | `d4:8a:fc:c1:06:31` | .128 | .182 | HUUM sauna controller | -52 on the AC Lite | `WhiteHouse_IoT`, downstairs ✅ (moved 2026-10-10) |
 | `0c:2a:69:0f:57:89` | .120 | .183 | Rachio sprinkler controller (Electric Imp module) | -74 | `WhiteHouse_IoT`, downstairs if the closet is nearer — confirm where it hangs |
 | `a4:d7:3c:40:f6:c6` | .125 | .184 | Epson printer | wired? not on any controller | — |
