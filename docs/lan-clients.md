@@ -59,7 +59,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 |---|---|---|---|---|
 | `c4:f7:c1:23:dc:e7` | .124 | .140 ✅ | Apple TV, living room (`living-room-appletv`) | **wired** — never seen on WiFi; HomeKit/Thread hub (advertises as IPv6 router) |
 | `50:32:37:0e:81:d9` (Ethernet), `50:32:37:0e:f0:d1` (WiFi) | .113 / .127 | .141 ✅ | Apple TV, office (`office-appletv`) | **moved to Ethernet 2026-10-10**; both MACs map to the one AdGuard name, so it keeps its name if WiFi ever takes over again |
-| `2c:fe:e2:98:84:4a` | .129 | .142 ✅ | **Hisense Google TV, office** (`office-hisense-tv`) | Not meant to be a smart TV — the office Apple TV plays everything. **Blocked from the WiFi in Omada** (Clients → Block) 2026-10-10 so it stops phoning home; unblock there if it is ever wanted online |
+| `2c:fe:e2:98:84:4a` | .129 | .142 ✅ | **Hisense Google TV, office** (`office-hisense-tv`; "Office TV" in Omada) | Not meant to be a smart TV — the office Apple TV plays everything. **Blocked from the WiFi in Omada** (Clients → Block) 2026-10-10, confirmed gone from the client list; unblock there if it is ever wanted online |
 | — | .228 | — | *dropped 2026-10-10*: nothing answers there; the Hisense MAC once seen was the office TV's wired port on a static address | — |
 
 ## Home IoT, needs the LAN — `WhiteHouse_Home`
