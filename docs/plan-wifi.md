@@ -151,6 +151,17 @@ the way, each now in the files that need them:
    them with signal.
 5. **Rollback:** forget the AP in Omada and reset it to standalone with the record from step 1.
 
+**Done 2026-10-10 09:03.** The first adopt failed with Omada's `errorCode 5` (`device_verify
+auth … adopt info is wrong`): the EAP772 had its own admin login from standalone mode and
+Omada tried the default; the retry with the device's credentials entered went through.
+Within six minutes every device was back — 21 clients on DNS, all ten 2.4 GHz-only IoT
+devices answering ping, the kids' static leases untouched, the HUUM controller the slowest
+at five minutes (idle, nothing armed). The Omada 6 path for the SSID is *Network Config →
+WLAN → Add SSID*, inside the site, not the global view. Adoption did reset the AP's syslog
+target; the Loki `syslog` job is quiet until it is set again from Omada's site services, and
+with the controller's own client log that is now optional. Step 4 (fixed channels and power
+from the record) is done from the device's *Config → Radios* page.
+
 ### Phase 3 — the AC Lite by the sauna [you + agent], one evening
 
 1. **[you]** Mount and cable the AC Lite as close to the sauna as a cable reaches, on the 24 V
