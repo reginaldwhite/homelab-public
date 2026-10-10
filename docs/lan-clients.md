@@ -45,6 +45,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `0e:cb:3b:51:53:d2` | .121 | .132 | Mac (private address) | work laptop? confirm |
 | `68:ca:c4:c7:3a:ca` | .123 | .133 | Sam's iPhone | Sam |
 | `34:f6:8d:3d:86:ab` | .119 | .134 | Robby's iPad 2 | Robby |
+| `ee:96:db:cc:e4:46` | .110 | — | **unidentified Apple device with a private address** — joined 2026-10-10 ~21:20, uses iCloud Private Relay, RCS messaging and Slack: a phone, probably Robby's iPhone after rotating its private address | identify (Settings → Wi-Fi → ⓘ shows the address in use) |
 | `c8:60:00:2b:90:6f` | .150 ✅ | — | Finn's PC | Finn (kids group, DNS hours) |
 | `bc:d2:2c:87:d4:b5` | .151 ✅ | — | Finn's Chromebook | Finn |
 | `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku | Finn |
@@ -57,8 +58,8 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 | MAC | IP | Fixed IP | Device | Notes |
 |---|---|---|---|---|
-| `c4:f7:c1:23:dc:e7` | .124 | .140 | Apple TV, living room | HomeKit/Thread hub (advertises as IPv6 router); 5 GHz |
-| `50:32:37:0e:f0:d1` | .127 | .141 | Apple TV, office | 5 GHz |
+| `c4:f7:c1:23:dc:e7` | .124 | .140 ✅ | Apple TV, living room (`living-room-appletv`) | **wired** — never seen on WiFi; HomeKit/Thread hub (advertises as IPv6 router) |
+| `50:32:37:0e:81:d9` (Ethernet), `50:32:37:0e:f0:d1` (WiFi) | .113 / .127 | .141 ✅ | Apple TV, office (`office-appletv`) | **moved to Ethernet 2026-10-10**; both MACs map to the one AdGuard name, so it keeps its name if WiFi ever takes over again |
 | `2c:fe:e2:98:84:4a` | .129 | .142 | Hisense TV (Google TV; Apple TV app traffic) | 5 GHz, -75 dBm upstairs — which room? |
 | `2c:fe:e2:…` | .228 | — | second Hisense interface, static, never asks DNS | same TV's other port, or another TV — identify |
 
