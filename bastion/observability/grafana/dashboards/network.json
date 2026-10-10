@@ -522,7 +522,7 @@
   {
    "id": 9,
    "type": "table",
-   "title": "Devices AdGuard knows (DHCP leases and named clients)",
+   "title": "Devices: AdGuard's leases and names, plus what the WiFi controllers see",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "events"
@@ -542,7 +542,7 @@
      },
      "format": "table",
      "rawQuery": true,
-     "rawSql": "select coalesce(name, hostname, '') as device, ip, mac, source, array_to_string(tags, ',') as tags, last_seen from lan_clients order by last_seen desc, ip",
+     "rawSql": "select coalesce(name, hostname, '') as device, ip, mac, source, array_to_string(tags, ',') as tags, wifi_controller as controller, ap, ssid, band, signal_dbm as \"signal (dBm)\", wifi_seen as \"on wifi\", last_seen from lan_clients order by last_seen desc, ip",
      "editorMode": "code"
     }
    ],
@@ -552,8 +552,115 @@
    },
    "fieldConfig": {
     "defaults": {},
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "signal (dBm)"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "red",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": -70
+          },
+          {
+           "color": "green",
+           "value": -62
+          }
+         ]
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     }
+    ]
    }
+  },
+  {
+   "type": "timeseries",
+   "title": "WiFi signal per device (dBm, as the AP hears it)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 24,
+    "w": 24,
+    "h": 8
+   },
+   "description": "From wifi-clients.py every five minutes: every wireless client both controllers see. The IoT SSID's devices live on the UniFi AC Lite; -70 dBm or worse for an hour raises the wifi-weak-signal alert.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "dBm",
+     "min": -95,
+     "max": -25,
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "spanNulls": 600000
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": -70
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "min"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "wifi_client_signal_dbm",
+     "legendFormat": "{{name}} \u00b7 {{ap}} {{band}}"
+    }
+   ]
   },
   {
    "id": 10,
@@ -565,7 +672,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 24,
+    "y": 32,
     "w": 24,
     "h": 8
    },
@@ -609,7 +716,7 @@
    "title": "DNS lookups (AdGuard query log via Loki, 30 days)",
    "gridPos": {
     "x": 0,
-    "y": 32,
+    "y": 40,
     "w": 24,
     "h": 1
    },
@@ -626,7 +733,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 33,
+    "y": 41,
     "w": 12,
     "h": 8
    },
@@ -671,7 +778,7 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 33,
+    "y": 41,
     "w": 12,
     "h": 8
    },
@@ -715,7 +822,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 41,
+    "y": 49,
     "w": 24,
     "h": 12
    },

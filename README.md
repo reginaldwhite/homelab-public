@@ -42,7 +42,9 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > them through AdGuard's `omada` and `unifi` rewrites to 192.168.0.10 — LAN-only at
 > `https://omada.robbywhite.net` and `https://unifi.robbywhite.net`, logins in Bitwarden. Their
 > autobackups join `~/backups/` nightly. Vaultwarden's loopback check port moved from 8080 to
-> 8081 to make room for UniFi's inform port. Plan and phases: [docs/plan-wifi.md](docs/plan-wifi.md).
+> 8081 to make room for UniFi's inform port. `scripts/wifi-clients.py` reads both controllers'
+> client lists every five minutes into `lan_clients` (AP, SSID, band, signal), so the Network
+> dashboard shows the wireless side of every device. Plan and phases: [docs/plan-wifi.md](docs/plan-wifi.md).
 >
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that

@@ -1,0 +1,64 @@
+# Alert rules for the WiFi controllers' client data (docs/plan-wifi.md, phase 4; added
+# 2026-10-10). Evaluated every 5 minutes against the gauges wifi-clients.py writes.
+#
+#   wifi-weak-signal   a client on the UniFi side (every UniFi client is an IoT device on the
+#                      IoT SSID by design) has heard its AP below -70 dBm for a full hour --
+#                      the state the sauna controller was in on the EAP772
+#   wifi-poll-failed   wifi-clients.py could not read a controller for 30 minutes
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: wifi
+    folder: Homelab
+    interval: 5m
+    rules:
+      - uid: wifi-weak-signal
+        title: IoT device with a weak WiFi signal
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: '{{ $labels.name }} ({{ $labels.mac }}) has been below -70 dBm on {{ $labels.ap }} for an hour (now {{ $values.B }} dBm). Move the device, the AP, or raise its power; at this level cloud connections drop.'
+          runbook: docs/plan-wifi.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'max_over_time(wifi_client_signal_dbm{controller="unifi"}[1h])'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [-70] } } ] }
+      - uid: wifi-poll-failed
+        title: WiFi controller poll failing
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'wifi-clients.py has not been able to read the {{ $labels.controller }} controller for 30 minutes (~/logs/wifi-clients.log on bastion). The Network dashboard''s wireless columns are stale until it recovers; the APs themselves are unaffected.'
+          runbook: docs/plan-wifi.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'max_over_time(wifi_poll_ok[30m])'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }

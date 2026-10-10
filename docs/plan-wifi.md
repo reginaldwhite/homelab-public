@@ -184,7 +184,7 @@ existing `huum-reconnects` Grafana rule (>3 cloud reconnects in 6 h → #homelab
 day's count before the move was 5 in the 04:00 hour alone. The remaining IoT devices move
 after that watch passes, one at a time.
 
-### Phase 4 — the audit [agent], one evening
+### Phase 4 — the audit [agent, two credentials from you], one evening
 
 - Both controllers expose an API (Omada's OpenAPI with a client credential created in its UI;
   UniFi's local API with a read-only user). `bastion/scripts/wifi-clients.py` reads both every
@@ -194,6 +194,56 @@ after that watch passes, one at a time.
   for "an IoT device below -70 dBm for an hour" replaces guessing.
 - This closes step 2 of [plan-lan-groups.md](plan-lan-groups.md): every device named, grouped,
   and pinned, now with the wireless half filled in.
+
+**Built 2026-10-10**, deployed with the credentials still empty (the poller skips a
+controller whose credential is missing, so nothing fires until they exist):
+
+- `bastion/observability/postgres/002-wifi.sql` adds `wifi_controller, ap, ssid, band,
+  signal_dbm, wifi_uptime_s, wifi_seen` to `lan_clients`; `apply.sh` now replays the schema
+  files whenever one changes (all are written to be re-runnable).
+- `bastion/scripts/wifi-clients.py --poll` from cron at minutes 2, 7, 12 …; `--dump` prints a
+  raw client object from each controller for checking the field mapping after an upgrade.
+  Omada's `rssi`/`signalLevel`, `radioId` and `apName`; UniFi's `signal`, `radio` and `ap_mac`
+  resolved to the AP's name. Gauges in `wifi.prom`: `wifi_poll_ok`, `wifi_clients`,
+  `wifi_client_signal_dbm`, `wifi_client_uptime_seconds`.
+- *Network* dashboard: the device table shows controller, AP, SSID, band, signal (coloured at
+  -70/-62) and when it was last seen on WiFi; a signal-history panel below it.
+- Rules in `rules-wifi.yml`: `wifi-weak-signal` (a UniFi-side client below -70 dBm for an
+  hour — every UniFi client is on the IoT SSID by design) and `wifi-poll-failed`.
+- **[you]** the two credentials, into bastion's `.env` (`.env.example` has the exact clicks):
+  an Omada Open API client in *Client Credentials* mode with the **Viewer** role
+  (`OMADA_CLIENT_ID`, `OMADA_CLIENT_SECRET`), and a UniFi local admin restricted to local
+  access with the read-only role (`UNIFI_USER`, `UNIFI_PASSWORD`). Then
+  `wifi-clients.py --dump` once to confirm the mapping, and the table fills on the next run.
+- The "device on the wrong AP for its group" rule waits for the groups themselves (step 2 of
+  the LAN-groups plan puts the group on the row); with the SSIDs split by vendor it cannot
+  happen today anyway.
+
+### Phase 5 — an IoT-home SSID on the EAP772, then the kids' SSIDs [you + agent]
+
+Added 2026-10-10. Two SSID changes on the EAP772, in this order because the second forces a
+`WhiteHouse` password rotation and the first keeps that rotation small.
+
+1. **`<home-iot>` SSID on the EAP772 [you]** — Omada, *Network Config → WLAN → Add SSID*:
+   2.4 GHz only, WPA2, **no** client isolation (these devices need the LAN), 802.11ax off
+   and band steering off for the SSID. Move the four Echos, the ecobee and the Haiku fan to it
+   (each from its own app). The Apple TVs stay on `WhiteHouse`: they stream on 5 GHz. After
+   this, `WhiteHouse` carries only people's devices and the Apple TVs, and the LAN-groups
+   `iot-amazon`/`iot-home` members are on an SSID of their own without losing LAN access.
+   **[agent]** static leases for each as it moves, in the `iot-*` ranges.
+2. **`Ava` and `Finn` SSIDs on the EAP772 [you]** — all bands, WPA2/WPA3, each with an
+   Omada SSID schedule matching the child's window in
+   [plan-kids-hours-and-iot.md](plan-kids-hours-and-iot.md) (Ava off 22:00/23:00 → on 05:30;
+   Finn off 21:30/22:15 → on 06:00). Their devices join their own SSID.
+3. **Rotate `WhiteHouse` [you]** and re-join the family's phones, laptops and the Apple TVs.
+   The kids do not get the new password; without this step the SSID schedule is advice.
+4. **`kids-hours.py` drives the SSIDs [agent]** — a second Omada Open API credential with the
+   Operator role (the Viewer one from phase 4 cannot change anything), stored separately in
+   `.env`, lets the script enable/disable each child's SSID alongside its DNS rule, so the
+   Slack verbs (`kids-open-ava`, `--until`) and the overrides keep working as one system.
+   Until then an override is the DNS rule only, and the SSID schedule is edited in Omada.
+5. What the DNS layer still covers that the SSID cannot: a wired device, and anything a
+   child joins to another network. Both layers stay.
 
 ## Risks, named
 

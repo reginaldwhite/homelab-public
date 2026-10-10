@@ -194,6 +194,18 @@ if [[ -d "$OBS_DIR" ]]; then
     if obs_changed grafana-provisioning grafana/provisioning; then
         docker compose --env-file "$OBS_ENV" restart grafana >/dev/null && say "observability: grafana restarted for new provisioning"
     fi
+    # Schema migrations. The postgres image runs postgres/*.sql only when it creates the volume,
+    # so later files (002-…) are applied here instead; every file is written to be re-runnable
+    # (if not exists / add column if not exists), so the whole set is replayed when any changes.
+    if obs_changed postgres postgres; then
+        for _ in $(seq 1 10); do docker exec events-db pg_isready -q -U homelab -d homelab 2>/dev/null && break; sleep 3; done
+        for f in postgres/*.sql; do
+            if ! out=$(docker exec -i events-db psql -q -U homelab -d homelab -v ON_ERROR_STOP=1 < "$f" 2>&1); then
+                echo "observability: $f failed:" >&2; echo "$out" >&2; exit 1
+            fi
+        done
+        say "observability: schema files applied ($(ls postgres/*.sql | wc -l | tr -d ' '))"
+    fi
     docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
     cd "$STACK_DIR"
 fi

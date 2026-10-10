@@ -30,6 +30,10 @@
 # its client table into the events database every five, for the Network dashboard.
 * * * * * /home/robby/homelab-deployed/bastion/scripts/adguard-stats.py --stats
 */5 * * * * /home/robby/homelab-deployed/bastion/scripts/adguard-stats.py --clients
+# The wireless half of the same table: AP, SSID, band and signal per device from the two WiFi
+# controllers, plus signal gauges for Prometheus. Offset from the AdGuard run so the two
+# upserts never race on the same rows. docs/plan-wifi.md phase 4.
+2-59/5 * * * * /home/robby/homelab-deployed/bastion/scripts/wifi-clients.py --poll
 
 # The sauna and the sprinklers: gauges every five minutes, a session or run recorded as an
 # event when it finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2.
