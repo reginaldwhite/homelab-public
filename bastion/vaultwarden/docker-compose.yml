@@ -26,9 +26,10 @@ services:
       # so nothing ever needed the published port — but until 2026-09-26 it was bound
       # to every interface, which served the vault over plaintext HTTP to the whole
       # LAN at http://192.168.0.10:8080, master password hashes included.
-      # Kept on 127.0.0.1 because `curl localhost:8080` on bastion is what separates
-      # "Vaultwarden is down" from "Caddy is down".
-      - 127.0.0.1:8080:80
+      # Kept on 127.0.0.1 because `curl localhost:8081` on bastion is what separates
+      # "Vaultwarden is down" from "Caddy is down". Was 8080 until 2026-10-09: the UniFi
+      # controller's inform port is 8080 on the host network and cannot move (bastion/wifi).
+      - 127.0.0.1:8081:80
   caddy:
     # Pinned for the same reason Vaultwarden is, and it matters at least as much:
     # this is what terminates TLS for the vault. `:latest` only moves when something

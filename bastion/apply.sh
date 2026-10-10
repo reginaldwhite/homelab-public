@@ -18,6 +18,8 @@ STACK_DIR="$HERE/vaultwarden"
 # (compose then warns about unset variables, which is fine) and apply insists on it.
 OBS_DIR="$HERE/observability"
 OBS_ENV="$HERE/.env"
+# The WiFi controllers (docs/plan-wifi.md): third compose project, host network, same .env.
+WIFI_DIR="$HERE/wifi"
 # Where bastion's scripts drop .prom files for node exporter's textfile collector.
 TEXTFILE_DIR="/home/robby/observability/textfile"
 # Hashes of the config trees as last applied, so a changed bind-mounted config reloads its service.
@@ -97,6 +99,12 @@ if [[ $VALIDATE -eq 1 ]]; then
             echo "config.alloy failed validation:" >&2; echo "$out" >&2; exit 1
         fi
         say "observability: compose, prometheus.yml, blackbox.yml, loki.yml, config.alloy and $(ls "$OBS_DIR"/grafana/dashboards/*.json | wc -l | tr -d ' ') dashboards valid"
+    fi
+    if [[ -d "$WIFI_DIR" ]]; then
+        wifi_env=(); [[ -f "$OBS_ENV" ]] && wifi_env=(--env-file "$OBS_ENV")
+        docker compose "${wifi_env[@]}" -f "$WIFI_DIR/docker-compose.yml" config --quiet
+        bash -n "$WIFI_DIR/unifi/init-mongo.sh"
+        say "wifi: compose file and init-mongo.sh valid"
     fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
@@ -186,6 +194,23 @@ if [[ -d "$OBS_DIR" ]]; then
     if obs_changed grafana-provisioning grafana/provisioning; then
         docker compose --env-file "$OBS_ENV" restart grafana >/dev/null && say "observability: grafana restarted for new provisioning"
     fi
+    docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
+    cd "$STACK_DIR"
+fi
+
+# --- wifi controllers -----------------------------------------------------------------------
+if [[ -d "$WIFI_DIR" ]]; then
+    for var in UNIFI_MONGO_ROOT_PASSWORD UNIFI_MONGO_PASSWORD; do
+        if [[ ! -f "$OBS_ENV" ]] || ! grep -qE "^$var=.+" "$OBS_ENV"; then
+            echo "wifi: $var is not set in $OBS_ENV; not starting the controllers" >&2
+            echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
+            exit 1
+        fi
+    done
+    cd "$WIFI_DIR"
+    # Nothing here is a bind-mounted config: both controllers keep their state in volumes and
+    # are configured through their UIs, so `up -d` is the whole apply.
+    docker compose --env-file "$OBS_ENV" up -d
     docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
     cd "$STACK_DIR"
 fi

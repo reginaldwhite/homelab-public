@@ -62,3 +62,38 @@ grafana.robbywhite.net {
         abort
     }
 }
+
+# The two WiFi controllers (bastion/wifi, docs/plan-wifi.md). Both run on the host network,
+# so like AdGuard they are reached on the host's LAN address, and both present their own
+# self-signed certificate, hence tls_insecure_skip_verify on the upstream — the hop is
+# loopback-to-container on bastion itself. Same LAN-only guard as the others; the UIs also
+# answer directly on 192.168.0.10:8043 and :8443 for the LAN.
+omada.robbywhite.net {
+    tls internal
+    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
+    handle @lan {
+        reverse_proxy https://192.168.0.10:8043 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+    handle {
+        abort
+    }
+}
+
+unifi.robbywhite.net {
+    tls internal
+    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
+    handle @lan {
+        reverse_proxy https://192.168.0.10:8443 {
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+    handle {
+        abort
+    }
+}

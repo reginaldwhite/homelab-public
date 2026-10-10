@@ -22,7 +22,7 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 
 | Container | Image | Port(s) | Notes |
 |---|---|---|---|
-| `vaultwarden` | `vaultwarden/server` (pinned tag) | `127.0.0.1:8080`→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below. Loopback only: Caddy reaches it as `vaultwarden:80` on the compose network, and binding it to the LAN served the vault over plaintext HTTP |
+| `vaultwarden` | `vaultwarden/server` (pinned tag) | `127.0.0.1:8081`→80 | Bitwarden-compatible vault at `vault.robbywhite.net`, signups disabled. Version pinned — see below. Loopback only: Caddy reaches it as `vaultwarden:80` on the compose network, and binding it to the LAN served the vault over plaintext HTTP |
 | `caddy` | `caddy` (pinned tag) | 80, 443 | Reverse proxy / TLS termination. Bump from `.claude/skills/homelab-upgrades/packages/caddy.md` |
 | `adguardhome` | `adguard/adguardhome` (pinned tag) | host network (53, UI on 8888) | DNS-level ad & tracker blocking — but see below, most clients bypass it today |
 
@@ -35,6 +35,14 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > and 9200, host network; Alloy pushes to `loki.robbywhite.net`). AdGuard's query log is shipped
 > into Loki too, and the EAP772 access point sends its syslog to bastion on 1514/UDP (job
 > `syslog` in Loki, since 2026-10-07). Design and phases: [docs/plan-observability.md](docs/plan-observability.md).
+>
+> **WiFi controllers (2026-10-09):** a third compose project, [bastion/wifi/](bastion/wifi/),
+> runs the Omada controller (for the TP-Link EAP772) and the UniFi Network application with its
+> own MongoDB (for the Ubiquiti AC Lite by the sauna). Both on the host network — the APs find
+> them through AdGuard's `omada` and `unifi` rewrites to 192.168.0.10 — LAN-only at
+> `https://omada.robbywhite.net` and `https://unifi.robbywhite.net`, logins in Bitwarden. Their
+> autobackups join `~/backups/` nightly. Vaultwarden's loopback check port moved from 8080 to
+> 8081 to make room for UniFi's inform port. Plan and phases: [docs/plan-wifi.md](docs/plan-wifi.md).
 >
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that

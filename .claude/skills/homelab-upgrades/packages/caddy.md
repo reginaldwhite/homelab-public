@@ -14,7 +14,7 @@ Caddy terminates TLS for `vault.robbywhite.net`, which is internet-facing. It is
 exposed thing in the homelab and the reason this package is Watch tier despite moving slowly.
 
 If Caddy is down, Vaultwarden is unreachable from outside even though it is running fine. On
-bastion, `curl localhost:8080` is what separates the two: it hits Vaultwarden directly on the
+bastion, `curl localhost:8081` is what separates the two: it hits Vaultwarden directly on the
 loopback publish, so a success there with a failing HTTPS request means Caddy, not Vaultwarden.
 
 ## Before upgrading
@@ -40,7 +40,7 @@ loopback publish, so a success there with a failing HTTPS request means Caddy, n
 
 ```bash
 curl -sI https://vault.robbywhite.net | head -1          # from off-LAN if possible
-ssh robby@192.168.0.10 "curl -s -o /dev/null -w '%{http_code}' localhost:8080"
+ssh robby@192.168.0.10 "curl -s -o /dev/null -w '%{http_code}' localhost:8081"
 ssh robby@192.168.0.10 "docker logs --tail 40 caddy"
 ```
 

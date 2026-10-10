@@ -1,0 +1,115 @@
+# WiFi controllers (docs/plan-wifi.md). Deployed to bastion by ../../deploy.sh and run from
+# /home/robby/homelab-deployed/bastion/wifi as the third compose project, after vaultwarden
+# and observability. Variables come from bastion's .env (see ../.env.example), which apply.sh
+# passes with --env-file.
+#
+# Two vendors, two controllers: Omada manages the TP-Link EAP772, UniFi Network the Ubiquiti
+# AC Lite (and AC Pro, later). Both run on the host network because their access points find
+# them on fixed ports — the EAP772 asks DNS for `omada`, the UniFi APs for `unifi`, and
+# AdGuard rewrites both names to 192.168.0.10. Each UI is reached through Caddy on its LAN
+# name (omada.robbywhite.net, unifi.robbywhite.net) or directly on its own port from the LAN;
+# nothing here is published to the internet.
+#
+# Ports claimed on the host (ufw rules for the LAN side are listed in docs/plan-wifi.md):
+#   Omada  8088 http, 8043 https (UI), 8844 portal (moved off 8843, which UniFi also wants),
+#          27001/udp app discovery, 29810/udp device discovery, 29811-29816/tcp manage/adopt,
+#          127.0.0.1:27217 its bundled MongoDB
+#   UniFi  8443 https (UI), 8080 inform, 8843/8880 portal, 6789 speed test, 3478/udp STUN,
+#          10001/udp discovery, 5514/udp remote syslog (unused)
+#   Mongo  127.0.0.1:27017 only (UniFi's database; bridge network, loopback publish)
+#
+# Memory: both controllers are Java with a MongoDB behind them, about 1.5 GB for Omada and
+# 1 GB for UniFi at idle. bastion has 16 GB and was using under 2 before they arrived.
+name: wifi
+
+services:
+  omada:
+    # Pinned to the current stable release at build time (2026-10-09). Omada v6 bundles
+    # MongoDB 8, which needs AVX; bastion's i3-7100T has it. `latest` on this image is
+    # deliberately still v5 (the maintainer refuses to auto-migrate), so never use it. Bump
+    # from .claude/skills/homelab-upgrades/packages/omada.md.
+    image: mbentley/omada-controller:6.2.14.11
+    container_name: omada
+    restart: unless-stopped
+    network_mode: host
+    stop_grace_period: 60s
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+    environment:
+      - TZ=America/Chicago
+      - MANAGE_HTTP_PORT=8088
+      - MANAGE_HTTPS_PORT=8043
+      # UniFi's guest portal also binds 8843 (not configurable there), so Omada's moves.
+      - PORTAL_HTTPS_PORT=8844
+      - PORT_APP_DISCOVERY=27001
+      - PORT_DISCOVERY=29810
+      - PORT_MANAGER_V1=29811
+      - PORT_ADOPT_V1=29812
+      - PORT_UPGRADE_V1=29813
+      - PORT_MANAGER_V2=29814
+      - PORT_TRANSFER_V2=29815
+      - PORT_RTTY=29816
+      - SHOW_SERVER_LOGS=true
+    volumes:
+      - omada_data:/opt/tplink/EAPController/data
+      - omada_logs:/opt/tplink/EAPController/logs
+
+  unifi-db:
+    # UniFi's database. The application supports MongoDB 3.6 through 8.0 (linuxserver README);
+    # 7.0 is pinned so the two never drift into an unsupported pair by accident. MongoDB does
+    # not upgrade across majors on its own: a major bump here is a migration, see
+    # .claude/skills/homelab-upgrades/packages/unifi.md. Bridge network, so the only way to it
+    # is the loopback publish below — UniFi runs on the host network and connects to
+    # 127.0.0.1:27017; nothing on the LAN can.
+    image: mongo:7.0.43
+    container_name: unifi-db
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:27017:27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=${UNIFI_MONGO_ROOT_PASSWORD}
+      # Read by init-mongo.sh, which creates the application user. Runs only on an empty
+      # volume, like Postgres' init in the observability stack.
+      - MONGO_USER=unifi
+      - MONGO_PASS=${UNIFI_MONGO_PASSWORD}
+      - MONGO_DBNAME=unifi
+      - MONGO_AUTHSOURCE=admin
+    volumes:
+      - unifi_db:/data/db
+      - ./unifi/init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
+
+  unifi:
+    # Pinned to the current linuxserver release at build time (2026-10-09); the tag is the
+    # UniFi version plus linuxserver's build number. Bump from
+    # .claude/skills/homelab-upgrades/packages/unifi.md.
+    image: lscr.io/linuxserver/unifi-network-application:10.6.106-ls149
+    container_name: unifi
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - unifi-db
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Chicago
+      # The MONGO_* values are read on first run only and written into the application's own
+      # system.properties; changing them later means editing that file in the config volume.
+      - MONGO_USER=unifi
+      - MONGO_PASS=${UNIFI_MONGO_PASSWORD}
+      - MONGO_HOST=127.0.0.1
+      - MONGO_PORT=27017
+      - MONGO_DBNAME=unifi
+      - MONGO_AUTHSOURCE=admin
+      - MEM_LIMIT=1024
+      - MEM_STARTUP=512
+    volumes:
+      - unifi_config:/config
+
+volumes:
+  omada_data:
+  omada_logs:
+  unifi_db:
+  unifi_config:

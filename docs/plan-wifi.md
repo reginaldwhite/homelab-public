@@ -73,9 +73,10 @@ address through the existing 443/9100/9200-style rule pattern, one more rule for
 - AdGuard rewrites: `omada` → `192.168.0.10` (the EAP772 already asks for it every ten
   seconds) and `unifi` → `192.168.0.10` (the UniFi AP's default inform host).
 - Caddy, LAN-only with `tls internal` exactly like `grafana.robbywhite.net`:
-  `omada.robbywhite.net` → `https://127.0.0.1:8043` and `unifi.robbywhite.net` →
-  `https://127.0.0.1:8443`, both with `transport http { tls_insecure_skip_verify }` because the
-  controllers present their own self-signed certificates.
+  `omada.robbywhite.net` → `https://192.168.0.10:8043` and `unifi.robbywhite.net` →
+  `https://192.168.0.10:8443` (the host's LAN address, as for AdGuard: `127.0.0.1` inside the
+  Caddy container is the container), both with `transport http { tls_insecure_skip_verify }`
+  because the controllers present their own self-signed certificates.
 
 ## The IoT SSID
 
@@ -96,10 +97,18 @@ address through the existing 443/9100/9200-style rule pattern, one more rule for
 
 ### Phase 1 — controllers up, nothing adopted [agent + you], one evening
 
-1. **[agent]** `bastion/wifi/docker-compose.yml` with the three services, volumes, pinned
-   tags, Omada's portal port moved; `bastion/apply.sh` learns the third compose project the
-   same way it learned observability; Vaultwarden's loopback publish moved to 8081; Caddy
-   vhosts; AdGuard rewrites through the API; package files in the upgrades skill.
+Started 2026-10-09, the evening the AC Lite was plugged in (it took lease `192.168.0.136`,
+MAC `80:2a:a8:78:18:6a`, and is asking DNS for `unifi`).
+
+1. **[agent]** ✅ `bastion/wifi/docker-compose.yml` with the three services, volumes, pinned
+   tags (Omada `6.2.14.11` — v6 needs AVX for its bundled MongoDB 8, which bastion's i3-7100T
+   has; UniFi `10.6.106-ls149`; MongoDB `7.0.43`), Omada's portal port moved to 8844;
+   `bastion/apply.sh` validates and brings up the third compose project and requires
+   `UNIFI_MONGO_ROOT_PASSWORD`/`UNIFI_MONGO_PASSWORD` in `.env`; Vaultwarden's loopback
+   publish moved to 8081; Caddy vhosts; AdGuard rewrites through the API; package files in
+   the upgrades skill; `backup-observability.sh` archives both autobackup directories.
+   UniFi's MongoDB sits on a bridge network with a `127.0.0.1:27017` publish and UniFi (host
+   network) connects to it over loopback, so the database is reachable from bastion only.
 2. **[you]** The seven ufw rules above, plus `8043,8443` from `172.16.0.0/12`.
 3. **[agent]** Deploy. Both UIs answer on their LAN names. The EAP772 shows up in Omada as
    *pending adoption* by itself (that is the `omada` lookup); nothing is adopted yet.

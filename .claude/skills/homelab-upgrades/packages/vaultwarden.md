@@ -54,7 +54,7 @@ This holds every password. Two separate reasons it is Watch tier:
 
 ```bash
 ssh robby@192.168.0.10 "docker logs vaultwarden | grep -i version | tail -5"
-ssh robby@192.168.0.10 "curl -s -o /dev/null -w '%{http_code}' localhost:8080"
+ssh robby@192.168.0.10 "curl -s -o /dev/null -w '%{http_code}' localhost:8081"
 ```
 
 Then **sync a real client** — a phone or browser extension. The server starting proves nothing
