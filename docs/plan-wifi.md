@@ -229,5 +229,8 @@ the AP in Omada, reset it to standalone, and put these back.
 - **6 GHz** enabled, channel **69** (6295 MHz), **320 MHz**, ax/be mixed, TX 23 dBm.
 - No scheduler profiles. Nothing else changed from defaults (mesh, band steering, LED).
 
-Consequence for phase 3: with the EAP772 fixed on 2.4 GHz channel 6, the AC Lite's IoT radio
-takes **1 or 11**, whichever Omada's or UniFi's scan shows emptier by the sauna.
+Channel plan, settled 2026-10-10 during phase 3: UniFi's *IoT Optimization* panel locks all
+its APs' 2.4 GHz radios to **channel 6**, so the **EAP772 moved to channel 1** (20 MHz) and
+the AC Lite (and the AC Pro later) sit on 6. The record above shows the pre-adoption value;
+this is the deliberate change. The IoT SSID also has *Force WiFi 4 Mode* and *DTIM Interval
+Lock* on, WPA2, client isolation, 2.4 GHz only.
