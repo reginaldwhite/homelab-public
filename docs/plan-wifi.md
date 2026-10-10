@@ -315,6 +315,12 @@ site's SSIDs, and the office laptops should land on it within minutes. Then the 
 the HUUM move, and the UniFi retirement in that order — the AC Lite keeps the sauna working
 until the new AP has proven it.
 
+## Which device goes where
+
+The per-device answer — SSID, AP, fixed address, what the thing is — lives in
+[lan-clients.md](lan-clients.md), the client register started 2026-10-10 when the first
+signal map made it possible to decide. Phases 3 and 5 move devices according to that file.
+
 ## Client isolation — the note for later
 
 The IoT SSID has client isolation on: devices on it reach the internet and nothing on the

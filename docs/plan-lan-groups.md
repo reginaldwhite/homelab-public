@@ -28,6 +28,9 @@ Vendor from the MAC prefix where the prefix is well known; `?` where it is not. 
 an Apple randomised address (starts with 2, 6, A or E in the second digit), which is fine as
 long as the device is set to *Fixed*.
 
+> **Superseded 2026-10-10:** the living copy of this inventory is [lan-clients.md](lan-clients.md),
+> which also carries each wireless device's SSID and access point. Edit that, not this table.
+
 | IP | MAC | Hostname / name | Vendor guess | Proposed group | Confirm |
 |---|---|---|---|---|---|
 | .1 | 48:e2:ad | router | AT&T BGW320 | infra | |
