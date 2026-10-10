@@ -130,11 +130,17 @@ asking permission and without hedging:
 | Plex (wake, sleep, is it on) | `plex-power` | `python3 /home/node/.openclaw/scripts/plex-power.py …` |
 | whether a package has a newer release | `homelab-upgrades` | `curl -fsS https://api.github.com/repos/…/releases/latest` |
 
-Invoke exactly as the skill shows, for example:
+The skills write each command as `bash command:"…"`. That is notation for a call to the exec
+tool, not text to run: the tool's `command` parameter is only what is inside the quotes, and it
+must start with `python3` or `curl`. For example, the skill line
 
 ```
 bash command:"python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00"
 ```
+
+means call exec with `command` = `python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00`.
+Never include the words `bash command:` or the quotes in the parameter; that is a different
+program and the exec policy refuses it.
 
 Do NOT add `host:`, `security:` or `ask:` directives. Anything **outside** that table (other
 programs, `ls`, `df`, pipes, `sh -c`, redirections, `ssh`) is refused by the exec policy.

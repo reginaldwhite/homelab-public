@@ -68,11 +68,17 @@ grafana.robbywhite.net {
 # self-signed certificate, hence tls_insecure_skip_verify on the upstream — the hop is
 # loopback-to-container on bastion itself. Same LAN-only guard as the others; the UIs also
 # answer directly on 192.168.0.10:8043 and :8443 for the LAN.
+#
+# header_up Host {host}: for an https:// upstream Caddy replaces the Host header with the
+# upstream address (it keeps it for plain upstreams). UniFi compares Origin with Host on
+# every POST and answered 403 "Cannot configure network server" in its setup wizard until
+# the browser's Host was passed through unchanged (found 2026-10-09).
 omada.robbywhite.net {
     tls internal
     @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
     handle @lan {
         reverse_proxy https://192.168.0.10:8043 {
+            header_up Host {host}
             transport http {
                 tls_insecure_skip_verify
             }
@@ -88,6 +94,7 @@ unifi.robbywhite.net {
     @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
     handle @lan {
         reverse_proxy https://192.168.0.10:8443 {
+            header_up Host {host}
             transport http {
                 tls_insecure_skip_verify
             }
