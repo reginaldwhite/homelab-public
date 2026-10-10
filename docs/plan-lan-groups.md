@@ -45,7 +45,7 @@ long as the device is set to *Fixed*.
 | .126 | 34:d2:70 | — | ? | ? | **what is it** (took the Chromebook's old address) |
 | .124 | c4:f7:c1 | living-room | Apple TV (also the HomeKit/Thread hub: it advertises as an IPv6 router) | media | |
 | .127 | 50:32:37 | office | Apple TV | media | |
-| .112 | 20:f8:5e | masterbedroomfa | ? "fan"? | iot-home | **what is it** |
+| .112 | 20:f8:5e | masterbedroomfa | Big Ass Fans Haiku ceiling fan (SenseME; Delta Electronics radio; hostname is `masterbedroomfan` clipped to 15 chars) — identified 2026-10-10 | iot-home, but stays on `WhiteHouse`: local app control and HomeKit need the LAN | |
 | .152 | d4:ab:cd | finn-roku | Roku | kids-finn (done) | |
 | .114 / .115 / .117 / .131 | 88:29:bf / 4c:60:ad / e8:9f:6d / 58:a8:e8 | amazon-… | Amazon Echo ×4 | iot-amazon | which room is which |
 | .116 | d4:91:0f | amazonplug09as | Amazon smart plug | iot-plugs | |

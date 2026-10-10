@@ -215,6 +215,19 @@ Both controllers write nightly autobackups into their volumes (Omada: `data/auto
 UniFi: `config/data/backup/autobackup`). `backup-observability.sh` grows two lines to archive
 those directories into `~/backups/`, which already mirrors to vault on Sunday.
 
+## Client isolation — the note for later
+
+The IoT SSID has client isolation on: devices on it reach the internet and nothing on the
+LAN. Today that costs nothing, because every device that moves there is controlled through
+its vendor's cloud anyway (Kasa, Tapo, the Amazon plug, HUUM) or needs no control (printer).
+**If Home Assistant, or anything else that talks to these devices by LAN address, is ever
+added, this is the setting to revisit.** Two ways out, in order of preference: keep isolation
+and let the integration use the vendor cloud (Tapo and Kasa both have cloud integrations);
+or switch isolation off on the SSID — one toggle in UniFi → Settings → WiFi → the IoT
+network → Advanced — which keeps the SSID, the radio and the channel plan and only drops the
+LAN barrier. Devices that need the LAN for their own apps or for HomeKit never go on the IoT
+SSID in the first place: the Echos, the ecobee, the Apple TVs, the Haiku fan.
+
 ## Not doing
 
 - Replacing the EAP772 with UniFi, or the UniFi APs with Omada. Both ecosystems stay; the
