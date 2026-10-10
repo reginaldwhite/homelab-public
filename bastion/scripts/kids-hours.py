@@ -46,7 +46,7 @@ CHILDREN = {
     "ava": {                                  # 15
         "school": ("05:30", "22:00"),
         "weekend": ("05:30", "23:00"),
-        "devices": ["ava-phone",
+        "devices": ["ava-phone", "ava-chromebook",
                     # still to identify and add: the iPad mini (ava-ipad-mini, .156)
                     ],
     },
