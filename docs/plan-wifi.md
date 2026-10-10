@@ -177,6 +177,13 @@ from the record) is done from the device's *Config → Radios* page.
 
 **Done when:** a session armed on the controller starts on time three nights running.
 
+*Steps 1–3 done 2026-10-10 by 09:45*: AC Lite mounted by the sauna, IoT SSID up (2.4 GHz
+only, WPA2, client isolation, IoT Optimization on, channel 6), HUUM controller moved and
+online within minutes — ping from bastion 3.7 ms average, no loss. The 24-hour watch is the
+existing `huum-reconnects` Grafana rule (>3 cloud reconnects in 6 h → #homelab-status); the
+day's count before the move was 5 in the 04:00 hour alone. The remaining IoT devices move
+after that watch passes, one at a time.
+
 ### Phase 4 — the audit [agent], one evening
 
 - Both controllers expose an API (Omada's OpenAPI with a client credential created in its UI;
