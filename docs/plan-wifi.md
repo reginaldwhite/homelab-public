@@ -297,10 +297,12 @@ What changes, phase by phase:
   is no reason to move it back. The still-unfinished UniFi read-only admin is no longer
   needed.
 - **Phase 3** — the IoT SSID becomes an Omada WLAN: `WhiteHouse_IoT`, 2.4 GHz only, WPA2,
-  **Guest Network on** (Omada's client isolation), 802.11ax off, broadcast from the closet AP
-  only (*Choose Devices → Custom*). The HUUM moves to it (same name and password as the
-  UniFi one, so it may simply follow). Done when the controller shows it in the -50s on the
-  new AP and the three-night test passes.
+  **Guest Network on** (Omada's client isolation), 802.11ax off, broadcast from **both APs**
+  (decided 2026-10-10: one isolated SSID rather than one per AP — two APs on one controller
+  coordinate, and a fixed device simply keeps the AP it hears best; a per-AP SSID is the
+  fallback for any single device that ever flaps). The HUUM moves to it (same name and
+  password as the UniFi one, so it may simply follow). Done when the controller shows it in
+  the -50s on the closet AP and the three-night test passes.
 - **Phase 4** — `wifi-clients.py` loses its UniFi half; the `wifi-weak-signal` rule selects
   on `ssid="WhiteHouse_IoT"` instead of `controller="unifi"`. Everything else stays.
 - **Phase 5** — unchanged; both kids' SSIDs and the home-IoT SSID are Omada WLANs on both

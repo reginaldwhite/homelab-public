@@ -13,8 +13,7 @@ the revision of 2026-10-10 in [plan-wifi.md](plan-wifi.md):
 |---|---|---|---|
 | `WhiteHouse` | both EAP772s, roaming | none | people's devices, media boxes |
 | `WhiteHouse_Home` | both EAP772s | none (needs the LAN) | Echos, ecobee, fan, anything with local control or HomeKit |
-| `WhiteHouse_IoT` | downstairs (closet) EAP772 only | Guest / isolated | fixed cloud-only devices downstairs |
-| `WhiteHouse_IoT_Up` | upstairs EAP772 only | Guest / isolated | fixed cloud-only devices upstairs |
+| `WhiteHouse_IoT` | both EAP772s | Guest / isolated | fixed cloud-only devices — each joins the AP it hears best (decided 2026-10-10: one SSID, not one per AP; a per-AP SSID stays in reserve for any device that ever flaps between the two) |
 | `Ava`, `Finn` | both EAP772s, scheduled | none | phase 5 of the WiFi plan |
 
 Until the second EAP772 is in, `WhiteHouse_IoT` lives on the UniFi AC Lite and only the
@@ -76,21 +75,21 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 Which Echo is in which room: Alexa app → Devices → each → *About* shows the MAC.
 
-## Cloud-only IoT, isolated — `WhiteHouse_IoT` (downstairs) / `WhiteHouse_IoT_Up` (upstairs)
+## Cloud-only IoT, isolated — `WhiteHouse_IoT` (both APs; the AP column is the expected one from the signal map)
 
 | MAC | IP | Fixed IP | Device | Signal | SSID / AP |
 |---|---|---|---|---|---|
-| `60:83:e7:74:84:07` | .113 | .170 ✅ | **Tapo P105 "Office Computer"** — the monitors' plug, so they are fully off at night | -70 | `WhiteHouse_IoT`, downstairs |
-| `60:83:e7:42:1b:99` | .110 | .171 ✅ | **Tapo P105 "Office Stereo"** — the desktop amp's plug | -73 | `WhiteHouse_IoT`, downstairs |
-| `60:83:e7:f3:6b:4e` | .132 | .172 ✅ | **Tapo P105 "Towel Warmer"** — runs it on a 3-hour cycle instead of 24/7 | -76 | `WhiteHouse_IoT`, downstairs |
+| `60:83:e7:74:84:07` | .113 | .170 ✅ | **Tapo P105 "Office Computer"** — the monitors' plug, so they are fully off at night | -70 | downstairs |
+| `60:83:e7:42:1b:99` | .110 | .171 ✅ | **Tapo P105 "Office Stereo"** — the desktop amp's plug | -73 | downstairs |
+| `60:83:e7:f3:6b:4e` | .132 | .172 ✅ | **Tapo P105 "Towel Warmer"** — runs it on a 3-hour cycle instead of 24/7 | -76 | downstairs |
 | `3c:78:95:e3:05:d8` | — | — | Tapo P115 (`p115`) — the plug that used to power the file server (vault) on and off; **unused and unplugged** since vault's Wake-on-LAN was sorted. Not on the network; row kept so the MAC is recognised if it ever reappears | — | — |
-| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | `WhiteHouse_IoT_Up`, upstairs (strongest 2.4 GHz client the upstairs AP has) |
-| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | `WhiteHouse_IoT_Up`, upstairs — or downstairs if the closet AP hears it better; decide from the map once both APs are up |
+| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
+| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
 | `d4:91:0f:13:77:99` | .116 | .176 | Amazon Smart Plug (`amazonplug09as`) | -63 | by location |
-| `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | `WhiteHouse_IoT`, downstairs |
-| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | `WhiteHouse_IoT_Up`, upstairs |
-| `d4:8a:fc:c1:06:31` | .128 | .182 | HUUM sauna controller | -52 on the AC Lite | `WhiteHouse_IoT`, downstairs ✅ (moved 2026-10-10) |
-| `0c:2a:69:0f:57:89` | .120 | .183 | Rachio sprinkler controller (Electric Imp module) | -74 | `WhiteHouse_IoT`, downstairs if the closet is nearer — confirm where it hangs |
+| `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | downstairs |
+| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | upstairs |
+| `d4:8a:fc:c1:06:31` | .128 | .182 | HUUM sauna controller | -52 on the AC Lite | downstairs ✅ (moved 2026-10-10) |
+| `0c:2a:69:0f:57:89` | .120 | .183 | Rachio sprinkler controller (Electric Imp module) | -74 | downstairs if the closet is nearer — confirm where it hangs |
 | `a4:d7:3c:40:f6:c6` | .125 | .184 | Epson printer | wired? not on any controller | — |
 
 ## How to change this file
