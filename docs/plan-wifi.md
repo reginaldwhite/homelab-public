@@ -215,6 +215,19 @@ controller whose credential is missing, so nothing fires until they exist):
   (`OMADA_CLIENT_ID`, `OMADA_CLIENT_SECRET`), and a UniFi local admin restricted to local
   access with the read-only role (`UNIFI_USER`, `UNIFI_PASSWORD`). Then
   `wifi-clients.py --dump` once to confirm the mapping, and the table fills on the next run.
+- **Found 2026-10-10 by the first real poll: the AT&T gateway's own WiFi was still on**, broadcasting
+  `WhiteHouse` from the same room as the sauna, and most of the house had been on it — Omada
+  counted 4 wireless clients while 16 WiFi-only devices answered ping, and had *never seen* the
+  plugs or this laptop (`-41011`). The gateway has no controller, API, client list or per-SSID
+  isolation, so it cannot be the IoT radio; Robby turned both its bands off and 25 clients
+  landed on the EAP772 within a minute (14 × 2.4 GHz, 9 × 5 GHz, 2 × 6 GHz). Every earlier
+  "all devices back" check in this file was DNS- and ping-based and could not tell the radios
+  apart; the controllers can. This also explains part of the HUUM's history: a device within
+  reach of two radios named the same thing flaps between them.
+- First signal map, same poll: the two 6 GHz clients (the Mac and an iPad) sit at -79/-81 dBm,
+  worse than they would on 5 GHz — band steering is pushing them to a band that does not
+  reach; worth a look at the EAP772's 6 GHz power or steering thresholds. The 2.4 GHz plugs
+  range from -47 (hs200) to -78 (a Tapo); the Epson printer is wired.
 - The "device on the wrong AP for its group" rule waits for the groups themselves (step 2 of
   the LAN-groups plan puts the group on the row); with the SSIDs split by vendor it cannot
   happen today anyway.
