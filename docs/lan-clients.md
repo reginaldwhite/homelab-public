@@ -28,7 +28,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 |---|---|---|---|
 | `48:e2:ad:0b:25:0a` | .1 | AT&T BGW320 gateway | DHCP off; WiFi off since 2026-10-10 except `WhiteHouse_Office` 5 GHz for the two laptops until the second EAP772 arrives |
 | `a8:29:48:16:dd:07` | .2 ✅ | TP-Link EAP772, upstairs ceiling | Omada-managed; 2.4 GHz ch 1, 5 GHz ch 40, 6 GHz ch 69 |
-| `80:2a:a8:78:18:6a` | .136 | Ubiquiti AC Lite, by the sauna | UniFi-managed; retired when the second EAP772 is in |
+| `80:2a:a8:78:18:6a` | .3 ✅ (was .136) | Ubiquiti AC Lite, by the sauna (`ac-lite`) | UniFi-managed; retired when the second EAP772 is in |
 | — | .10 | bastion | wired |
 | — | .12 | forge | wired |
 | — | .13 | cinema | wired |
@@ -51,6 +51,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `f6:99:f3:7b:b5:f7` | .154 ✅ | — | Finn's phone | Finn |
 | `32:b2:62:ef:e8:29` | .155 ✅ | — | Ava's phone | Ava |
 | ? | ? | .156 | Ava's iPad mini | Ava — MAC still to read from the mini |
+| `86:a0:f8:02:8a:16` | .138 | — | an iPad with a private address (hostname `ipad`), joined 2026-10-10 20:14 — the same minute as the laptops' `WhiteHouse_Office` addresses; runs the Alexa app, YouTube, iCloud | Robby's iPad 2 on the office SSID, or Ava's mini? |
 
 ## Media — `WhiteHouse`
 
@@ -70,8 +71,8 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `e8:9f:6d:70:fb:f1` | .117 | .163 | Echo (`amazon`) — which room? | -58 | by room |
 | `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Spot, office bathroom** (`office-bath-echo-spot`) | -70 | downstairs |
 | `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) | -53 | upstairs |
-| `44:61:32:63:5f:d5` | .134 | .180 | ecobee thermostat — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
-| `20:f8:5e:37:50:3f` | .112 | .181 | Haiku ceiling fan, master bedroom (SenseME) | -68 | upstairs |
+| `44:61:32:63:5f:d5` | .134 | .180 ✅ | ecobee thermostat (`ecobee`) — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
+| `20:f8:5e:37:50:3f` | .112 | .181 ✅ | Haiku ceiling fan, master bedroom (`bedroom-fan`; SenseME) | -68 | upstairs |
 
 Which Echo is in which room: Alexa app → Devices → each → *About* shows the MAC.
 
@@ -85,12 +86,12 @@ Which Echo is in which room: Alexa app → Devices → each → *About* shows th
 | `3c:78:95:e3:05:d8` | — | — | Tapo P115 (`p115`) — the plug that used to power the file server (vault) on and off; **unused and unplugged** since vault's Wake-on-LAN was sorted. Not on the network; row kept so the MAC is recognised if it ever reappears | — | — |
 | `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
 | `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
-| `d4:91:0f:13:77:99` | .116 | .176 | Amazon Smart Plug (`amazonplug09as`) | -63 | by location |
+| `d4:91:0f:13:77:99` | .116 | .176 ✅ | Amazon Smart Plug (`amazon-plug`) — which outlet? | -63 | by location |
 | `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | downstairs |
 | `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | upstairs |
-| `d4:8a:fc:c1:06:31` | .128 | .182 | HUUM sauna controller | -52 on the AC Lite | downstairs ✅ (moved 2026-10-10) |
-| `0c:2a:69:0f:57:89` | .120 | .183 | Rachio sprinkler controller (Electric Imp module) | -74 | downstairs if the closet is nearer — confirm where it hangs |
-| `a4:d7:3c:40:f6:c6` | .125 | .184 | Epson printer | wired? not on any controller | — |
+| `d4:8a:fc:c1:06:31` | .128 | .182 ✅ | HUUM sauna controller (`huum`) — the reconnect alert and the IoT dashboard match both .128 and .182 across the lease change | -52 on the AC Lite | downstairs (moved 2026-10-10) |
+| `0c:2a:69:0f:57:89` | .120 | .183 ✅ | Rachio sprinkler controller (`rachio`; Electric Imp module) | -74 | downstairs if the closet is nearer — where does it hang? |
+| `a4:d7:3c:40:f6:c6` | .125 | .184 ✅ | Epson printer (`epson-printer`) | wired — on no controller | — |
 
 ## How to change this file
 

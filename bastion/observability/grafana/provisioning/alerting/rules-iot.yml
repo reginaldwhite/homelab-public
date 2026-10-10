@@ -29,7 +29,7 @@ groups:
               refId: A
               queryType: instant
               editorMode: code
-              expr: 'sum(count_over_time({job="adguard-querylog",client="192.168.0.128"} |= "iot.eu-central-1.amazonaws.com" [6h]))'
+              expr: 'sum(count_over_time({job="adguard-querylog",client=~"192.168.0.(128|182)"} |= "iot.eu-central-1.amazonaws.com" [6h]))'
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }

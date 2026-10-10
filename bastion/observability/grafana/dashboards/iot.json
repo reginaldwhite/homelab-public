@@ -534,7 +534,7 @@
       "type": "loki",
       "uid": "loki"
      },
-     "expr": "sum(count_over_time({job=\"adguard-querylog\",client=\"192.168.0.128\"} |= \"iot.eu-central-1.amazonaws.com\" [$__auto]))",
+     "expr": "sum(count_over_time({job=\"adguard-querylog\",client=~\"192.168.0.(128|182)\"} |= \"iot.eu-central-1.amazonaws.com\" [$__auto]))",
      "queryType": "range",
      "editorMode": "code",
      "legendFormat": "reconnects"
@@ -587,7 +587,7 @@
       "type": "loki",
       "uid": "loki"
      },
-     "expr": "sum(count_over_time({job=\"adguard-querylog\",client=\"192.168.0.128\"} |= \"iot.eu-central-1.amazonaws.com\" [24h]))",
+     "expr": "sum(count_over_time({job=\"adguard-querylog\",client=~\"192.168.0.(128|182)\"} |= \"iot.eu-central-1.amazonaws.com\" [24h]))",
      "queryType": "instant",
      "editorMode": "code"
     }
