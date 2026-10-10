@@ -278,6 +278,43 @@ Both controllers write nightly autobackups into their volumes (Omada: `data/auto
 UniFi: `config/data/backup/autobackup`). `backup-observability.sh` grows two lines to archive
 those directories into `~/backups/`, which already mirrors to vault on Sunday.
 
+## Revision 2026-10-10 — a second EAP772 replaces the AC Lite
+
+The first signal map showed the office laptops at -79/-81 dBm on 6 GHz under an AP one floor
+up, and the gateway finding showed what two vendors cost in visibility. The utility closet
+downstairs shares a wall with both the office and the sauna bathroom, so one more EAP772
+there (ordered 2026-10-10, with its DC adapter — the 24 V passive injector cannot power it)
+gives the laptops a close 5/6 GHz cell, the HUUM a close 2.4 GHz cell, and Omada-managed
+roaming between the two APs. The AC Lite, the UniFi application and its MongoDB then go.
+
+What changes, phase by phase:
+
+- **Phase 1** — the `unifi` and `unifi-db` services, their volumes, Caddy vhost, AdGuard
+  rewrites (`unifi`, `unifi.robbywhite.net`), `.env` entries (`UNIFI_MONGO_*`, `UNIFI_USER`,
+  `UNIFI_PASSWORD`), ufw rules (8443, 8080, 3478/udp, 10001/udp, and 8443 from
+  172.16.0.0/12), the `packages/unifi.md` runbook and the `unifi-*` backup line are removed
+  once the new AP carries the IoT SSID. Vaultwarden's loopback publish stays on 8081; there
+  is no reason to move it back. The still-unfinished UniFi read-only admin is no longer
+  needed.
+- **Phase 3** — the IoT SSID becomes an Omada WLAN: `WhiteHouse_IoT`, 2.4 GHz only, WPA2,
+  **Guest Network on** (Omada's client isolation), 802.11ax off, broadcast from the closet AP
+  only (*Choose Devices → Custom*). The HUUM moves to it (same name and password as the
+  UniFi one, so it may simply follow). Done when the controller shows it in the -50s on the
+  new AP and the three-night test passes.
+- **Phase 4** — `wifi-clients.py` loses its UniFi half; the `wifi-weak-signal` rule selects
+  on `ssid="WhiteHouse_IoT"` instead of `controller="unifi"`. Everything else stays.
+- **Phase 5** — unchanged; both kids' SSIDs and the home-IoT SSID are Omada WLANs on both
+  APs, so a device keeps its SSID when it roams between floors.
+- **Channel plan** — Omada picks per-AP 2.4 GHz channels itself with two of its own APs
+  (1 and 6 or 1 and 11); the "lock to 6" setting was UniFi's and goes with it.
+
+Order when the AP arrives: mount it (inside the closet if the wall is drywall, on the
+office side of that wall if the closet is lined with metal or ducting), cable it to the
+closet switch, power it from the adapter. It appears in Omada as pending, adopts with the
+site's SSIDs, and the office laptops should land on it within minutes. Then the IoT WLAN,
+the HUUM move, and the UniFi retirement in that order — the AC Lite keeps the sauna working
+until the new AP has proven it.
+
 ## Client isolation — the note for later
 
 The IoT SSID has client isolation on: devices on it reach the internet and nothing on the
