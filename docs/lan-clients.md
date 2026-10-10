@@ -41,10 +41,11 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 |---|---|---|---|---|
 | `fe:39:48:a3:13:8f` on `WhiteHouse`, `ee:96:db:cc:e4:46` on `WhiteHouse_Office` | .104 / .110 | .130 ✅ (the `WhiteHouse` address) | **Robby's iPhone** (`robby-iphone`) — one private address per SSID; both map to the one AdGuard name | Robby — the office-SSID address goes away with the gateway WiFi when the second EAP772 is in |
 | `5a:c8:92:98:1f:e6` on `WhiteHouse`, `72:b6:f7:79:f4:5a` on `WhiteHouse_Office` | .105 / .137 | .131 ✅ (the `WhiteHouse` address) | **MacBook Pro, personal** (`robby-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
+| `d4:54:8b:b8:67:17` | .122 | — | **unidentified**: a device with an Intel WiFi radio, on the network 2026-09-27 to 2026-10-10 (last 11:14 that day), no DNS seen since. Not the playroom PC (that is wired, .150). A laptop that visits? | identify when it next appears — the dashboard will show it |
 | `0e:cb:3b:51:53:d2` on `WhiteHouse`, `9a:e1:bb:5b:12:e7` on `WhiteHouse_Office` | .121 / .139 | .132 ✅ (the `WhiteHouse` address) | **MacBook, work** (`robby-work-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
 | `68:ca:c4:c7:3a:ca` | .123 | .133 | Sam's iPhone | Sam |
 | `34:f6:8d:3d:86:ab` on `WhiteHouse`, `86:a0:f8:02:8a:16` on `WhiteHouse_Office` | .119 / .138 | .134 ✅ | **Robby's iPad** (`robby-ipad`; one private address per SSID, both under the one name) | Robby |
-| `c8:60:00:2b:90:6f` | .150 ✅ | — | Finn's PC | Finn (kids group, DNS hours) |
+| `c8:60:00:2b:90:6f` | .150 ✅ | — | **Playroom PC** (`finn-pc`), wired only | Finn — in his night-time DNS rule under this name |
 | `bc:d2:2c:87:d4:b5` (Intel radio) and `fc:01:7c:7e:75:3a` (Foxconn) | .151 ✅ / .157 ✅ | — | **Finn's Chromebook** (`finn-chromebook`) — Robby identified the Foxconn address on 2026-10-10 (first seen 10-09); the Intel one was the original identification from 09-27. Both are under the one AdGuard name so the night-time rule covers whichever is the real one; when the Chromebook is next on, the active address tells us which to keep | Finn |
 | `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku | Finn |
 | `1c:0d:7d:17:08:fa` | .153 ✅ | — | **the office iPad** (`finn-ipad`) — the iPad Finn uses; kept under his name because it is in his night-time DNS rule | Finn |
@@ -57,7 +58,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | MAC | IP | Fixed IP | Device | Notes |
 |---|---|---|---|---|
 | `c4:f7:c1:23:dc:e7` | .124 | .140 ✅ | Apple TV, living room (`living-room-appletv`) | **wired** — never seen on WiFi; HomeKit/Thread hub (advertises as IPv6 router) |
-| `d4:54:8b:b8:67:17` (WiFi) | .122 | .145 ✅ | **Playroom PC** (`playroom-pc`) — normally on Ethernet (its wired MAC is not known yet; it will show up as a lease when it next boots wired); this is its WiFi radio, last seen 2026-10-10 11:14. Not in a kids' DNS rule — decide whether it should be | shared |
+
 | `50:32:37:0e:81:d9` (Ethernet), `50:32:37:0e:f0:d1` (WiFi) | .113 / .127 | .141 ✅ | Apple TV, office (`office-appletv`) | **moved to Ethernet 2026-10-10**; both MACs map to the one AdGuard name, so it keeps its name if WiFi ever takes over again |
 | `2c:fe:e2:98:84:4a` | .129 | .142 ✅ | **Hisense Google TV, office** (`office-hisense-tv`; "Office TV" in Omada) | Not meant to be a smart TV — the office Apple TV plays everything. **Blocked from the WiFi in Omada** (Clients → Block) 2026-10-10, confirmed gone from the client list; unblock there if it is ever wanted online |
 | — | .228 | — | *dropped 2026-10-10*: nothing answers there; the Hisense MAC once seen was the office TV's wired port on a static address | — |
