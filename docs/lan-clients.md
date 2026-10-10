@@ -66,8 +66,8 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 | MAC | IP | Fixed IP | Device | Signal | AP |
 |---|---|---|---|---|---|
-| `88:29:bf:d2:a5:6a` | .114 | .160 | Echo (`amazon-aae4ce…`) | — | by room |
-| `4c:60:ad:99:cd:3e` | .115 | .161 | Echo (`amazon-c4cddb…`) | -75 (5 GHz) | by room |
+| `88:29:bf:d2:a5:6a` | .114 | .160 ✅ | **Echo Spot, Finn's room** (`finn-echo-spot`) | — | upstairs? — not in the kids' DNS rule, by choice so far |
+| `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Spot, Robby's office** (`office-echo-spot`) | -75 (5 GHz) | downstairs |
 | `e8:9f:6d:70:fb:f1` | .117 | .162 | Echo (`amazon`) | -58 | by room |
 | `58:a8:e8:70:4e:85` | .131 | .163 | Echo (`amazon-508a08…`) | -70 | by room |
 | `34:d2:70:80:e7:fa` | .126 | .164 | fifth Amazon device doing Alexa calling (Echo Show? Fire tablet?) | -53 | identify in the Alexa app |
