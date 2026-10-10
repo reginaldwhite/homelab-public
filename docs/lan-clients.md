@@ -40,12 +40,11 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 | MAC | IP | Fixed IP | Device | Owner |
 |---|---|---|---|---|
-| `fe:39:48:a3:13:8f` | .104 | .130 | iPhone (private address) | Robby? confirm |
+| `fe:39:48:a3:13:8f` on `WhiteHouse`, `ee:96:db:cc:e4:46` on `WhiteHouse_Office` | .104 / .110 | .130 ✅ (the `WhiteHouse` address) | **Robby's iPhone** (`robby-iphone`) — one private address per SSID; both map to the one AdGuard name | Robby — the office-SSID address goes away with the gateway WiFi when the second EAP772 is in |
 | `5a:c8:92:98:1f:e6` | .105 | .131 | MacBook Pro, personal (private address) | Robby — on `WhiteHouse_Office` at the desk for now |
 | `0e:cb:3b:51:53:d2` | .121 | .132 | Mac (private address) | work laptop? confirm |
 | `68:ca:c4:c7:3a:ca` | .123 | .133 | Sam's iPhone | Sam |
 | `34:f6:8d:3d:86:ab` | .119 | .134 | Robby's iPad 2 | Robby |
-| `ee:96:db:cc:e4:46` | .110 | — | **unidentified Apple device with a private address** — joined 2026-10-10 ~21:20, uses iCloud Private Relay, RCS messaging and Slack: a phone, probably Robby's iPhone after rotating its private address | identify (Settings → Wi-Fi → ⓘ shows the address in use) |
 | `c8:60:00:2b:90:6f` | .150 ✅ | — | Finn's PC | Finn (kids group, DNS hours) |
 | `bc:d2:2c:87:d4:b5` | .151 ✅ | — | Finn's Chromebook | Finn |
 | `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku | Finn |
