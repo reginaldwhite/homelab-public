@@ -227,10 +227,16 @@ def cmd_set(o, a):
     d = o.ssid(a.ssid)
     body = {k: d[k] for k in ("name", "band", "broadcast", "guestNetEnable", "security", "vlanEnable",
                               "mloEnable", "pmfMode", "enable11r") if k in d}
-    for k in ("vlanId", "pskSetting", "entSetting", "ppskSetting", "hidePwd", "oweEnable", "autoWanAccess",
-              "prohibitWifiShare", "vlanSetting", "greEnable"):
+    for k in ("pskSetting", "entSetting", "ppskSetting", "hidePwd", "oweEnable", "autoWanAccess",
+              "prohibitWifiShare", "greEnable"):
         if d.get(k) is not None:
             body[k] = d[k]
+    # The controller refuses vlanId/vlanSetting when VLAN is off ("Cannot set vlanId and
+    # customConfig when the mode of vlanSetting is 0"), so they go only with vlanEnable.
+    if d.get("vlanEnable"):
+        for k in ("vlanId", "vlanSetting"):
+            if d.get(k) is not None:
+                body[k] = d[k]
     changes = []
     if a.bands:
         body["band"] = bands_bits(a.bands); changes.append(f"bands {bands_str(d['band'])} -> {bands_str(body['band'])}")
