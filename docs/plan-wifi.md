@@ -184,6 +184,9 @@ existing `huum-reconnects` Grafana rule (>3 cloud reconnects in 6 h → #homelab
 day's count before the move was 5 in the 04:00 hour alone. The remaining IoT devices move
 after that watch passes, one at a time.
 
+*Three-night test:* night 1 (2026-10-10) — armed from the handset, held all day, no connection
+loss (the AT&T gateway's radios went off the same day; see phase 4).
+
 ### Phase 4 — the audit [agent, two credentials from you], one evening
 
 - Both controllers expose an API (Omada's OpenAPI with a client credential created in its UI;
