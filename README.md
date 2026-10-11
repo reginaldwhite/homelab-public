@@ -415,6 +415,16 @@ minus CLOCK_MONOTONIC grew), once plex.tv is reachable. There is no sudo on cine
 systemd sleep hook was not an option. Output goes to `~/plex-resume-restart.log` on cinema; a
 restart interrupts anything playing at the moment of the wake.
 
+**cinema also puts itself to sleep overnight** (since 2026-10-11):
+[cinema/scripts/idle-suspend.py](cinema/scripts/idle-suspend.py) runs every 15 minutes between
+midnight and 05:45 and suspends the machine once Plex has had no playback session, no scan or
+other activity, and nobody logged in for an hour; a wake or a boot restarts that hour. It reads
+Plex's own token through `docker exec` each run (never stored) and refuses to act when the API
+cannot be read. The suspend itself is `sudo systemctl suspend`, the one passwordless command
+robby holds on cinema. The reason: after the 2026-10-10 power outage cinema booted by itself and
+ran for a day and a half, because nothing but "sleep plex" ever stopped it. Log:
+`~/idle-suspend.log`.
+
 ---
 
 ### `forge` — 192.168.0.12 (Ubuntu) — 5am–11pm Daily

@@ -16,3 +16,8 @@
 # / "not authorized" until it restarts. cron has no resume hook and this host has no sudo, so
 # every minute check whether the machine slept since the last run and restart Plex if so.
 * * * * * /home/robby/homelab-deployed/cinema/scripts/plex-resume-restart.py >> /home/robby/plex-resume-restart.log 2>&1
+
+# Sleep on its own overnight: every 15 minutes from midnight to 05:45, suspend once Plex has
+# had no playback, no scan and nobody logged in for an hour (a wake or boot restarts the hour).
+# Added 2026-10-11 after a power outage left cinema running for a day and a half.
+*/15 0-5 * * * /home/robby/homelab-deployed/cinema/scripts/idle-suspend.py >> /home/robby/idle-suspend.log 2>&1

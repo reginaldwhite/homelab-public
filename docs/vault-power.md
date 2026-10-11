@@ -28,6 +28,7 @@
 > (backup-to-tower, sync-forge, vault-report, sleep-vault), all ok. WoL works; outages are what
 > break it. The plug schedule stays as the mechanism because it survives outages and Robby wants
 > the board hard-off all week; WoL remains the on-demand path on a vault that was shut down cleanly.
+> Robby confirmed vault's BIOS APM setting as *Power On* after AC loss the same day.
 
 **Done, 2026-09-26.** bastion wakes vault with a magic packet and shuts it down over SSH. The
 smart plug stays installed and switched on as a manual override, but nothing schedules it.
