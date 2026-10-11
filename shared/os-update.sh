@@ -86,6 +86,7 @@ apt-get -y autoremove >>"$LOG" 2>&1 || log "WARNING: autoremove exited non-zero;
 if [[ -e /etc/cdi/nvidia.yaml ]] && grep -qE '^(Unpacking|Setting up) nvidia-' "$tmp"; then
     log "$host: an NVIDIA package changed -- regenerate the CDI spec before ollama restarts:"
     log "   sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml"
+    log "   and check that 'prime-select query' still says nvidia (an 'intel' profile blacklists the driver)"
 fi
 
 left=$(apt list --upgradable 2>/dev/null | grep -c upgradable)

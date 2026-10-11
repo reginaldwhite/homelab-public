@@ -30,6 +30,13 @@
 # /etc/cdi/nvidia.yaml instead of the hook, and those grants survive reloads. This
 # guard stays as the safety net; a DEGRADED line after that date means the cure has
 # not held and is worth a look.
+#
+# Second lesson (2026-10-10, first boot after the switch): the hook also used to load the
+# nvidia kernel modules, and nothing else did -- nvidia-prime's blacklist had sat in
+# /lib/modprobe.d since March. With CDI the driver must load at boot on its own:
+# `prime-select nvidia` plus /etc/modules-load.d/nvidia.conf. If this guard ever reports
+# ollama down right after a boot with "CDI device injection failed", check `nvidia-smi -L`
+# on the host first.
 
 set -uo pipefail
 

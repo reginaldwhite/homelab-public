@@ -47,13 +47,21 @@ if ! send_wol >/dev/null; then
 fi
 echo "$(date -Iseconds) [wake-forge] WoL sent to forge ($FORGE_MAC), waiting for it to boot..." >> "$LOG"
 
+# A broadcast can be lost, and the NIC in S5 occasionally needs a second one (the 05:00 wake
+# failed on 2026-10-10 after two clean mornings, with nothing wrong on the forge side), so
+# the packet is repeated every minute while waiting rather than sent once.
 SECONDS=0
+next_send=60
 while (( SECONDS < BOOT_TIMEOUT )); do
     if forge_up; then
         echo "$(date -Iseconds) [wake-forge] Forge is up (${SECONDS}s)" >> "$LOG"
         set_expected_up forge 1
         "$HERE/event.sh" power wake-forge ok --detail "{\"seconds\": $SECONDS}"
         exit 0
+    fi
+    if (( SECONDS >= next_send )); then
+        send_wol >/dev/null && echo "$(date -Iseconds) [wake-forge] WoL re-sent (${SECONDS}s, no ping yet)" >> "$LOG"
+        next_send=$(( next_send + 60 ))
     fi
     sleep 5
 done

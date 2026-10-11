@@ -167,6 +167,15 @@ sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml && nvidia-ctk cdi lis
 `os-update.sh` prints a reminder on forge when the upgrade touched an `nvidia-` package. Why CDI
 and not the legacy hook is in the comment above the `devices:` line in `forge/docker-compose.yaml`.
 
+**forge, the driver must load at boot by itself.** CDI injects devices but, unlike the old
+runtime hook, never loads kernel modules. Two host-side settings do that and must survive
+any driver or kernel work: `prime-select query` must say `nvidia` (the `intel` profile writes
+`/lib/modprobe.d/blacklist-nvidia.conf`, which is exactly what left the GPU driverless on
+2026-10-10), and `/etc/modules-load.d/nvidia.conf` lists `nvidia` and `nvidia_uvm`. After a
+reboot: `nvidia-smi -L` on the host, then `docker exec ollama nvidia-smi -L`; if the first
+fails, `sudo prime-select nvidia && sudo modprobe nvidia nvidia_uvm` and regenerate the CDI
+spec as above.
+
 ## Per-package detail
 
 One file per package in `packages/`, each carrying a JSON block with the machine-readable facts

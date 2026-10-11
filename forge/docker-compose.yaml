@@ -34,6 +34,13 @@ services:
     # restarted ollama four mornings out of ten. CDI declares the devices from
     # /etc/cdi/nvidia.yaml (`sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`, redo
     # after a driver upgrade) and survives reloads. Docker 29 has CDI on by default.
+    #
+    # One thing the hook did that CDI does not: load the kernel modules. Found 2026-10-10 on
+    # the first boot after the switch -- the GPU had no driver, because /lib/modprobe.d/
+    # blacklist-nvidia.conf (nvidia-prime, profile "intel", there since March) had always been
+    # overridden by the hook's explicit modprobe. Now `prime-select nvidia` and
+    # /etc/modules-load.d/nvidia.conf (nvidia, nvidia_uvm) load the driver at boot. Both are
+    # host-side and not deployed; the runbook in the upgrades skill records them.
     devices:
       - nvidia.com/gpu=all
     healthcheck:
