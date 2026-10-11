@@ -270,6 +270,14 @@ cannot wait for forge to wake up: any filesystem at **95%** or more, and the wee
 vault having **failed** on its last run. Both are deterministic and rare. Everything else waits
 for the digester.
 
+> **Transition, from 2026-10-11:** the same judgements now also run as Grafana alert rules on
+> bastion ([rules-hosts.yml](bastion/observability/grafana/provisioning/alerting/rules-hosts.yml),
+> [rules-jobs.yml](bastion/observability/grafana/provisioning/alerting/rules-jobs.yml)), posting
+> to `#homelab-status` directly — `severity=critical` mentions Robby, the rest do not. For a week
+> both paths post, so a rule that misfires is visible next to the digester's verdict. After that
+> the self-reports stop and this section is rewritten; see phase 3 of
+> [docs/plan-observability.md](docs/plan-observability.md).
+
 #### The worker and the digest format
 
 [forge/scripts/health-digest.py](forge/scripts/health-digest.py) is the only thing that reads

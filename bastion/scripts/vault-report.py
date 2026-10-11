@@ -24,6 +24,16 @@ the state the backups actually left behind, which is the thing nobody could see
 before.
 
 Credentials come from ../.env. See bastion/.env.example.
+
+Since 2026-10-11 the same facts also go to Prometheus through the textfile collector
+(~/observability/textfile/vault.prom), so Grafana's vault-backup-stale and vault-report-missing
+rules can judge them without reading Slack:
+
+    homelab_vault_report_timestamp            every run, reachable or not
+    homelab_vault_report_success_timestamp    last run that reached vault (kept across failures)
+    homelab_vault_report_ok                   1 reachable, 0 not
+    homelab_vault_array_started, homelab_vault_fs_pct, homelab_vault_findings,
+    homelab_vault_backup_age_days{source}     only when reachable; stale numbers are worse than none
 """
 
 import json
@@ -45,6 +55,7 @@ BOT_MENTION = "<@U0AJY4AETS7>"   # openclaw
 
 BACKUP_STALE_DAYS = 8
 FS_WARN_PCT = 80
+TEXTFILE = "/home/robby/observability/textfile/vault.prom"
 
 # One round trip: vault is only reachable for about three hours a week.
 PROBE = r"""
@@ -219,6 +230,44 @@ def report_text(report):
     return head + "\n```json\n" + json.dumps(report, indent=1) + "\n```"
 
 
+def previous_success_timestamp():
+    """The last success stamp already in the textfile, so a failed run keeps it (as record_job does)."""
+    try:
+        with open(TEXTFILE) as fh:
+            for line in fh:
+                if line.startswith("homelab_vault_report_success_timestamp "):
+                    return int(float(line.split()[1]))
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
+def write_metrics(report, ok, now, dry):
+    success = int(now) if ok else previous_success_timestamp()
+    lines = [f"homelab_vault_report_timestamp {int(now)}",
+             f"homelab_vault_report_success_timestamp {success}",
+             f"homelab_vault_report_ok {1 if ok else 0}"]
+    if ok:
+        metrics = report.get("metrics") or {}
+        lines.append(f"homelab_vault_findings {len(report.get('findings') or [])}")
+        lines.append("homelab_vault_array_started "
+                     + ("0" if any(f["check"] == "array" for f in report.get("findings") or []) else "1"))
+        if metrics.get("fs_max_pct") is not None:
+            lines.append(f"homelab_vault_fs_pct {metrics['fs_max_pct']}")
+        for key, value in metrics.items():
+            if key.endswith("_backup_age_days") and value is not None:
+                lines.append(f'homelab_vault_backup_age_days{{source="{key[:-len("_backup_age_days")]}"}} {value}')
+    if dry:
+        print("--- vault.prom\n" + "\n".join(lines))
+        return
+    if not os.path.isdir(os.path.dirname(TEXTFILE)):
+        return
+    with open(TEXTFILE + ".tmp", "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    os.chmod(TEXTFILE + ".tmp", 0o644)   # node exporter is not root; see textfile-metrics.sh
+    os.replace(TEXTFILE + ".tmp", TEXTFILE)
+
+
 def main():
     dry = "--dry-run" in sys.argv[1:]
     load_env()
@@ -236,6 +285,7 @@ def main():
             "metrics": {},
         }
         log(f"ERROR: unreachable: {out[:200]}")
+        write_metrics(report, False, now, dry)
         if dry:
             print(report_text(report))
             return 1
@@ -244,6 +294,7 @@ def main():
 
     report = build(*parse(out), now)
     text = report_text(report)
+    write_metrics(report, True, now, dry)
     if dry:
         print(text)
         return 0

@@ -1,0 +1,173 @@
+# Alert rules for bastion's scheduled jobs and the vault's weekly report (observability plan,
+# phase 3; added 2026-10-11). Grafana versions of the digester's backup rules; each names the
+# digester rule it replaces. Evaluated every 5 minutes.
+#
+#   backup-failed       backup-to-tower's last run exited non-zero                      critical
+#                       (the health-report.py bypass: "the weekly backup to vault failed")
+#   job-failed          any other recorded job's last run exited non-zero                 warning
+#   weekly-job-late     backup-to-tower / sync-forge last succeeded over 8 days ago       warning
+#                       (digester BACKUP_STALE_DAYS: weekly, 8 allows one late Sunday)
+#   daily-job-late      snapshot-vaultwarden / backup-observability over 2 days ago      warning
+#   vault-backup-stale  the newest file in a vault backup folder is over 8 days old      warning
+#                       (digester backup_age_days, from vault-report.py's gauges)
+#   vault-report-missing  vault-report.py has not produced a report in 8 days, or vault
+#                       did not answer during its window (digester EXPECTED_SILENCE vault)  warning
+#
+# Textfile gauges arrive with their own `job` label renamed exported_job (the scrape adds job=node).
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: jobs
+    folder: Homelab
+    interval: 5m
+    rules:
+      - uid: backup-failed
+        title: Weekly backup to vault failed
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, host: bastion }
+        annotations:
+          summary: 'backup-to-tower exited {{ printf "%.0f" $values.B }} on its last run. The vault copy of Vaultwarden and the configs is not refreshed. ~/logs/backup-to-tower.log on bastion; most often vault was not up or its array was not started.'
+          runbook: docs/vault-power.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'homelab_job_last_exit{exported_job="backup-to-tower"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: job-failed
+        title: Scheduled job failed
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: '{{ $labels.exported_job }} exited {{ printf "%.0f" $values.B }} on its last run. Its log is ~/logs/{{ $labels.exported_job }}.log on bastion. The previous successful run still stands; this fires until the next run succeeds.'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'homelab_job_last_exit{exported_job!="backup-to-tower"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: weekly-job-late
+        title: Weekly job has not succeeded in over 8 days
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: '{{ $labels.exported_job }} last succeeded {{ printf "%.1f" $values.B }} days ago; it runs every Sunday night. Either it has been failing (see the job-failed alert) or cron has not run it -- check the chain in bastion/crontab and ~/logs on bastion.'
+          runbook: docs/vault-power.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: '(time() - homelab_job_last_success_timestamp{exported_job=~"backup-to-tower|sync-forge"}) / 86400'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [8] } } ] }
+      - uid: daily-job-late
+        title: Nightly job has not succeeded in over 2 days
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: '{{ $labels.exported_job }} last succeeded {{ printf "%.1f" $values.B }} days ago; it runs every night at 01:15/01:30. ~/logs/{{ $labels.exported_job }}.log on bastion.'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: '(time() - homelab_job_last_success_timestamp{exported_job=~"snapshot-vaultwarden|backup-observability"}) / 86400'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [2] } } ] }
+      - uid: vault-backup-stale
+        title: A backup folder on vault is stale
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: vault }
+        annotations:
+          summary: 'The newest file in /mnt/user/backups/{{ $labels.source }} on vault is {{ printf "%.1f" $values.B }} days old; it is refreshed weekly. Checked by vault-report.py on Sunday mornings, so this is as fresh as the last report.'
+          runbook: docs/vault-power.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'homelab_vault_backup_age_days'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [8] } } ] }
+      - uid: vault-report-missing
+        title: vault has not been heard from
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: vault }
+        annotations:
+          summary: 'vault-report.py has not had a successful report from vault for {{ printf "%.1f" $values.B }} days (it runs Sunday 03:30, inside the backup window). Either vault did not power on for its window or the probe over SSH failed; ~/logs/vault-report.log on bastion.'
+          runbook: docs/vault-power.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: '(time() - homelab_vault_report_success_timestamp) / 86400'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [8] } } ] }

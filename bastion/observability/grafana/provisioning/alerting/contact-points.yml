@@ -1,7 +1,8 @@
 # Grafana contact points, provisioned from git (observability plan, phase 3).
-# One point: the Slack bot posting to #homelab-status, the same channel the digester uses.
-# The token is expanded from the Grafana container's environment (SLACK_BOT_TOKEN from
-# bastion's .env); nothing secret is in this file.
+# Two points, one channel: both post to #homelab-status (the channel the digester uses). The
+# urgent one also mentions Robby, which is what health-report.py's two bypass conditions did;
+# policies.yml routes severity=critical there. The token is expanded from the Grafana
+# container's environment (SLACK_BOT_TOKEN from bastion's .env); nothing secret is in this file.
 apiVersion: 1
 contactPoints:
   - orgId: 1
@@ -13,5 +14,17 @@ contactPoints:
           token: $SLACK_BOT_TOKEN
           recipient: C0C3MAXLSRK
           username: grafana
+          title: '{{ template "default.title" . }}'
+          text: '{{ template "default.message" . }}'
+  - orgId: 1
+    name: homelab-status-urgent
+    receivers:
+      - uid: slack-homelab-status-urgent
+        type: slack
+        settings:
+          token: $SLACK_BOT_TOKEN
+          recipient: C0C3MAXLSRK
+          username: grafana
+          mentionUsers: U01E91JBPPG
           title: '{{ template "default.title" . }}'
           text: '{{ template "default.message" . }}'

@@ -28,7 +28,11 @@ metric_write() {
     local stem=$1 f
     [[ -d "$TEXTFILE_DIR" ]] || return 0
     f="$TEXTFILE_DIR/$stem.prom"
-    cat > "$f.tmp" 2>/dev/null && mv -f "$f.tmp" "$f" 2>/dev/null || true
+    # chmod, because the caller's umask is not ours to assume: snapshot-vaultwarden.sh and
+    # backup-observability.sh run under umask 077 for their archives, and until 2026-10-11 their
+    # job files came out mode 600, which node exporter (not root) cannot read. The symptom was
+    # node_textfile_scrape_error 1 and two jobs missing from Prometheus, with nothing saying so.
+    cat > "$f.tmp" 2>/dev/null && chmod 644 "$f.tmp" 2>/dev/null && mv -f "$f.tmp" "$f" 2>/dev/null || true
 }
 
 # record_job <job> <exit-code>

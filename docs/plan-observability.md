@@ -279,7 +279,30 @@ on any host is answered by a Loki query; the *Network* dashboard lists every lea
 > **Started 2026-10-07** with the alerting plumbing (`grafana/provisioning/alerting/`:
 > Slack contact point `homelab-status` using the bot token, one notification policy, folder
 > *Homelab*) and the first two rules, both about the sauna controller
-> (`rules-iot.yml`). The host and job rules listed below are still to write.
+> (`rules-iot.yml`).
+>
+> **2026-10-11 — the host and job rules landed**, in `rules-hosts.yml` and `rules-jobs.yml`,
+> each annotated with the digester rule it replaces: filesystems at 90 (warning) and 95
+> (critical), forge/vault down while `homelab_host_expected_up` says they should be up, node
+> exporter down on a host that pings, the vault HTTP probe and the AdGuard DNS probe (both
+> critical), certificate under 21 days, a textfile node exporter cannot read, a 1–15-minute
+> poller that has stopped writing; `backup-to-tower` failed (critical), any other job failed,
+> weekly jobs over 8 days, nightly jobs over 2 days, a vault backup folder over 8 days old,
+> and vault not heard from in 8 days. The last two read gauges `vault-report.py` now writes
+> to `vault.prom` alongside its Slack post. A second contact point `homelab-status-urgent`
+> mentions Robby, and the policy routes `severity=critical` to it — the two bypass
+> conditions from `health-report.py`, as rules. (`rules-wifi.yml` grew `wifi-ap-rebooted` the
+> same day.)
+>
+> Found on the way: `textfile-metrics.sh` wrote job files with the caller's umask, so the two
+> nightly jobs that run under `umask 077` were invisible to Prometheus (`node_textfile_scrape_error
+> 1`); it now chmods 644, and the `textfile-error` rule exists so that cannot happen quietly again.
+>
+> **Not migrated:** "Vaultwarden behind upstream" — nothing exports a version gauge yet; it stays
+> on the Slack path until `docs/package-updates.md` lands its `kind: version` report, or a gauge.
+> **Still to do, after a week of overlap** (both paths post until then, by design — *Risks*):
+> `health-report.py` stops posting to `#homelab-logs`; `digest-watchdog.py` is repointed; README's
+> *Self-reports* section is rewritten for the new shape.
 
 Grafana alert rules, provisioned from git, one per rule that lives in `health-digest.py` and
 `health-report.py` today: filesystem over the threshold, a job's last success older than its

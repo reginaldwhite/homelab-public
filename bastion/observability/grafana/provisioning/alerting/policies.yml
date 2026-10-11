@@ -1,6 +1,9 @@
 # Notification policy: everything goes to #homelab-status, grouped by alert name, repeated
 # at most twice a day while it stays firing. Resolved notifications are sent too, so a
-# channel reader can see an alert end.
+# channel reader can see an alert end. severity=critical (a filesystem at 95%, the weekly
+# backup failed, the vault or DNS down) goes through the urgent contact point, which mentions
+# Robby and repeats every 4 hours -- the two conditions health-report.py used to bypass the
+# digester for, now ordinary rules.
 apiVersion: 1
 policies:
   - orgId: 1
@@ -9,3 +12,8 @@ policies:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 12h
+    routes:
+      - receiver: homelab-status-urgent
+        object_matchers:
+          - ['severity', '=', 'critical']
+        repeat_interval: 4h

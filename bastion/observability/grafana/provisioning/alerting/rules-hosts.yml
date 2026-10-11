@@ -1,0 +1,280 @@
+# Alert rules for the hosts themselves (observability plan, phase 3; added 2026-10-11). These
+# are the Grafana versions of what health-report.py + the digester on forge decided from the
+# Slack reports: each rule names the digester rule it replaces. Evaluated every 5 minutes.
+#
+#   fs-filling         a real filesystem at 90% or more (digester FS_WARN_PCT)          warning
+#   fs-critical        a real filesystem at 95% or more (health-report.py bypass)       critical
+#   forge-down         bastion asked forge to be up and it has not answered ping 10 min   warning
+#   vault-down         same for vault during its backup window                            warning
+#   exporter-down      a host answers ping but its node exporter does not (15 min)        warning
+#   vault-probe        vault.robbywhite.net not answering /alive for 10 min               critical
+#   dns-probe          AdGuard not answering DNS for 5 min                                critical
+#   cert-expiring      the vault's certificate has under 21 days left                     warning
+#   textfile-error     node exporter cannot read a .prom file (its gauges are missing)    warning
+#   poller-stale       a 1/5/15-minute poller has not rewritten its file in 30 min        warning
+#
+# Hosts that sleep by design: homelab_host_expected_up is set by the wake/sleep scripts, so
+# forge and vault are only "down" when bastion asked them to be up. cinema has no rule at all
+# (asleep is normal); its exporter metrics simply stop and every rule here tolerates no data.
+# bastion itself cannot be alerted on from bastion; that is what digest-watchdog.py and, later,
+# a heartbeat rule are for.
+#
+# Labels: Prometheus adds host=<target> to every node metric, so a textfile gauge's own `host`
+# or `job` label arrives as exported_host / exported_job. Rules use those names on purpose.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: hosts
+    folder: Homelab
+    interval: 5m
+    rules:
+      - uid: fs-filling
+        title: Filesystem filling up
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.host }}:{{ $labels.mountpoint }} is {{ printf "%.0f" $values.B }}% full. At 95% this becomes critical; look at what grew (docker system df, ~/backups, journal) before it does.'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'max by (host, mountpoint) (100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"})) >= 90 < 95'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: fs-critical
+        title: Filesystem nearly full
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical }
+        annotations:
+          summary: '{{ $labels.host }}:{{ $labels.mountpoint }} is {{ printf "%.0f" $values.B }}% full. Services on it will start failing writes; free space now.'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'max by (host, mountpoint) (100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|devtmpfs"})) >= 95'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: forge-down
+        title: forge is not answering while expected up
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: forge }
+        annotations:
+          summary: 'bastion asked forge to be up (wake-forge.sh) and it has not answered ping for 10 minutes. Every Wake-on-LAN failure so far followed a power outage (BIOS "last state"); check the BIOS is set to Power On after AC loss, then wake-forge.sh by hand.'
+          runbook: docs/vault-power.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'max(homelab_host_expected_up{exported_host="forge"}) == 1 and on() max(probe_success{job="blackbox-icmp",instance="192.168.0.12"}) == 0'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: vault-down
+        title: vault is not answering while expected up
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: vault }
+        annotations:
+          summary: 'bastion asked vault to be up (wake-vault.sh, Sunday backup window) and it has not answered ping for 10 minutes. The backup chain will fail; see docs/vault-power.md for the plug schedule and the Wake-on-LAN-after-outage caveat.'
+          runbook: docs/vault-power.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'max(homelab_host_expected_up{exported_host="vault"}) == 1 and on() max(probe_success{job="blackbox-icmp",instance="192.168.0.212"}) == 0'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: exporter-down
+        title: node exporter down on a host that is up
+        condition: C
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.host }} answers ping but its node exporter has not been scraped for 15 minutes, so its disk, CPU and textfile gauges are blind. docker ps on the host; the observability compose project on bastion, the node-exporter service on forge.'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: '(up{job="node",host="bastion"} == 0) or (up{job="node",host="forge"} == 0 and on() max(probe_success{job="blackbox-icmp",instance="192.168.0.12"}) == 1)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+      - uid: vault-probe
+        title: vault.robbywhite.net is down
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, host: bastion }
+        annotations:
+          summary: 'https://vault.robbywhite.net/alive has not answered for 10 minutes. Phones and browsers will fail to sync. On bastion: docker ps in ~/homelab-deployed/bastion/vaultwarden, then docker logs caddy and vaultwarden.'
+          runbook: .claude/skills/homelab-upgrades/packages/vaultwarden.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'probe_success{job="blackbox-http"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+      - uid: dns-probe
+        title: AdGuard is not answering DNS
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: critical, host: bastion }
+        annotations:
+          summary: 'The DNS probe against 192.168.0.10:53 has failed for 5 minutes: the whole house has no name resolution. On bastion: docker ps / docker logs adguardhome; AdGuard is the DHCP server too, so leases keep working but nothing resolves.'
+          runbook: .claude/skills/homelab-upgrades/packages/adguard.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'probe_success{job="blackbox-dns"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+      - uid: cert-expiring
+        title: Certificate expiring
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'The certificate for {{ $labels.instance }} expires in {{ printf "%.0f" $values.B }} days. Caddy renews at 30 days; under 21 means renewal is failing -- docker logs caddy on bastion, and check port 443 still reaches it from outside.'
+          runbook: .claude/skills/homelab-upgrades/packages/caddy.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: '(probe_ssl_earliest_cert_expiry - time()) / 86400'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [21] } } ] }
+      - uid: textfile-error
+        title: A metrics file on bastion cannot be read
+        condition: C
+        for: 30m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'node exporter on bastion reports a textfile it cannot parse or open, so the gauges in it are silently missing from Prometheus (this is how two jobs went unmonitored until 2026-10-11). ls -la ~/observability/textfile: every file must be mode 644 and valid Prometheus text.'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'node_textfile_scrape_error{host="bastion"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [0] } } ] }
+      - uid: poller-stale
+        title: A poller on bastion has stopped
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: '{{ $labels.file }} was last rewritten {{ printf "%.0f" $values.B }} minutes ago; its cron job runs every 1-15 minutes, so the script behind it is failing or cron is not running it. Its log is in ~/logs on bastion (adguard-stats, iot-poll, kids-hours, wifi-clients).'
+          runbook: docs/plan-observability.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: '(time() - node_textfile_mtime_seconds{host="bastion",file=~"/textfile/(adguard|iot-huum|iot-rachio|kids-hours|wifi)\\.prom"}) / 60'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [30] } } ] }
