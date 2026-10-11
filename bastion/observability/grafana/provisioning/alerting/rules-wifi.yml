@@ -5,6 +5,10 @@
 #                      IoT SSID by design) has heard its AP below -70 dBm for a full hour --
 #                      the state the sauna controller was in on the EAP772
 #   wifi-poll-failed   wifi-clients.py could not read a controller for 30 minutes
+#   wifi-ap-rebooted   an Omada AP's uptime is under 15 minutes: it rebooted (added 2026-10-11,
+#                      the day the EAP772 turned out to have rebooted ~30 times on firmware
+#                      1.3.2 with nothing saying so). Fires once per reboot and resolves on its
+#                      own; if it stays firing, the AP is in a loop.
 apiVersion: 1
 groups:
   - orgId: 1
@@ -62,3 +66,28 @@ groups:
           - refId: C
             datasourceUid: __expr__
             model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+      - uid: wifi-ap-rebooted
+        title: Access point rebooted
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'AP {{ $labels.ap }} ({{ $labels.mac }}) has been up only {{ $values.B }} s: it rebooted. Every wireless client re-joined. One of these after a firmware update or a power cut is expected; repeats mean a crash loop (docs/plan-wifi.md, Finding 2026-10-11) or a power problem at its PoE adapter.'
+          runbook: docs/plan-wifi.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'wifi_ap_uptime_seconds'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [900] } } ] }

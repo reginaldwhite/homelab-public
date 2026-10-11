@@ -24,7 +24,14 @@ Gauges, in ~/observability/textfile/wifi.prom:
   wifi_clients{controller}                           wireless clients it currently sees
   wifi_client_signal_dbm{controller,mac,name,ap,ssid,band}
   wifi_client_uptime_seconds{...same labels}
+  wifi_ap_uptime_seconds{controller,ap,mac}          Omada only: seconds since the AP last booted
+
+The AP uptime exists because of 2026-10-11: the EAP772 rebooted ~30 times in a day on
+firmware 1.3.2 and nothing said so. The client "uptime" Omada reports survives short drops,
+so the client gauges never showed it; the AP's own uptime does, and the wifi-ap-rebooted
+rule turns it into a timestamped Slack message.
 """
+import re
 
 import http.cookiejar
 import json
@@ -95,7 +102,16 @@ def label(s):
 OMADA_BAND = {0: "2.4", 1: "5", 2: "5", 3: "6"}
 
 
-def omada_clients(env):
+def omada_uptime_seconds(text):
+    """Omada's device uptime is a string like '1d 2h 3m 4s' or '29m 45s'; None if unparseable."""
+    parts = re.findall(r"(\d+)\s*([dhms])", str(text or ""))
+    if not parts:
+        return None
+    return sum(int(n) * {"d": 86400, "h": 3600, "m": 60, "s": 1}[u] for n, u in parts)
+
+
+def omada_clients(env, extra):
+    """Omada's wireless clients as rows; appends the APs' own gauges to `extra`."""
     cid, secret = env.get("OMADA_CLIENT_ID"), env.get("OMADA_CLIENT_SECRET")
     if not (cid and secret):
         return None
@@ -109,6 +125,16 @@ def omada_clients(env):
     sites = request(opener, f"{OMADA}/openapi/v1/{omadac}/sites?page=1&pageSize=100", headers=auth)
     out = []
     for site in (sites.get("result") or {}).get("data") or []:
+        # The APs themselves: uptime is the only reboot signal the controller exposes to the
+        # API (its event/alert endpoints returned nothing for a day of reboots).
+        devs = request(opener, f"{OMADA}/openapi/v1/{omadac}/sites/{site['siteId']}/devices?page=1&pageSize=100", headers=auth)
+        for d in (devs.get("result") or {}).get("data") or []:
+            if DUMP:
+                print("--- omada raw device:", json.dumps(d, indent=1)[:1500])
+            up = omada_uptime_seconds(d.get("uptime"))
+            if d.get("type") == "ap" and up is not None:
+                extra.append(f'wifi_ap_uptime_seconds{{controller="omada",ap="{label(d.get("name") or norm_mac(d.get("mac")))}",'
+                             f'mac="{label(norm_mac(d.get("mac")))}"}} {up}')
         page = 1
         while True:
             r = request(opener, f"{OMADA}/openapi/v1/{omadac}/sites/{site['siteId']}/clients?page={page}&pageSize=200", headers=auth)
@@ -141,7 +167,7 @@ def omada_clients(env):
 UNIFI_BAND = {"ng": "2.4", "na": "5", "6e": "6"}
 
 
-def unifi_clients(env):
+def unifi_clients(env, extra):
     user, pw = env.get("UNIFI_USER"), env.get("UNIFI_PASSWORD")
     if not (user and pw):
         return None
@@ -237,8 +263,9 @@ def main():
     env = load_env()
     rows, lines = [], []
     for name, fn in (("omada", omada_clients), ("unifi", unifi_clients)):
+        extra = []
         try:
-            got = fn(env)
+            got = fn(env, extra)
         except (urllib.error.URLError, ValueError, OSError, KeyError, RuntimeError) as exc:
             log(f"{name}: poll failed: {exc}")
             lines.append(f'wifi_poll_ok{{controller="{name}"}} 0')
@@ -248,6 +275,7 @@ def main():
         rows.extend(got)
         lines.append(f'wifi_poll_ok{{controller="{name}"}} 1')
         lines.append(f'wifi_clients{{controller="{name}"}} {len(got)}')
+        lines.extend(extra)
     seen = set()
     for r in rows:
         if not r["mac"] or r["mac"] in seen:

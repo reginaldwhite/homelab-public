@@ -208,7 +208,8 @@ controller whose credential is missing, so nothing fires until they exist):
   raw client object from each controller for checking the field mapping after an upgrade.
   Omada's `rssi`/`signalLevel`, `radioId` and `apName`; UniFi's `signal`, `radio` and `ap_mac`
   resolved to the AP's name. Gauges in `wifi.prom`: `wifi_poll_ok`, `wifi_clients`,
-  `wifi_client_signal_dbm`, `wifi_client_uptime_seconds`.
+  `wifi_client_signal_dbm`, `wifi_client_uptime_seconds`, and since 2026-10-11
+  `wifi_ap_uptime_seconds` (Omada's `devices` list) with the `wifi-ap-rebooted` rule on it.
 - *Network* dashboard: the device table shows controller, AP, SSID, band, signal (coloured at
   -70/-62) and when it was last seen on WiFi; a signal-history panel below it.
 - Rules in `rules-wifi.yml`: `wifi-weak-signal` (a UniFi-side client below -70 dBm for an
@@ -417,7 +418,9 @@ AdGuard's DHCP log and Omada's `server.log`:
   (flashing is his, never the agent's).
 - Omada's per-client `uptime` **survives short drops** (both switches kept 17–22 h of "uptime"
   across several AP reboots), so `wifi_client_uptime_seconds` resets only catch outages longer
-  than Omada's offline timeout. For reboot detection use the DHCP storm, not the metric.
+  than Omada's offline timeout. For reboot detection use the DHCP storm or, since the same
+  evening, `wifi_ap_uptime_seconds` and the `wifi-ap-rebooted` rule (fires in `#homelab-status`
+  within five minutes of a boot, resolves itself after fifteen).
 
 **Still open, and how to close it.** The switch blinked during an AP reboot, but nobody was
 watching the light during the other 25. Two readings remain: a mains dip rebooted the AP *and*
