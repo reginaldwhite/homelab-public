@@ -259,9 +259,16 @@ Added 2026-10-10. Two SSID changes on the EAP772, in this order because the seco
    The kids do not get the new password; without this step the SSID schedule is advice.
 4. **`kids-hours.py` drives the SSIDs [agent]** — a second Omada Open API credential with the
    Operator role (the Viewer one from phase 4 cannot change anything), stored separately in
-   `.env`, lets the script enable/disable each child's SSID alongside its DNS rule, so the
-   Slack verbs (`kids-open-ava`, `--until`) and the overrides keep working as one system.
-   Until then an override is the DNS rule only, and the SSID schedule is edited in Omada.
+   `.env` as `OMADA_ADMIN_CLIENT_ID/_SECRET`, lets the script enable/disable each child's SSID
+   alongside its DNS rule, so the Slack verbs (`kids-open-ava`, `--until`) and the overrides
+   keep working as one system. Until then an override is the DNS rule only, and the SSID
+   schedule is edited in Omada.
+   **`bastion/scripts/omada-ssid.py` (2026-10-11)** is the maintenance tool underneath: `list`,
+   `show`, `profiles` with the Viewer credential; `set` (bands, guest, broadcast), `schedule`,
+   `mac-filter`, `time-range create`, `mac-group create|set` with the Operator one, all with
+   `--dry-run`. The controller's own API reference is saved on bastion at
+   `~/omada-api/*.json` (fetched from `/v3/api-docs/…`; the public docs' paths were wrong —
+   WLANs live under `/wireless-network/wlans/{wlanId}/ssids`).
 5. What the DNS layer still covers that the SSID cannot: a wired device, and anything a
    child joins to another network. Both layers stay.
 

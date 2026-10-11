@@ -14,8 +14,8 @@ the revision of 2026-10-10 in [plan-wifi.md](plan-wifi.md):
 | `WhiteHouse` | 2.4 + 5 + 6 | WPA2/WPA3; password rotated after the moves, kids excluded | off | none | both | adults' phones, laptops, iPads |
 | `WhiteHouse_IoT_Lan` | 2.4 | WPA2 | off | none | both | Echos (incl. the kids' Spots — never on a scheduled SSID), ecobee, Haiku fan |
 | `WhiteHouse_IoT` | 2.4 | WPA2 | **on** | none | both | plugs, switches, HUUM, Rachio — cloud-only devices |
-| `Ava` | 2.4 + 5 | WPA2/WPA3 | off | off 22:00 Sun–Thu / 23:00 Fri–Sat, on 05:30 | both | Ava's phone, Chromebook, iPad mini |
-| `Finn` | 2.4 + 5 | WPA2/WPA3 | off | off 21:30 Sun–Thu / 22:15 Fri–Sat, on 06:00 | both | Finn's phone, iPad, Chromebook, Roku (the PC is wired: DNS rule only) |
+| `WhiteHouse_Ava` | 2.4 + 5 | WPA2/WPA3 | off | off 22:00 Sun–Thu / 23:00 Fri–Sat, on 05:30 | both | Ava's phone, Chromebook, iPad mini |
+| `WhiteHouse_Finn` | 2.4 + 5 | WPA2/WPA3 | off | off 21:30 Sun–Thu / 22:15 Fri–Sat, on 06:00 | both | Finn's phone, iPad, Chromebook, Roku (the PC is wired: DNS rule only) |
 | `WhiteHouse_Guest` | 2.4 + 5 | WPA2, simple password, not given to the kids | **on** | off 02:00, on 08:00 | both | visitors; MAC group `kids-devices` denied (catches the Roku and Chromebooks; phones and iPads randomise their MAC on a new SSID, so the password is the real control) |
 
 Decided with Robby 2026-10-11 (replaces the 2026-10-10 table: one isolated IoT SSID, a
@@ -41,7 +41,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `e0:cb:4e:9d:02:6a` | .212 ✅ | vault (Unraid) | wired |
 | `8c:a9:6f:17:45:75` | .20 ✅ | **Denon AV receiver, living-room theatre** (`living-room-denon`), wired | Address and DNS set by hand on the receiver, so it bypasses AdGuard (never asks it anything). Switch it to DHCP in its network menu: the static lease keeps it at .20 and its DNS becomes AdGuard's |
 
-## People's devices — `WhiteHouse` (adults), `Ava` / `Finn` (scheduled)
+## People's devices — `WhiteHouse` (adults), `WhiteHouse_Ava` / `WhiteHouse_Finn` (scheduled)
 
 | MAC | IP | Fixed IP | Device | Owner |
 |---|---|---|---|---|

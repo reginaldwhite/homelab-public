@@ -34,6 +34,11 @@ history and the scheduler stop. Nothing else in the homelab depends on it.
   192.168.0.10; Caddy's `omada.robbywhite.net` vhost.
 - Phase 4 of `docs/plan-wifi.md`: `wifi-clients.py` reads the OpenAPI with a client credential
   created in the UI. The API's auth flow has changed between minors before.
+- `omada-ssid.py` writes SSIDs, time-range profiles and MAC groups through
+  `/wireless-network/wlans/{wlanId}/ssids/{ssidId}/update-*`, `/time-range-profiles` and
+  `/profiles/groups`; the request schemas are in the controller's own `/v3/api-docs` (a copy
+  sits in `~/omada-api/` on bastion). After an upgrade, `omada-ssid.py list` and a `--dry-run`
+  write are the contract check.
 
 ## Verify after
 
