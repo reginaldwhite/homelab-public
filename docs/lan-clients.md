@@ -9,12 +9,18 @@ file and the dashboard disagree, one of them needs editing.
 Address ranges come from [plan-lan-groups.md](plan-lan-groups.md); SSID and AP targets from
 the revision of 2026-10-10 in [plan-wifi.md](plan-wifi.md):
 
-| SSID | Broadcast by | Isolation | For |
-|---|---|---|---|
-| `WhiteHouse` | both EAP772s, roaming | none | people's devices, media boxes |
-| `WhiteHouse_Home` | both EAP772s | none (needs the LAN) | Echos, ecobee, fan, anything with local control or HomeKit |
-| `WhiteHouse_IoT` | both EAP772s | Guest / isolated | fixed cloud-only devices — each joins the AP it hears best (decided 2026-10-10: one SSID, not one per AP; a per-AP SSID stays in reserve for any device that ever flaps between the two) |
-| `Ava`, `Finn` | both EAP772s, scheduled | none | phase 5 of the WiFi plan |
+| SSID | Bands | Security | Guest (isolation) | Schedule | APs | For |
+|---|---|---|---|---|---|---|
+| `WhiteHouse` | 2.4 + 5 + 6 | WPA2/WPA3; password rotated after the moves, kids excluded | off | none | both | adults' phones, laptops, iPads |
+| `WhiteHouse_IoT_Lan` | 2.4 | WPA2 | off | none | both | Echos (incl. the kids' Spots — never on a scheduled SSID), ecobee, Haiku fan |
+| `WhiteHouse_IoT` | 2.4 | WPA2 | **on** | none | both | plugs, switches, HUUM, Rachio — cloud-only devices |
+| `Ava` | 2.4 + 5 | WPA2/WPA3 | off | off 22:00 Sun–Thu / 23:00 Fri–Sat, on 05:30 | both | Ava's phone, Chromebook, iPad mini |
+| `Finn` | 2.4 + 5 | WPA2/WPA3 | off | off 21:30 Sun–Thu / 22:15 Fri–Sat, on 06:00 | both | Finn's phone, iPad, Chromebook, Roku (the PC is wired: DNS rule only) |
+| `WhiteHouse_Guest` | 2.4 + 5 | WPA2, simple password, not given to the kids | **on** | off 02:00, on 08:00 | both | visitors; MAC group `kids-devices` denied (catches the Roku and Chromebooks; phones and iPads randomise their MAC on a new SSID, so the password is the real control) |
+
+Decided with Robby 2026-10-11 (replaces the 2026-10-10 table: one isolated IoT SSID, a
+LAN-visible one, one SSID per child, a scheduled guest). The DNS night-time rules stay as the
+per-child layer underneath; they also carry the overrides.
 
 Until the second EAP772 is in, `WhiteHouse_IoT` lives on the UniFi AC Lite and only the
 HUUM is on it; everything else is on `WhiteHouse` on the one EAP772.
@@ -35,7 +41,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `e0:cb:4e:9d:02:6a` | .212 ✅ | vault (Unraid) | wired |
 | `8c:a9:6f:17:45:75` | .20 ✅ | **Denon AV receiver, living-room theatre** (`living-room-denon`), wired | Address and DNS set by hand on the receiver, so it bypasses AdGuard (never asks it anything). Switch it to DHCP in its network menu: the static lease keeps it at .20 and its DNS becomes AdGuard's |
 
-## People's devices — `WhiteHouse`, roaming
+## People's devices — `WhiteHouse` (adults), `Ava` / `Finn` (scheduled)
 
 | MAC | IP | Fixed IP | Device | Owner |
 |---|---|---|---|---|
@@ -64,7 +70,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `2c:fe:e2:98:84:4a` | .129 | .142 ✅ | **Hisense Google TV, office** (`office-hisense-tv`; "Office TV" in Omada) | Not meant to be a smart TV — the office Apple TV plays everything. **Blocked from the WiFi in Omada** (Clients → Block) 2026-10-10, confirmed gone from the client list; unblock there if it is ever wanted online |
 | — | .228 | — | *dropped 2026-10-10*: nothing answers there; the Hisense MAC once seen was the office TV's wired port on a static address | — |
 
-## Home IoT, needs the LAN — `WhiteHouse_Home`
+## Home IoT, needs the LAN — `WhiteHouse_IoT_Lan`
 
 | MAC | IP | Fixed IP | Device | Signal | AP |
 |---|---|---|---|---|---|

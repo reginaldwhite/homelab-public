@@ -240,17 +240,21 @@ controller whose credential is missing, so nothing fires until they exist):
 Added 2026-10-10. Two SSID changes on the EAP772, in this order because the second forces a
 `WhiteHouse` password rotation and the first keeps that rotation small.
 
-1. **`<home-iot>` SSID on the EAP772 [you]** — Omada, *Network Config → WLAN → Add SSID*:
+1. **`WhiteHouse_IoT_Lan` SSID on the EAP772 [you]** — Omada, *Network Config → WLAN → Add SSID*:
    2.4 GHz only, WPA2, **no** client isolation (these devices need the LAN), 802.11ax off
    and band steering off for the SSID. Move the four Echos, the ecobee and the Haiku fan to it
    (each from its own app). The Apple TVs stay on `WhiteHouse`: they stream on 5 GHz. After
    this, `WhiteHouse` carries only people's devices and the Apple TVs, and the LAN-groups
    `iot-amazon`/`iot-home` members are on an SSID of their own without losing LAN access.
    **[agent]** static leases for each as it moves, in the `iot-*` ranges.
-2. **`Ava` and `Finn` SSIDs on the EAP772 [you]** — all bands, WPA2/WPA3, each with an
+2. **`Ava` and `Finn` SSIDs on the EAP772 [you]** — 2.4 + 5 GHz, WPA2/WPA3, each with an
    Omada SSID schedule matching the child's window in
    [plan-kids-hours-and-iot.md](plan-kids-hours-and-iot.md) (Ava off 22:00/23:00 → on 05:30;
-   Finn off 21:30/22:15 → on 06:00). Their devices join their own SSID.
+   Finn off 21:30/22:15 → on 06:00). Their devices join their own SSID; their Echo Spots do
+   not (they go on `WhiteHouse_IoT_Lan`, or the alarms die with the schedule). The full SSID
+   matrix — including `WhiteHouse_Guest` (WPA2, guest isolation, off 02:00–08:00, kids' fixed-MAC
+   devices denied by MAC group; phones randomise and are held off by the password alone) — is
+   the table at the top of [lan-clients.md](lan-clients.md), settled 2026-10-11.
 3. **Rotate `WhiteHouse` [you]** and re-join the family's phones, laptops and the Apple TVs.
    The kids do not get the new password; without this step the SSID schedule is advice.
 4. **`kids-hours.py` drives the SSIDs [agent]** — a second Omada Open API credential with the
