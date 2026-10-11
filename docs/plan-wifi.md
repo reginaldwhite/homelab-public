@@ -225,8 +225,13 @@ controller whose credential is missing, so nothing fires until they exist):
   isolation, so it cannot be the IoT radio; Robby turned both its bands off and 25 clients
   landed on the EAP772 within a minute (14 × 2.4 GHz, 9 × 5 GHz, 2 × 6 GHz). Every earlier
   "all devices back" check in this file was DNS- and ping-based and could not tell the radios
-  apart; the controllers can. This also explains part of the HUUM's history: a device within
-  reach of two radios named the same thing flaps between them.
+  apart; the controllers can. **This is most likely the whole HUUM story** (Robby's reading,
+  2026-10-11): the gateway stood in the same room as the sauna, so the controller normally sat
+  on the gateway's radio and only occasionally on the EAP772 at -74 dBm; every hop between the
+  two uncoordinated radios was a new association, a new cloud session and a wiped armed start.
+  The -74 readings were real but were only ever taken on the bad days. Switching the gateway's
+  WiFi off may have fixed the sauna on its own (night 1 of the test was clean); the AC Lite and
+  the closet EAP772 remain worthwhile as margin, not as the cure.
 - First signal map, same poll: the two 6 GHz clients (the Mac and an iPad) sit at -79/-81 dBm,
   worse than they would on 5 GHz — band steering is pushing them to a band that does not
   reach; worth a look at the EAP772's 6 GHz power or steering thresholds. The 2.4 GHz plugs
