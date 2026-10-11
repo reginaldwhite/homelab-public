@@ -448,3 +448,15 @@ client in the house moved onto this AP when the gateway radio went off). Order o
 or unplug the TV and watch two hours; then swap the PoE adapter for the second EAP772's when it
 arrives; the `wifi-ap-rebooted` rule and the DHCP log are the instruments. A reboot *during* the
 TV test with the TV unplugged puts everything on power.
+
+**Root cause, 2026-10-11 evening: the PoE injector.** The TV's WiFi had been off since Saturday
+night, so the block was never it. The EAP772 is powered by the injector reused from the UniFi
+AC Pro — Ubiquiti's 48 V 0.5 A adapter, **24 W**, an 802.3af-class passive supply. The EAP772
+(US) v2 specifies **802.3at** and draws up to **25.4 W** on PoE. Under light load it holds; when
+every client in the house moved onto this AP (Sat 13:53) the evening peaks crossed what the
+adapter can deliver and it browned out — a reboot every ten to thirty minutes, loosely clustered
+on the AP's periodic bursts of work, independent of firmware and of the controller, which is
+exactly the pattern recorded above. Fix: power it properly — an 802.3at injector (TP-Link
+TL-POE160S, 30 W) or a small PoE+ switch in the closet, which would also power the second
+EAP772 instead of its 12 V adapter. Until then: 6 GHz stays off, and nothing that adds radio
+load goes on. The AC Pro's adapter goes back in the drawer labelled *24 W, af only*.
