@@ -14,6 +14,15 @@
 > `sleep-vault` ever fails to shut vault down, the 05:00 cut is an unclean power-off and Unraid
 > will run a parity check on the next boot — the `backup` health check reports the failed sleep.
 > Everything below stays true and stays configured; it is the fallback, not the mechanism.
+>
+> *Same day, later:* the boot times of bastion and cinema show house-wide power outages at
+> **Sun 10-04 21:17** and **Sat 10-10 04:18**, and Robby reports outages both Saturday nights.
+> Every WoL failure on forge in those two weeks followed one of them and ended with a button
+> press; the only vault wake that ever worked (09-27) had no outage before it. An AC loss
+> clears the standby-domain state a magic packet relies on, so neither board's WoL was broken
+> — both were waiting for a boot that only a button or a power cycle gives. The plug gives
+> vault that power cycle every Sunday regardless; forge gets the BIOS setting *restore on AC
+> power loss → Power On* so it boots itself after an outage and re-arms at its next 23:00 shutdown.
 
 **Done, 2026-09-26.** bastion wakes vault with a magic packet and shuts it down over SSH. The
 smart plug stays installed and switched on as a manual override, but nothing schedules it.

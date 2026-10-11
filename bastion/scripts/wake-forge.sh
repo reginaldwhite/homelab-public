@@ -47,9 +47,11 @@ if ! send_wol >/dev/null; then
 fi
 echo "$(date -Iseconds) [wake-forge] WoL sent to forge ($FORGE_MAC), waiting for it to boot..." >> "$LOG"
 
-# A broadcast can be lost, and the NIC in S5 occasionally needs a second one (the 05:00 wake
-# failed on 2026-10-10 after two clean mornings, with nothing wrong on the forge side), so
-# the packet is repeated every minute while waiting rather than sent once.
+# A broadcast can be lost, so the packet is repeated every minute while waiting rather than
+# sent once. Note that the failures of 2026-10-05..07 and 2026-10-10 were not lost packets:
+# each followed a power outage (bastion's boot times: 10-04 21:17, 10-10 04:18), after which a
+# board in S5 has no wake state until it boots once. forge's BIOS "restore on AC power loss"
+# is the answer to that, not more retries (docs/vault-power.md, revision 2026-10-11).
 SECONDS=0
 next_send=60
 while (( SECONDS < BOOT_TIMEOUT )); do
