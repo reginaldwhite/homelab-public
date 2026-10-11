@@ -19,8 +19,11 @@ the revision of 2026-10-10 in [plan-wifi.md](plan-wifi.md):
 | `WhiteHouse_Guest` | 2.4 + 5 | WPA2, simple password, not given to the kids | **on** | off 02:00, on 08:00 | both | visitors; MAC group `kids-devices` denied (catches the Roku and Chromebooks; phones and iPads randomise their MAC on a new SSID, so the password is the real control) |
 
 Decided with Robby 2026-10-11 (replaces the 2026-10-10 table: one isolated IoT SSID, a
-LAN-visible one, one SSID per child, a scheduled guest). The DNS night-time rules stay as the
-per-child layer underneath; they also carry the overrides.
+LAN-visible one, one SSID per child, a scheduled guest) and **live in the controller the same
+day** — schedules, the kids' MAC group and the guest deny list were applied with
+`bastion/scripts/omada-ssid.py` (`list` shows the current state). The DNS night-time rules stay
+as the per-child layer underneath; they also carry the overrides. Devices still have to be
+joined to their SSIDs by hand, one app at a time.
 
 Until the second EAP772 is in, `WhiteHouse_IoT` lives on the UniFi AC Lite and only the
 HUUM is on it; everything else is on `WhiteHouse` on the one EAP772.

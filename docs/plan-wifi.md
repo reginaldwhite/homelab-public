@@ -269,6 +269,12 @@ Added 2026-10-10. Two SSID changes on the EAP772, in this order because the seco
    `--dry-run`. The controller's own API reference is saved on bastion at
    `~/omada-api/*.json` (fetched from `/v3/api-docs/…`; the public docs' paths were wrong —
    WLANs live under `/wireless-network/wlans/{wlanId}/ssids`).
+   **Applied 2026-10-11** with the Operator app `bastion-ssid-admin`: time ranges `ava-on`,
+   `finn-on` (seven entries each, the hours the SSID is *on* — Omada caps entries per profile
+   and the off-hours encoding needed fourteen), `guest-on` (every-day, 08:00–02:00); MAC group
+   `kids-devices`; `WhiteHouse_Ava`/`_Finn`/`_Guest` scheduled "radio on during" their range;
+   the guest SSID denies `kids-devices` and is down to 2.4 + 5 GHz. `omada-ssid.py list` is the
+   live view. Steps 2–3 of this phase are now "join the devices" and "rotate `WhiteHouse`".
 5. What the DNS layer still covers that the SSID cannot: a wired device, and anything a
    child joins to another network. Both layers stay.
 
