@@ -12,13 +12,18 @@ pair every writing command stops with a clear message. Every write takes --dry-r
     omada-ssid.py set <ssid> [--bands 2.4,5,6] [--guest on|off] [--broadcast on|off]
                                                change bands / guest isolation / broadcast; everything
                                                else is re-sent exactly as the controller has it
-    omada-ssid.py schedule <ssid> <time-range>|off
-                                               radio OFF during the named time range's periods
+    omada-ssid.py schedule <ssid> <time-range>|off [--mode on|off]
+                                               radio ON during the time range's periods (default), or
+                                               OFF during them (--mode off)
     omada-ssid.py mac-filter <ssid> deny|allow <mac-group>
     omada-ssid.py mac-filter <ssid> off
-    omada-ssid.py time-range create <name> --off "sun-thu 22:00-05:30" [--off "fri-sat 23:00-05:30"]
-                                               periods the SSID is OFF; a span over midnight is split
-                                               into two; minutes must be :00 :15 :30 :45
+    omada-ssid.py time-range create <name> --span "mon-thu 05:30-22:00" [--span "fri-sat 05:30-23:00"]
+                                               the periods; a span over midnight is split into two
+                                               entries; minutes must be :00 :15 :30 :45. Omada caps
+                                               the entries per profile, so prefer describing the ON
+                                               hours (one entry per day) over the OFF hours; a span
+                                               given as "all HH:MM-HH:MM" uses the every-day mode and
+                                               costs one entry, not seven
     omada-ssid.py time-range delete <name>
     omada-ssid.py mac-group create|set <name> --mac label=aa:bb:cc:f3:32:a3 [--mac …]
     omada-ssid.py mac-group delete <name>
@@ -253,8 +258,9 @@ def cmd_schedule(o, a):
         write(o, a, "PATCH", path, {"wlanScheduleEnable": False}, f"{a.ssid}: schedule off")
     else:
         tid = o.time_range_id(a.time_range)
-        write(o, a, "PATCH", path, {"wlanScheduleEnable": True, "action": 0, "scheduleId": tid},
-              f"{a.ssid}: radio off during time range {a.time_range}")
+        action = 1 if a.mode == "on" else 0
+        write(o, a, "PATCH", path, {"wlanScheduleEnable": True, "action": action, "scheduleId": tid},
+              f"{a.ssid}: radio {'on' if action else 'off'} during time range {a.time_range}")
 
 
 def cmd_mac_filter(o, a):
@@ -304,16 +310,22 @@ def cmd_time_range(o, a):
         tid = o.time_range_id(a.name)
         write(o, a, "DELETE", f"/time-range-profile/{tid}", None, f"time range {a.name} deleted")
         return
-    if not a.off:
-        sys.exit("give at least one --off span")
-    segs = []
-    for span in a.off:
-        segs.extend(parse_span(span))
-    segs.sort()
-    body = {"name": a.name, "dayMode": 3,
-            "customDayMode": {f"day{d.capitalize()}": any(s[0] == i + 1 for s in segs) for i, d in enumerate(DAYS)},
-            "timeList": [{"dayType": d, "startTimeH": sh, "startTimeM": sm, "endTimeH": eh, "endTimeM": em} for d, sh, sm, eh, em in segs]}
-    write(o, a, "POST", "/time-range-profiles", body, f"time range {a.name} created with {len(segs)} segments")
+    if not a.span:
+        sys.exit("give at least one --span")
+    if all(sp.split()[0] == "all" for sp in a.span):
+        # Every-day mode: one entry per period instead of one per day per period.
+        segs = sorted({(0, sh, sm, eh, em) for sp in a.span for _, sh, sm, eh, em in parse_span(sp)})
+        body = {"name": a.name, "dayMode": 0,
+                "timeList": [{"dayType": 0, "startTimeH": sh, "startTimeM": sm, "endTimeH": eh, "endTimeM": em} for _, sh, sm, eh, em in segs]}
+    else:
+        segs = []
+        for sp in a.span:
+            segs.extend(parse_span(sp))
+        segs.sort()
+        body = {"name": a.name, "dayMode": 3,
+                "customDayMode": {f"day{d.capitalize()}": any(s[0] == i + 1 for s in segs) for i, d in enumerate(DAYS)},
+                "timeList": [{"dayType": d, "startTimeH": sh, "startTimeM": sm, "endTimeH": eh, "endTimeM": em} for d, sh, sm, eh, em in segs]}
+    write(o, a, "POST", "/time-range-profiles", body, f"time range {a.name} created with {len(segs)} entries")
 
 
 def cmd_mac_group(o, a):
@@ -352,11 +364,13 @@ def main():
     sub.add_parser("profiles").set_defaults(fn=cmd_profiles, write=False)
     s = sub.add_parser("set"); s.add_argument("ssid"); s.add_argument("--bands"); s.add_argument("--guest", choices=["on", "off"])
     s.add_argument("--broadcast", choices=["on", "off"]); s.set_defaults(fn=cmd_set, write=True)
-    s = sub.add_parser("schedule"); s.add_argument("ssid"); s.add_argument("time_range"); s.set_defaults(fn=cmd_schedule, write=True)
+    s = sub.add_parser("schedule"); s.add_argument("ssid"); s.add_argument("time_range")
+    s.add_argument("--mode", choices=["on", "off"], default="on", help="radio on during the range (default) or off during it")
+    s.set_defaults(fn=cmd_schedule, write=True)
     s = sub.add_parser("mac-filter"); s.add_argument("ssid"); s.add_argument("policy", choices=["deny", "allow", "off"])
     s.add_argument("group", nargs="?"); s.set_defaults(fn=cmd_mac_filter, write=True)
     s = sub.add_parser("time-range"); s.add_argument("action", choices=["create", "delete"]); s.add_argument("name")
-    s.add_argument("--off", action="append"); s.set_defaults(fn=cmd_time_range, write=True)
+    s.add_argument("--span", action="append"); s.set_defaults(fn=cmd_time_range, write=True)
     s = sub.add_parser("mac-group"); s.add_argument("action", choices=["create", "set", "delete"]); s.add_argument("name")
     s.add_argument("--mac", action="append"); s.set_defaults(fn=cmd_mac_group, write=True)
     a = p.parse_args()
