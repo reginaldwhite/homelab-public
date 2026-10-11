@@ -91,7 +91,7 @@ Which Echo is in which room: Alexa app → Devices → each → *About* shows th
 | `60:83:e7:74:84:07` | .113 | .170 ✅ | **Tapo P105 "Office Computer"** — the monitors' plug, so they are fully off at night | -70 | downstairs |
 | `60:83:e7:42:1b:99` | .110 | .171 ✅ | **Tapo P105 "Office Stereo"** — the desktop amp's plug | -73 | downstairs |
 | `60:83:e7:f3:6b:4e` | .132 | .172 ✅ | **Tapo P105 "Towel Warmer"** — runs it on a 3-hour cycle instead of 24/7 | -76 | downstairs |
-| `3c:78:95:e3:05:d8` | — | — | Tapo P115 (`p115`) — the plug that used to power the file server (vault) on and off; **unused and unplugged** since vault's Wake-on-LAN was sorted. Not on the network; row kept so the MAC is recognised if it ever reappears | — | — |
+| `3c:78:95:e3:05:d8` | — | .173 ✅ | **Tapo P115, vault's power plug** (`vault-plug`) — back in service 2026-10-11 with its own schedule (on Sun 01:55, off 05:00) after Wake-on-LAN proved unable to wake the board from a multi-day sleep; see docs/vault-power.md | — | `WhiteHouse_IoT`, downstairs (utility closet) |
 | `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
 | `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
 | `d4:91:0f:13:77:99` | .116 | .176 ✅ | **Amazon Smart Plug, 1st gen** (`amazon-plug`; its own hostname `AmazonPlug09AS`) — **outlet unknown**: not one Robby could place on 2026-10-10. Find it in the Alexa app (Devices → All Devices → the plug → About shows this MAC) | -63 | by location |

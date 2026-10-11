@@ -1,5 +1,20 @@
 # vault's power: Wake-on-LAN instead of a smart plug
 
+> **Revision 2026-10-11 — the plug's schedule is back.** WoL from bastion worked exactly once
+> (2026-09-27, after a 16-hour sleep) and failed every time vault had been off for days
+> (2026-10-04, 2026-10-11, and a manual attempt the same morning), with every setting below
+> still correct — the board simply does not wake from a long S5, and Robby does not want an
+> X58 board idling all week. So the Tapo P115 goes back inline with vault's PSU with its own
+> schedule: **ON Sunday 01:55, OFF Sunday 05:00**. The board boots on power restore; the 02:00
+> `wake-vault.sh` finds it booting and its WoL packet is a harmless no-op; `sleep-vault.sh` at
+> 04:00 still shuts Unraid down cleanly before the plug cuts power an hour later. The plug sits on
+> `WhiteHouse_IoT` (isolated — the schedule runs on the plug itself through Tapo's cloud, bastion
+> never needs to reach it) and is pinned as `vault-plug`, .173. Trade-off accepted: an on-demand
+> wake on another day means switching the plug on in the Tapo app, or pressing the button. If
+> `sleep-vault` ever fails to shut vault down, the 05:00 cut is an unclean power-off and Unraid
+> will run a parity check on the next boot — the `backup` health check reports the failed sleep.
+> Everything below stays true and stays configured; it is the fallback, not the mechanism.
+
 **Done, 2026-09-26.** bastion wakes vault with a magic packet and shuts it down over SSH. The
 smart plug stays installed and switched on as a manual override, but nothing schedules it.
 

@@ -691,9 +691,11 @@ docker exec openclaw python3 /home/node/.openclaw/scripts/plex-power.py status
 
 Cold storage backup server. SSH user: `root`.
 
-**Powered by bastion over Wake-on-LAN, not by the smart plug** — woken Sunday 2:00am, shut down
-4:00am, and wakeable on demand. The plug stays installed and switched on as a manual override,
-but nothing schedules it.
+**Powered on by its smart plug's schedule again since 2026-10-11** (Tapo P115: on Sunday
+01:55, off 05:00; the board boots on power restore), shut down cleanly by bastion at 4:00am.
+Wake-on-LAN from bastion stays configured as the fallback but never woke the board after more
+than a day off — the story is in [docs/vault-power.md](docs/vault-power.md). Waking it on
+another day means the plug in the Tapo app, or the button.
 
 Getting WoL working needed three things on this board, and the middle one is why it looked
 impossible for a while: the NIC armed (`ethtool wol g`), **the NIC's PCIe root port allowed to
