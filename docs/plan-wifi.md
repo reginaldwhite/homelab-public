@@ -387,3 +387,48 @@ its APs' 2.4 GHz radios to **channel 6**, so the **EAP772 moved to channel 1** (
 the AC Lite (and the AC Pro later) sit on 6. The record above shows the pre-adoption value;
 this is the deliberate change. The IoT SSID also has *Force WiFi 4 Mode* and *DTIM Interval
 Lock* on, WPA2, client isolation, 2.4 GHz only.
+
+## Finding 2026-10-11 — the EAP772 was reboot-looping on firmware 1.3.2
+
+Robby reported the office Amazon Basics switch doing its months-old trick (light off, LED
+flashing, light back on a minute later) at about 15:20 on Sunday, 26 hours after the gateway
+radio went off — so the gateway could not be the cause of *that* one. Working backwards from
+AdGuard's DHCP log and Omada's `server.log`:
+
+- A switch whose WiFi merely drops keeps its relay closed; the light going off means the
+  switch's module **rebooted**. The question was always what rebooted it.
+- AdGuard's DHCP log showed a **whole-network DHCP DISCOVER storm** (every wireless client
+  re-joining within ~15 s) at 15:21, 15:26, 15:56 and 16:01, and the controller logged a full AP
+  re-adoption ~90 s after each one (`[STAT] "operation":"Online","connection-times":N`). The
+  AP's `uptime` field confirmed reboots at ~15:25 and ~16:00. **That signature — a DISCOVER
+  storm followed by an `Online` re-adoption — is an AP reboot**, and the controller's API
+  event/alert logs do not surface it (they returned zero rows for seven days).
+- Counting storms since Sep 27: none except the two power outages and one on Wed 10-07 20:24
+  until **Sat 10-10 19:16, then ~30 of them through Sunday** (26 re-adoptions since midnight),
+  every one landing on a five-minute boundary. Nothing on bastion fires at the AP on that
+  clock (the `*/5` jobs talk to AdGuard and the HUUM/Rachio clouds; blackbox pings .2 on its
+  own interval), so the clock is the AP's own periodic housekeeping, i.e. firmware. The only
+  Omada change before 19:16 was blocking the office Hisense TV at 17:37 — a blocked client
+  retrying endlessly is a plausible trigger but unproven.
+- MLO and 802.11r are off on every SSID (PMF capable), so the usual WiFi 7 crash vectors are
+  not it. The controller offers **firmware 1.4.3 Build 20260818**, whose notes include "AP could
+  become unresponsive under certain conditions", "device could crash in certain roaming
+  scenarios" and "stability issue when clients reassociated". Robby is applying it from the UI
+  (flashing is his, never the agent's).
+- Omada's per-client `uptime` **survives short drops** (both switches kept 17–22 h of "uptime"
+  across several AP reboots), so `wifi_client_uptime_seconds` resets only catch outages longer
+  than Omada's offline timeout. For reboot detection use the DHCP storm, not the metric.
+
+**Still open, and how to close it.** The switch blinked during an AP reboot, but nobody was
+watching the light during the other 25. Two readings remain: a mains dip rebooted the AP *and*
+the switch (then the fix is on the power side — the AP's PoE adapter has no hold-up), or the
+switch reboots whenever it loses WiFi for long enough (then the past months were the gateway
+radio's resets and this week was the AP's). The decisive, cheap test: with the office light on,
+reboot the AP deliberately from Omada and watch the light. Blink → WiFi loss reboots the switch;
+no blink → the 15:20 blink was a power dip that happened to coincide. Do it once the AP is on
+1.4.3 and has run a day without a storm.
+
+Verification after the upgrade: the AP's uptime climbs past the longest run it managed on 1.3.2
+(about 3 hours), and `docker logs adguardhome | grep 'from 0.0.0.0'` shows no minute with more
+than a handful of DISCOVERs. If the storms continue on 1.4.3, unblock the office TV (or unplug
+it) for a day as the next variable.
