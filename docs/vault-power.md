@@ -23,6 +23,11 @@
 > — both were waiting for a boot that only a button or a power cycle gives. The plug gives
 > vault that power cycle every Sunday regardless; forge gets the BIOS setting *restore on AC
 > power loss → Power On* so it boots itself after an outage and re-arms at its next 23:00 shutdown.
+> **Confirmed the same morning:** one minute after a clean, armed `sleep-vault`, a magic packet
+> woke vault in 102 s (ping), array started at 143 s; the full Sunday chain then ran by hand
+> (backup-to-tower, sync-forge, vault-report, sleep-vault), all ok. WoL works; outages are what
+> break it. The plug schedule stays as the mechanism because it survives outages and Robby wants
+> the board hard-off all week; WoL remains the on-demand path on a vault that was shut down cleanly.
 
 **Done, 2026-09-26.** bastion wakes vault with a magic packet and shuts it down over SSH. The
 smart plug stays installed and switched on as a manual override, but nothing schedules it.
