@@ -435,3 +435,16 @@ Verification after the upgrade: the AP's uptime climbs past the longest run it m
 (about 3 hours), and `docker logs adguardhome | grep 'from 0.0.0.0'` shows no minute with more
 than a handful of DISCOVERs. If the storms continue on 1.4.3, unblock the office TV (or unplug
 it) for a day as the next variable.
+
+**Same evening: 1.4.3 did not fix it** (reboots at 16:41 and 16:50), and **the controller is
+cleared**: with `omada` stopped from 17:08 to 17:51 the AP still rebooted at 17:21, 17:31 and
+17:34 (DHCP storms; AP uptime 18m46s when the controller came back). Note that 17:34 is *not* on a
+five-minute boundary, so the clock alignment was not as strict as a day's sample suggested. What
+is left is the AP itself or its power: a firmware fault independent of 1.3.2/1.4.3 (in which
+case the only Omada change before the loop began — blocking the office Hisense TV at Sat 17:37,
+a client that then retries association endlessly — is the one lead), or a PoE adapter that no
+longer holds the AP up under load (the loop began Saturday evening, five hours after every
+client in the house moved onto this AP when the gateway radio went off). Order of tests: unblock
+or unplug the TV and watch two hours; then swap the PoE adapter for the second EAP772's when it
+arrives; the `wifi-ap-rebooted` rule and the DHCP log are the instruments. A reboot *during* the
+TV test with the TV unplugged puts everything on power.
