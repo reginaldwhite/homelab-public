@@ -50,6 +50,7 @@
       <div class="big" id="rssi">—<small> dBm</small></div>
       <div class="sub" id="where">looking for this device in Omada…</div>
       <div class="sub" id="who"></div>
+      <div class="sub" id="trend"></div>
     </div>
     <div class="card">
       <input id="spot" list="spots" placeholder="Spot (e.g. kitchen island)" autocapitalize="words">
@@ -87,6 +88,16 @@ const cls = r => r == null ? '' : r >= -62 ? 'good' : r >= -70 ? 'ok' : 'bad';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const when = iso => { const d = new Date(iso); return d.toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'}); };
 let tab = 'survey', me = null;
+// The AP reports RSSI every few seconds; keep the last five polls (~15 s) so the reading's
+// stability is visible and Mark can record the median rather than a single sample.
+let samples = [];
+const settled = () => samples.length >= 3 && Math.max(...samples.slice(-3)) - Math.min(...samples.slice(-3)) <= 3;
+function showTrend() {
+  if (!samples.length) { $('#trend').textContent = ''; return; }
+  const s = settled();
+  $('#trend').innerHTML = `last 15 s: ${samples.join(' · ')} — ` +
+    (s ? '<b class="good">settled</b>' : samples.length < 3 ? 'reading…' : '<b class="ok">still settling, stand still</b>');
+}
 
 document.querySelectorAll('header button').forEach(b => b.onclick = () => {
   tab = b.dataset.tab;
@@ -105,16 +116,21 @@ async function getJSON(url, opts) {
 async function pollMe() {
   try {
     const j = await getJSON('/api/me');
+    const moved = me && j.client && (me.ap !== j.client.ap || me.band !== j.client.band);
     me = j.client;
     if (me) {
+      if (moved) samples = [];                      // a new AP or band: old samples mean nothing
+      if (me.rssi != null) { samples.push(me.rssi); samples = samples.slice(-5); }
       $('#rssi').innerHTML = `<span class="${cls(me.rssi)}">${me.rssi ?? '—'}</span><small> dBm</small>`;
       $('#where').textContent = `${me.ap} · ${me.band} GHz · ${me.ssid}`;
       $('#who').textContent = `${me.name} (${j.ip}) · up ${fmtUp(me.uptime)}`;
     } else {
+      samples = [];
       $('#rssi').innerHTML = '—<small> dBm</small>';
       $('#where').textContent = `${j.ip} is not in Omada's client list — is this device on the house WiFi?`;
       $('#who').textContent = '';
     }
+    showTrend();
   } catch (e) { $('#where').textContent = 'controller unreachable: ' + e.message; }
 }
 const fmtUp = s => s == null ? '?' : s < 3600 ? Math.round(s/60) + ' min' : (s/3600).toFixed(1) + ' h';
@@ -162,13 +178,15 @@ $('#mark').onclick = async () => {
   if (!spot) { $('#msg').innerHTML = '<span class="err">Name the spot first.</span>'; return; }
   const btn = $('#mark'); btn.disabled = true;
   try {
+    if (me && !settled()) { $('#msg').innerHTML = '<span class="ok">Reading has not settled — stand still a few more seconds.</span>'; btn.disabled = false; return; }
+    const taken = samples.slice();                  // the readings from before the download test
     $('#msg').textContent = 'download test…';
     const mbps = await downloadTest(25);
     $('#msg').textContent = `${mbps} Mbps — saving…`;
     const j = await getJSON('/api/mark', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                                          body: JSON.stringify({spot, note: $('#note').value, download_mbps: mbps})});
+                                          body: JSON.stringify({spot, note: $('#note').value, download_mbps: mbps, rssi_samples: taken})});
     const c = j.client;
-    $('#msg').innerHTML = c ? `Saved: <b>${esc(spot)}</b> · ${esc(c.ap)} · ${esc(c.band)} GHz · <b class="${cls(c.rssi)}">${c.rssi} dBm</b> · ${mbps} Mbps`
+    $('#msg').innerHTML = c ? `Saved: <b>${esc(spot)}</b> · ${esc(c.ap)} · ${esc(c.band)} GHz · <b class="${cls(c.rssi)}">${c.rssi} dBm</b> (median of ${taken.length}) · ${mbps} Mbps`
                             : `Saved ${esc(spot)} at ${mbps} Mbps, but this device was not in Omada's list (no AP/signal recorded).`;
     $('#note').value = '';
     loadResults();

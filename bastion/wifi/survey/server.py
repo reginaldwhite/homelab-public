@@ -298,6 +298,12 @@ class Handler(BaseHTTPRequestHandler):
             mbps = body.get("download_mbps")
             mbps = round(float(mbps), 1) if mbps is not None else None
             ip, client = self.me()
+            # The AP reports a client's RSSI every few seconds and the page polls it every three,
+            # so one sample can be the reading from the previous room. The page sends the last
+            # ~15 s of samples; the median of those is what gets recorded.
+            samples = [int(s) for s in (body.get("rssi_samples") or [])[-10:] if s is not None]
+            if client and len(samples) >= 3:
+                client = dict(client, rssi=sorted(samples)[len(samples) // 2])
             row = insert_mark(spot, note, mbps, client, ip)
             log(f"mark {row['id']}: {spot!r} {client and client.get('name')} {client and client.get('ap')} "
                 f"{client and client.get('band')} GHz {client and client.get('rssi')} dBm {mbps} Mbps")
