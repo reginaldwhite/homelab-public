@@ -63,6 +63,19 @@ grafana.robbywhite.net {
     }
 }
 
+# The WiFi coverage survey page (bastion/wifi/survey). It accepts survey writes from anyone
+# who can reach it and serves a download-test blob, so it is LAN-only in the same way.
+wifi.robbywhite.net {
+    tls internal
+    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
+    handle @lan {
+        reverse_proxy wifi-survey:8080
+    }
+    handle {
+        abort
+    }
+}
+
 # The two WiFi controllers (bastion/wifi, docs/plan-wifi.md). Both run on the host network,
 # so like AdGuard they are reached on the host's LAN address, and both present their own
 # self-signed certificate, hence tls_insecure_skip_verify on the upstream — the hop is

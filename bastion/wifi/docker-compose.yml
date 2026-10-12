@@ -113,6 +113,32 @@ services:
     volumes:
       - unifi_config:/config
 
+  wifi-survey:
+    # The coverage survey page (survey/server.py; docs/plan-wifi.md, "Coverage survey"), reached
+    # as wifi.robbywhite.net through Caddy. Reads Omada with the Viewer app over the host's LAN
+    # address (the ufw rule for 8043 from 172.16.0.0/12 covers it) and writes wifi_survey in
+    # events-db, so it sits on both the observability and the vault networks like Grafana does.
+    # Built from source here: apply.sh runs `up -d --build` for this project.
+    build: ./survey
+    image: homelab/wifi-survey:local
+    container_name: wifi-survey
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      - OMADA_URL=https://192.168.0.10:8043
+      - OMADA_CLIENT_ID=${OMADA_CLIENT_ID}
+      - OMADA_CLIENT_SECRET=${OMADA_CLIENT_SECRET}
+      - EVENTS_DB_PASSWORD=${EVENTS_DB_PASSWORD}
+    networks:
+      - observability_internal
+      - vaultwarden_default
+
+networks:
+  observability_internal:
+    external: true
+  vaultwarden_default:
+    external: true
+
 volumes:
   omada_data:
   omada_logs:

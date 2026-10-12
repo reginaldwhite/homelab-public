@@ -104,7 +104,8 @@ if [[ $VALIDATE -eq 1 ]]; then
         wifi_env=(); [[ -f "$OBS_ENV" ]] && wifi_env=(--env-file "$OBS_ENV")
         docker compose "${wifi_env[@]}" -f "$WIFI_DIR/docker-compose.yml" config --quiet
         bash -n "$WIFI_DIR/unifi/init-mongo.sh"
-        say "wifi: compose file and init-mongo.sh valid"
+        python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$WIFI_DIR/survey/server.py"
+        say "wifi: compose file, init-mongo.sh and survey/server.py valid"
     fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
@@ -220,9 +221,10 @@ if [[ -d "$WIFI_DIR" ]]; then
         fi
     done
     cd "$WIFI_DIR"
-    # Nothing here is a bind-mounted config: both controllers keep their state in volumes and
-    # are configured through their UIs, so `up -d` is the whole apply.
-    docker compose --env-file "$OBS_ENV" up -d
+    # Both controllers keep their state in volumes and are configured through their UIs; the
+    # survey page is built from survey/ here, so --build picks up its source changes (a no-op
+    # when nothing under survey/ changed).
+    docker compose --env-file "$OBS_ENV" up -d --build
     docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
     cd "$STACK_DIR"
 fi

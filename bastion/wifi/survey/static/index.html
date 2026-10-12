@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>WiFi survey</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f6f7f9; --card:#fff; --fg:#111; --mut:#666; --line:#e3e5e8;
+          --good:#1f9d55; --ok:#d9a400; --bad:#d23c2f; --acc:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1115; --card:#181b21; --fg:#eee; --mut:#9aa; --line:#2a2e36; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 16px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg);
+         padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  header { display:flex; gap:4px; padding:10px 12px 0; }
+  header button { flex:1; padding:10px 0; border:1px solid var(--line); background:var(--card); color:var(--fg);
+                  border-radius:10px; font-size:15px; }
+  header button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
+  main { padding:12px; }
+  section { display:none; } section.on { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .big { font-size:64px; font-weight:700; line-height:1; letter-spacing:-1px; }
+  .big small { font-size:22px; font-weight:500; color:var(--mut); }
+  .sub { color:var(--mut); margin-top:6px; }
+  .good { color:var(--good); } .ok { color:var(--ok); } .bad { color:var(--bad); }
+  input { width:100%; font-size:17px; padding:12px; border:1px solid var(--line); border-radius:10px;
+          background:var(--bg); color:var(--fg); margin-bottom:8px; }
+  button.mark { width:100%; padding:16px; font-size:19px; font-weight:600; border:0; border-radius:12px;
+                background:var(--acc); color:#fff; }
+  button.mark:disabled { opacity:.5; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:.3px; }
+  td.n { text-align:right; font-variant-numeric: tabular-nums; }
+  .del { color:var(--bad); background:none; border:0; font-size:16px; padding:0 6px; }
+  .msg { font-size:14px; color:var(--mut); min-height:20px; margin-top:8px; }
+  .err { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <button data-tab="survey" class="on">Survey</button>
+  <button data-tab="clients">Clients</button>
+  <button data-tab="results">Results</button>
+</header>
+<main>
+  <section id="survey" class="on">
+    <div class="card">
+      <div class="big" id="rssi">—<small> dBm</small></div>
+      <div class="sub" id="where">looking for this device in Omada…</div>
+      <div class="sub" id="who"></div>
+    </div>
+    <div class="card">
+      <input id="spot" list="spots" placeholder="Spot (e.g. kitchen island)" autocapitalize="words">
+      <datalist id="spots"></datalist>
+      <input id="note" placeholder="Note (optional)">
+      <button class="mark" id="mark">Mark this spot</button>
+      <div class="msg" id="msg">Each mark runs a 25 MB download test against bastion, then records AP, band, signal and speed.</div>
+    </div>
+  </section>
+
+  <section id="clients">
+    <div class="card">
+      <div class="sub" id="cl-sub">loading…</div>
+      <table><thead><tr><th>Device</th><th>AP · SSID</th><th class="n">Band</th><th class="n">dBm</th></tr></thead>
+      <tbody id="cl-body"></tbody></table>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="card">
+      <div class="sub">Per spot, worst average first. Signal is as the AP hears the phone.</div>
+      <table><thead><tr><th>Spot</th><th>Last AP · band</th><th class="n">Avg / min dBm</th><th class="n">Mbps</th><th class="n">n</th></tr></thead>
+      <tbody id="sp-body"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="sub">Recent marks</div>
+      <table><thead><tr><th>When</th><th>Spot</th><th>AP · band</th><th class="n">dBm</th><th class="n">Mbps</th><th></th></tr></thead>
+      <tbody id="re-body"></tbody></table>
+    </div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const cls = r => r == null ? '' : r >= -62 ? 'good' : r >= -70 ? 'ok' : 'bad';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const when = iso => { const d = new Date(iso); return d.toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'}); };
+let tab = 'survey', me = null;
+
+document.querySelectorAll('header button').forEach(b => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('header button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === tab));
+  refresh();
+});
+
+async function getJSON(url, opts) {
+  const r = await fetch(url, Object.assign({cache: 'no-store'}, opts || {}));
+  const j = await r.json();
+  if (!r.ok || j.error) throw new Error(j.error || r.status);
+  return j;
+}
+
+async function pollMe() {
+  try {
+    const j = await getJSON('/api/me');
+    me = j.client;
+    if (me) {
+      $('#rssi').innerHTML = `<span class="${cls(me.rssi)}">${me.rssi ?? '—'}</span><small> dBm</small>`;
+      $('#where').textContent = `${me.ap} · ${me.band} GHz · ${me.ssid}`;
+      $('#who').textContent = `${me.name} (${j.ip}) · up ${fmtUp(me.uptime)}`;
+    } else {
+      $('#rssi').innerHTML = '—<small> dBm</small>';
+      $('#where').textContent = `${j.ip} is not in Omada's client list — is this device on the house WiFi?`;
+      $('#who').textContent = '';
+    }
+  } catch (e) { $('#where').textContent = 'controller unreachable: ' + e.message; }
+}
+const fmtUp = s => s == null ? '?' : s < 3600 ? Math.round(s/60) + ' min' : (s/3600).toFixed(1) + ' h';
+
+async function pollClients() {
+  if (tab !== 'clients') return;
+  try {
+    const j = await getJSON('/api/clients');
+    $('#cl-sub').textContent = `${j.clients.length} wireless clients · ${new Date().toLocaleTimeString()}`;
+    $('#cl-body').innerHTML = j.clients.map(c =>
+      `<tr><td>${esc(c.name)}</td><td>${esc(c.ap)}<br><span style="color:var(--mut)">${esc(c.ssid)}</span></td>` +
+      `<td class="n">${esc(c.band)}</td><td class="n ${cls(c.rssi)}"><b>${c.rssi ?? '—'}</b></td></tr>`).join('');
+  } catch (e) { $('#cl-sub').textContent = 'error: ' + e.message; }
+}
+
+async function loadResults() {
+  try {
+    const j = await getJSON('/api/survey');
+    $('#spots').innerHTML = j.spots.map(s => `<option value="${esc(s.spot)}">`).join('');
+    if (tab !== 'results') return;
+    $('#sp-body').innerHTML = j.spots.map(s =>
+      `<tr><td>${esc(s.spot)}</td><td>${esc(s.last_ap)} · ${esc(s.last_band)}</td>` +
+      `<td class="n ${cls(s.avg_rssi)}">${s.avg_rssi ?? '—'} / ${s.min_rssi ?? '—'}</td>` +
+      `<td class="n">${s.avg_mbps ?? '—'}</td><td class="n">${s.marks}</td></tr>`).join('') || '<tr><td colspan=5>No marks yet.</td></tr>';
+    $('#re-body').innerHTML = j.recent.map(r =>
+      `<tr><td>${when(r.ts)}</td><td>${esc(r.spot)}${r.note ? '<br><span style="color:var(--mut)">' + esc(r.note) + '</span>' : ''}</td>` +
+      `<td>${esc(r.ap)} · ${esc(r.band)}</td><td class="n ${cls(r.rssi)}">${r.rssi ?? '—'}</td>` +
+      `<td class="n">${r.download_mbps ?? '—'}</td><td><button class="del" data-id="${r.id}" title="delete">✕</button></td></tr>`).join('');
+    document.querySelectorAll('.del').forEach(b => b.onclick = async () => {
+      b.disabled = true; await fetch('/api/survey?id=' + b.dataset.id, {method: 'DELETE'}); loadResults();
+    });
+  } catch (e) { $('#sp-body').innerHTML = `<tr><td colspan=5 class="err">${esc(e.message)}</td></tr>`; }
+}
+
+async function downloadTest(mb) {
+  const t0 = performance.now();
+  const r = await fetch(`/blob?mb=${mb}&_=${Date.now()}`, {cache: 'no-store'});
+  const buf = await r.arrayBuffer();
+  const secs = (performance.now() - t0) / 1000;
+  return +(buf.byteLength * 8 / secs / 1e6).toFixed(1);
+}
+
+$('#mark').onclick = async () => {
+  const spot = $('#spot').value.trim();
+  if (!spot) { $('#msg').innerHTML = '<span class="err">Name the spot first.</span>'; return; }
+  const btn = $('#mark'); btn.disabled = true;
+  try {
+    $('#msg').textContent = 'download test…';
+    const mbps = await downloadTest(25);
+    $('#msg').textContent = `${mbps} Mbps — saving…`;
+    const j = await getJSON('/api/mark', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                          body: JSON.stringify({spot, note: $('#note').value, download_mbps: mbps})});
+    const c = j.client;
+    $('#msg').innerHTML = c ? `Saved: <b>${esc(spot)}</b> · ${esc(c.ap)} · ${esc(c.band)} GHz · <b class="${cls(c.rssi)}">${c.rssi} dBm</b> · ${mbps} Mbps`
+                            : `Saved ${esc(spot)} at ${mbps} Mbps, but this device was not in Omada's list (no AP/signal recorded).`;
+    $('#note').value = '';
+    loadResults();
+  } catch (e) { $('#msg').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  btn.disabled = false;
+};
+
+function refresh() { pollMe(); pollClients(); loadResults(); }
+refresh();
+setInterval(pollMe, 3000);
+setInterval(pollClients, 5000);
+</script>
+</body>
+</html>
