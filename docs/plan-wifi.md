@@ -460,3 +460,18 @@ exactly the pattern recorded above. Fix: power it properly — an 802.3at inject
 TL-POE160S, 30 W) or a small PoE+ switch in the closet, which would also power the second
 EAP772 instead of its 12 V adapter. Until then: 6 GHz stays off, and nothing that adds radio
 load goes on. The AC Pro's adapter goes back in the drawer labelled *24 W, af only*.
+
+## Finding 2026-10-12 — Omada ran the schedules an hour late (daylight saving off)
+
+The first scheduled night showed `WhiteHouse_Finn` still up at 21:41 (Finn's phone joined it)
+and gone between 22:36 and 22:41: off at **22:30**, not 21:30. The DNS layer (`kids-hours.py` on
+bastion) had cut him off at 21:30 as designed, which is why it looked right from the outside.
+Cause: the site's time zone is `America/Chicago` but the site's **daylight-saving setting was
+disabled** (`GET /sites/{siteId}/dst-info` → `enable: false`), so the AP kept CST all summer and
+every WLAN schedule fired sixty minutes late. Fixed from bastion with the Operator app:
+`PUT /sites/{siteId}` carrying the site's existing `name/region/timeZone/scenario` plus
+`dst: {enable: true, mode: 2, offset: 3600000, start: {month 3, serial 2, day 7, 02:00},
+end: {month 11, serial 1, day 7, 02:00}}` (the US rule; `mode: 1` "auto" returned Success but
+left DST disabled). `dst-info` now reports `status: true`, period 2026-03-08 → 2026-11-01.
+Verify tonight: `WhiteHouse_Finn` gone at 21:30 sharp, back at 06:00. Any new Omada site
+needs this checked before its first schedule is trusted.

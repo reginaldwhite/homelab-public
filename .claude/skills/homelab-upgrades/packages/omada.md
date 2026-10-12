@@ -54,3 +54,13 @@ scheduler profiles are still attached to their SSIDs.
 Restore the previous tag and redeploy. If the controller refuses the data directory after a
 downgrade, stop it, remove the `wifi_omada_data` volume (by hand, not the agent), start the
 old tag empty and import the latest `~/backups/omada-*.tgz` file through the wizard.
+
+## Site clock (learned 2026-10-12)
+
+WLAN schedules run on the *site's* clock, and a site created with time zone `America/Chicago`
+still has daylight saving **disabled** by default, so every schedule fires an hour late from
+March to November. Check with `GET /openapi/v1/{omadacId}/sites/{siteId}/dst-info`
+(`enable`/`status` must be true in summer); set with `PUT /sites/{siteId}` and an explicit
+`dst` rule (`mode: 2`, offset 3600000, start 2nd Sunday of March 02:00, end 1st Sunday of
+November 02:00) — `mode: 1` auto is accepted but does nothing. After any controller upgrade or
+site re-creation, re-check before trusting the kids' SSID times.
