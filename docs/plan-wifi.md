@@ -336,12 +336,43 @@ What changes, phase by phase:
 - **Channel plan** — Omada picks per-AP 2.4 GHz channels itself with two of its own APs
   (1 and 6 or 1 and 11); the "lock to 6" setting was UniFi's and goes with it.
 
-Order when the AP arrives: mount it (inside the closet if the wall is drywall, on the
-office side of that wall if the closet is lined with metal or ducting), cable it to the
-closet switch, power it from the adapter. It appears in Omada as pending, adopts with the
-site's SSIDs, and the office laptops should land on it within minutes. Then the IoT WLAN,
-the HUUM move, and the UniFi retirement in that order — the AC Lite keeps the sauna working
-until the new AP has proven it.
+### Order when the AP arrives (revised 2026-10-12)
+
+What changed since this was first written: the ceiling AP's reboot loop was its 24 W
+injector (Finding 2026-10-11), 6 GHz is off as the stopgap, the SSID matrix and the kids'
+schedules are already live in Omada, the site clock is fixed (Finding 2026-10-12), and the
+controller is on 6.3, which has AP Groups. So:
+
+1. **Power first, both APs.** The TL-POE260S (2.5 G, 802.3at) replaces the AC Pro injector on
+   the ceiling AP; the closet AP runs from its DC adapter or a second POE260S on the 2.5 G
+   closet switch. The AC Pro injector goes in the drawer labelled *24 W af only*. Nothing else
+   starts until the ceiling AP has run a day without a `wifi-ap-rebooted` alert on proper power.
+2. **Mount and adopt.** Inside the closet if the wall is drywall, on the office side of that
+   wall if the closet is lined with metal or ducting; cable to the closet switch. It appears in
+   Omada as pending, adopts with the site's six SSIDs, and the office laptops should land on
+   it within minutes. Omada picks the two 2.4 GHz channels itself (1 and 6 or 1 and 11).
+3. **Turn 6 GHz back on** — the ceiling AP once step 1 holds, the closet AP from the start —
+   and check the laptops sit in the -50s on it. Then Robby forgets `WhiteHouse_Office` on the
+   laptops and phone, deletes that SSID on the AT&T gateway and turns its 5 GHz off: the
+   gateway broadcasts nothing from then on.
+4. **HUUM.** `WhiteHouse_IoT` already exists in Omada with the same name and password as the
+   AC Lite's, so the controller may simply follow the stronger cell; if it does not, power-cycle
+   it. Done when Omada shows it in the -50s on the closet AP and three nights pass with no
+   `huum-reconnects` or `huum-schedule-lost` alert. The AC Lite stays up until then.
+5. **Retire UniFi** (Phase 1 above): compose services and volumes, Caddy vhost, AdGuard
+   rewrites, `.env` entries, ufw rules, `packages/unifi.md`, the `unifi-*` backup line, the
+   UniFi half of `wifi-clients.py`, and `wifi-weak-signal` selecting on
+   `ssid="WhiteHouse_IoT"` instead of `controller="unifi"`. Volumes are removed by Robby, not
+   the agent. The AC Lite and its 24 W injector are a matched spare pair.
+6. **Move the devices** that are still on `WhiteHouse`: IoT to `WhiteHouse_IoT` /
+   `WhiteHouse_IoT_Lan`, the kids' devices to their SSIDs (per `docs/lan-clients.md`), then
+   rotate the `WhiteHouse` password. Verify a scheduled night end-to-end: SSID gone at 21:30
+   sharp (the clock fix), back at 06:00.
+7. **The Amazon-switch test** (Finding 2026-10-11): office light on, reboot the ceiling AP
+   from Omada, watch the light. Only after the APs are on proper power, so a brownout cannot
+   confuse it.
+8. **Reserve, not planned:** 6.3's AP Groups can bind an SSID to one AP; use it only if a
+   specific device is seen flapping between the two in the controller's client history.
 
 ## Which device goes where
 
