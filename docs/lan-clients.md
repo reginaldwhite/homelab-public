@@ -54,7 +54,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `0e:cb:3b:51:53:d2` on `WhiteHouse`, `9a:e1:bb:5b:12:e7` on `WhiteHouse_Office` | .121 / .139 | .132 ✅ (the `WhiteHouse` address) | **MacBook, work** (`robby-work-macbook`; one private address per SSID, both under the one name) | Robby — the office-SSID address goes away with the gateway WiFi |
 | `68:ca:c4:c7:3a:ca` | .123 | .133 | Sam's iPhone | Sam |
 | `34:f6:8d:3d:86:ab` on `WhiteHouse`, `86:a0:f8:02:8a:16` on `WhiteHouse_Office` | .119 / .138 | .134 ✅ | **Robby's iPad** (`robby-ipad`; one private address per SSID, both under the one name) | Robby |
-| `c8:60:00:2b:90:6f` | .150 ✅ | — | **Playroom PC** (`finn-pc`), wired only | Finn — in his night-time DNS rule under this name |
+| `c8:60:00:2b:90:6f` | .150 ✅ | — | **Playroom PC** (`finn-pc`), wired only | Finn — in his night-time DNS rule under this name, and in `ALWAYS_OFF` since 2026-10-12, so it is blocked at all hours until that entry goes |
 | `bc:d2:2c:87:d4:b5` (Intel radio) and `fc:01:7c:7e:75:3a` (Foxconn) | .151 ✅ / .157 ✅ | — | **Finn's Chromebook** (`finn-chromebook`) — Robby identified the Foxconn address on 2026-10-10 (first seen 10-09); the Intel one was the original identification from 09-27. Both are under the one AdGuard name so the night-time rule covers whichever is the real one; when the Chromebook is next on, the active address tells us which to keep | Finn |
 | `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku | Finn |
 | `1c:0d:7d:17:08:fa` | .153 ✅ | — | **the office iPad** (`finn-ipad`) — the iPad Finn uses; kept under his name because it is in his night-time DNS rule | Finn |

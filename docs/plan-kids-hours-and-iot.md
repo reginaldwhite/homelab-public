@@ -135,6 +135,24 @@ with every rule outside its marker block preserved. The query log then shows eac
 attempt as *Blocked by custom filtering rule* against the child's device name. Logs to
 `~/logs/kids-hours.log`; the health check's `power_jobs`-style reader can pick up a failed run.
 
+**3a. One device off indefinitely [agent].** `ALWAYS_OFF` in `kids-hours.py` names single
+devices that stay blocked at all hours for as long as they are in the list — where an "off
+until further notice" ask goes, since the overrides all expire at the next morning. Its rules
+sit at the top of the same marker block, one comment carrying the reason and one rule per
+device, so the query log and the file both say why:
+
+```
+! always-off: finn-pc -- playroom PC, off at Robby's request 2026-10-12
+||*^$client='finn-pc',important
+```
+
+It cuts across the windows: the device is blocked inside its child's window too, and `--open`
+for that child still leaves it dark. Restoring it is deleting the entry and deploying — there
+is deliberately no runtime verb, so it cannot lapse quietly or be lifted from the gateway
+agent's fixed verb list. `homelab_kids_device_always_off{device}` tracks it, and `--status`
+prints a line per entry. **Currently in the list:** `finn-pc` (the playroom PC), since
+2026-10-12.
+
 **4. Gateway profile [you].** In the AT&T Smart Home Manager app: *Profiles & devices* → new
 profile *Kids* → add the same devices → *Time limits* → the same window. This is layer 1 and
 the one that actually stops a determined child. Keep *Pause internet* on that profile as the

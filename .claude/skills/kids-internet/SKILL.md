@@ -45,6 +45,14 @@ bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py clear ava"
 bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py clear"       # both
 ```
 
+## One device off indefinitely
+
+Every verb above expires at the child's next morning, so none of them can hold a device off
+"until further notice". That is a tracked change instead: add the device to `ALWAYS_OFF` in
+`bastion/scripts/kids-hours.py`, with a reason and the date, then commit and deploy bastion.
+Removing the entry and deploying again restores that device's normal window. Currently in the
+list: `finn-pc`, the playroom PC, since 2026-10-12.
+
 ## Notes
 
 - `open` and `close` last until that child's next morning start (Ava 05:30, Finn 06:00)

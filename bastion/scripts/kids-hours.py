@@ -12,9 +12,12 @@
 
 This is layer 2 of docs/plan-kids-hours-and-iot.md. The windows and the device lists live here
 and nowhere else. Outside a child's window one rule for that child sits between the marker
-lines below; every rule outside the markers is preserved untouched:
+lines below, preceded by one rule per device in ALWAYS_OFF; every rule outside the markers is
+preserved untouched:
 
     ! kids-hours: begin (managed by bastion/scripts/kids-hours.py -- do not edit by hand)
+    ! always-off: finn-pc -- playroom PC, off at Robby's request 2026-10-12
+    ||*^$client='finn-pc',important
     ||*^$client='finn-pc'|'finn-chromebook'|...,important
     ! kids-hours: end
 
@@ -25,15 +28,16 @@ rule" against the device name, and in Loki with filtered="true".
 
 Overrides are stored with an expiry in OVERRIDES (one JSON object, child -> {"state", "until"})
 and honoured by every cron run until they lapse, so a night off survives the 15-minute
-self-heal and ends by itself at the next morning start. Publishes
-homelab_kids_window_open{child}, homelab_kids_rule_present{child} and
-homelab_kids_override{child} through the textfile collector.
+self-heal and ends by itself at the next morning start. An ALWAYS_OFF entry has no expiry and
+is not an override: it blocks that one device at all hours, through its window, and only
+deleting the entry and deploying brings it back. Publishes homelab_kids_window_open{child},
+homelab_kids_rule_present{child}, homelab_kids_override{child} and
+homelab_kids_device_always_off{device} through the textfile collector.
 """
 
 import base64
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.request
@@ -55,6 +59,16 @@ CHILDREN = {
         "weekend": ("06:00", "22:15"),
         "devices": ["finn-pc", "finn-chromebook", "finn-roku", "finn-ipad", "finn-phone"],
     },
+}
+
+# Single devices held off the internet at all hours, by AdGuard persistent-client name, for as
+# long as the entry is here — this is where an "off until further notice" ask lands. It cuts
+# across the windows above: the device stays blocked inside its child's window too, and no
+# override lifts it, so --open for that child still leaves this one device dark. The reason is
+# part of the rule written into AdGuard, so the query log says why. Removing the entry and
+# deploying restores that device's normal window on the next run.
+ALWAYS_OFF = {
+    "finn-pc": "playroom PC, off at Robby's request 2026-10-12",
 }
 TZ = ZoneInfo("America/Chicago")
 
@@ -152,10 +166,13 @@ def block_rule(child):
     return "||*^$client=" + "|".join(f"'{d}'" for d in CHILDREN[child]["devices"]) + ",important"
 
 
-def rule_child(line):
-    """Which child a managed block line belongs to, by its first device name; None if not ours."""
-    m = re.match(r"\|\|\*\^\$client='([a-z]+)-", line)
-    return m.group(1) if m else None
+def always_off_rules():
+    """A comment carrying the reason, then a block rule, per ALWAYS_OFF device. Sorted, so a
+    run's output is stable and the no-change check below holds."""
+    out = []
+    for device, why in sorted(ALWAYS_OFF.items()):
+        out.extend([f"! always-off: {device} -- {why}", f"||*^$client='{device}',important"])
+    return out
 
 
 def split_rules(rules):
@@ -174,6 +191,8 @@ def write_metrics(state, overrides):
         lines.append(f'homelab_kids_window_open{{child="{child}"}} {int(is_open)}')
         lines.append(f'homelab_kids_rule_present{{child="{child}"}} {int(present)}')
         lines.append(f'homelab_kids_override{{child="{child}"}} {int(child in overrides)}')
+    for device in sorted(ALWAYS_OFF):
+        lines.append(f'homelab_kids_device_always_off{{device="{device}"}} 1')
     if DRY:
         print("--- kids-hours.prom"); print("\n".join(lines)); return
     if not os.path.isdir(TEXTFILE_DIR):
@@ -196,6 +215,8 @@ def main():
         for child, c in CHILDREN.items():
             print(f"{child.capitalize()}: Sun–Thu nights {c['school'][0]}–{c['school'][1]}, "
                   f"Fri–Sat nights {c['weekend'][0]}–{c['weekend'][1]}; devices: {', '.join(c['devices'])}")
+        for device, why in sorted(ALWAYS_OFF.items()):
+            print(f"Always off, no window: {device} ({why})")
         return 0
 
     env = load_env()
@@ -254,21 +275,26 @@ def main():
         return 1
 
     outside, inside = split_rules(current)
-    present = {c: False for c in CHILDREN}
-    for line in inside or []:
-        c = rule_child(line)
-        if c in present:
-            present[c] = True
-    desired_inside = [block_rule(c) for c in CHILDREN if want_closed[c]]
+    # Exact match, so an always-off rule for one of a child's devices is never mistaken for
+    # that child's whole-window block — and a changed device list reads as absent and is
+    # rewritten.
+    present = {c: block_rule(c) in (inside or []) for c in CHILDREN}
+    desired_inside = always_off_rules() + [block_rule(c) for c in CHILDREN if want_closed[c]]
     state = {c: (not want_closed[c], present[c]) for c in CHILDREN}
 
     if "--status" in sys.argv:
         for c in CHILDREN:
             log(f"{now:%a %H:%M} {c}: {'CLOSED' if want_closed[c] else 'OPEN'} ({why[c]}); "
                 f"rule {'present' if present[c] else 'absent'}")
+        for device, reason in sorted(ALWAYS_OFF.items()):
+            in_adguard = f"||*^$client='{device}',important" in (inside or [])
+            log(f"{device}: ALWAYS OFF ({reason}); "
+                f"rule {'present' if in_adguard else 'absent'}")
         log(f"{len(outside)} other rule(s) untouched")
         write_metrics(state, overrides)
-        return 0 if all(present[c] == want_closed[c] for c in CHILDREN) else 2
+        in_step = (all(present[c] == want_closed[c] for c in CHILDREN)
+                   and all(r in (inside or []) for r in always_off_rules()))
+        return 0 if in_step else 2
 
     if (inside or []) == desired_inside:
         write_metrics(state, overrides)
@@ -277,6 +303,9 @@ def main():
     new_rules = outside + ([BEGIN] + desired_inside + [END] if desired_inside else [])
     changes = ", ".join(f"{c} {'closing' if want_closed[c] else 'opening'} ({why[c]})"
                         for c in CHILDREN if present[c] != want_closed[c])
+    # An ALWAYS_OFF entry added or removed moves the rules without moving any window, so say
+    # that rather than logging an empty change.
+    changes = changes or f"always-off set now [{', '.join(sorted(ALWAYS_OFF)) or 'empty'}]"
     if DRY:
         log(f"would write rules ({changes}):")
         print("\n".join(new_rules))
