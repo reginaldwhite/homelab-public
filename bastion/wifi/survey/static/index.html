@@ -24,8 +24,9 @@
   .big small { font-size:22px; font-weight:500; color:var(--mut); }
   .sub { color:var(--mut); margin-top:6px; }
   .good { color:var(--good); } .ok { color:var(--ok); } .bad { color:var(--bad); }
-  input { width:100%; font-size:17px; padding:12px; border:1px solid var(--line); border-radius:10px;
-          background:var(--bg); color:var(--fg); margin-bottom:8px; }
+  input, select { width:100%; font-size:17px; padding:12px; border:1px solid var(--line); border-radius:10px;
+          background:var(--bg); color:var(--fg); margin-bottom:8px; -webkit-appearance:none; appearance:none; }
+  [hidden] { display:none !important; }
   button.mark { width:100%; padding:16px; font-size:19px; font-weight:600; border:0; border-radius:12px;
                 background:var(--acc); color:#fff; }
   button.mark:disabled { opacity:.5; }
@@ -53,8 +54,8 @@
       <div class="sub" id="trend"></div>
     </div>
     <div class="card">
-      <input id="spot" list="spots" placeholder="Spot (e.g. kitchen island)" autocapitalize="words">
-      <datalist id="spots"></datalist>
+      <select id="spotsel"><option value="">Spot…</option><option value="__new">+ New spot…</option></select>
+      <input id="spot" placeholder="New spot name (e.g. kitchen island)" autocapitalize="words" hidden>
       <input id="note" placeholder="Note (optional)">
       <button class="mark" id="mark">Mark this spot</button>
       <div class="msg" id="msg">Each mark runs a 25 MB download test against bastion, then records AP, band, signal and speed.</div>
@@ -149,7 +150,13 @@ async function pollClients() {
 async function loadResults() {
   try {
     const j = await getJSON('/api/survey');
-    $('#spots').innerHTML = j.spots.map(s => `<option value="${esc(s.spot)}">`).join('');
+    // Known spots as a dropdown (alphabetical) so repeat walks reuse exact names; "+ New spot…"
+    // reveals the text field. Keep the current choice across refreshes.
+    const sel = $('#spotsel'), cur = sel.value;
+    const known = j.spots.map(s => s.spot).sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = '<option value="">Spot…</option>' + known.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('') +
+                    '<option value="__new">+ New spot…</option>';
+    if (cur && (known.includes(cur) || cur === '__new')) sel.value = cur;
     if (tab !== 'results') return;
     $('#sp-body').innerHTML = j.spots.map(s =>
       `<tr><td>${esc(s.spot)}</td><td>${esc(s.last_ap)} · ${esc(s.last_band)}</td>` +
@@ -173,9 +180,16 @@ async function downloadTest(mb) {
   return +(buf.byteLength * 8 / secs / 1e6).toFixed(1);
 }
 
+$('#spotsel').onchange = () => {
+  const isNew = $('#spotsel').value === '__new';
+  $('#spot').hidden = !isNew;
+  if (isNew) $('#spot').focus();
+};
+const chosenSpot = () => $('#spotsel').value === '__new' ? $('#spot').value.trim() : $('#spotsel').value;
+
 $('#mark').onclick = async () => {
-  const spot = $('#spot').value.trim();
-  if (!spot) { $('#msg').innerHTML = '<span class="err">Name the spot first.</span>'; return; }
+  const spot = chosenSpot();
+  if (!spot) { $('#msg').innerHTML = '<span class="err">Pick a spot, or name a new one.</span>'; return; }
   const btn = $('#mark'); btn.disabled = true;
   try {
     if (me && !settled()) { $('#msg').innerHTML = '<span class="ok">Reading has not settled — stand still a few more seconds.</span>'; btn.disabled = false; return; }
@@ -189,7 +203,8 @@ $('#mark').onclick = async () => {
     $('#msg').innerHTML = c ? `Saved: <b>${esc(spot)}</b> · ${esc(c.ap)} · ${esc(c.band)} GHz · <b class="${cls(c.rssi)}">${c.rssi} dBm</b> (median of ${taken.length}) · ${mbps} Mbps`
                             : `Saved ${esc(spot)} at ${mbps} Mbps, but this device was not in Omada's list (no AP/signal recorded).`;
     $('#note').value = '';
-    loadResults();
+    await loadResults();
+    if ($('#spotsel').value === '__new') { $('#spotsel').value = spot; $('#spot').value = ''; $('#spot').hidden = true; }
   } catch (e) { $('#msg').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
   btn.disabled = false;
 };

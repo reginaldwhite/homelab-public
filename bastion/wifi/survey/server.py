@@ -254,14 +254,14 @@ def insert_mark(spot, note, mbps, client, ip):
     con = db()
     try:
         row = con.run("""
-            insert into wifi_survey (spot, note, device_mac, device_name, ip, ap, ssid, band, rssi, download_mbps)
-            values (:spot, :note, :mac, :name, :ip, :ap, :ssid, :band, :rssi, :mbps)
+            insert into wifi_survey (spot, note, device_mac, device_name, ip, ap, ssid, band, rssi, download_mbps, controller)
+            values (:spot, :note, :mac, :name, :ip, :ap, :ssid, :band, :rssi, :mbps, :controller)
             returning id, ts""",
                       spot=spot, note=note or None, mac=client.get("mac") if client else None,
                       name=client.get("name") if client else None, ip=ip,
                       ap=client.get("ap") if client else None, ssid=client.get("ssid") if client else None,
                       band=client.get("band") if client else None, rssi=client.get("rssi") if client else None,
-                      mbps=mbps)
+                      mbps=mbps, controller=client.get("controller") if client else None)
     finally:
         con.close()
     return {"id": row[0][0], "ts": row[0][1]}

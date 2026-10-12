@@ -1,62 +1,249 @@
 {
   "uid": "homelab-wifi-survey",
   "title": "WiFi survey",
-  "tags": ["homelab", "wifi"],
+  "tags": [
+    "homelab",
+    "wifi"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "1m",
-  "time": { "from": "now-30d", "to": "now" },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
   "panels": [
     {
-      "id": 1, "type": "table", "title": "Coverage by spot (worst average signal first)",
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "events" },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
-        "rawSql": "select spot, count(*) as marks, max(ts) as \"last mark\", round(avg(rssi)) as \"avg dBm\", min(rssi) as \"min dBm\", round(avg(download_mbps)) as \"avg Mbps\", (array_agg(ap order by ts desc))[1] as \"last AP\", (array_agg(band order by ts desc))[1] as \"last band\" from wifi_survey where $__timeFilter(ts) group by spot order by \"avg dBm\" asc nulls last"
-      } ],
+      "id": 1,
+      "type": "table",
+      "title": "Coverage by spot (worst average signal first)",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "events"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "select spot, count(*) as marks, max(ts) as \"last mark\", round(avg(rssi)) as \"avg dBm\", min(rssi) as \"min dBm\", round(avg(download_mbps)) as \"avg Mbps\", (array_agg(ap order by ts desc))[1] as \"last AP\", (array_agg(band order by ts desc))[1] as \"last band\", (array_agg(controller order by ts desc))[1] as \"controller\" from wifi_survey where $__timeFilter(ts) group by spot order by \"avg dBm\" asc nulls last"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto" } },
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "avg dBm" },
-            "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } },
-                            { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": -70 }, { "color": "green", "value": -62 } ] } } ] },
-          { "matcher": { "id": "byName", "options": "min dBm" },
-            "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } },
-                            { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": -70 }, { "color": "green", "value": -62 } ] } } ] },
-          { "matcher": { "id": "byName", "options": "avg Mbps" },
-            "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } },
-                            { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 100 }, { "color": "green", "value": 300 } ] } } ] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg dBm"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": -70
+                    },
+                    {
+                      "color": "green",
+                      "value": -62
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "min dBm"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": -70
+                    },
+                    {
+                      "color": "green",
+                      "value": -62
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg Mbps"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 100
+                    },
+                    {
+                      "color": "green",
+                      "value": 300
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         ]
       },
-      "options": { "showHeader": true, "sortBy": [] }
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      }
     },
     {
-      "id": 2, "type": "timeseries", "title": "Signal per spot over time (dBm, as the AP hears the device)",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 12 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "events" },
-      "targets": [ {
-        "refId": "A", "format": "time_series", "rawQuery": true, "editorMode": "code",
-        "rawSql": "select ts as time, spot as metric, rssi as value from wifi_survey where $__timeFilter(ts) and rssi is not null order by ts"
-      } ],
+      "id": 2,
+      "type": "timeseries",
+      "title": "Signal per spot over time (dBm, as the AP hears the device)",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "events"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "select ts as time, spot as metric, rssi as value from wifi_survey where $__timeFilter(ts) and rssi is not null order by ts"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "unit": "dBm", "custom": { "drawStyle": "points", "pointSize": 7, "showPoints": "always" },
-                      "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": -70 }, { "color": "green", "value": -62 } ] } },
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 7,
+            "showPoints": "always"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": -70
+              },
+              {
+                "color": "green",
+                "value": -62
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
     },
     {
-      "id": 3, "type": "table", "title": "All marks",
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 22 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "events" },
-      "targets": [ {
-        "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
-        "rawSql": "select ts, spot, note, device_name as device, ap, ssid, band, rssi as \"dBm\", download_mbps as \"Mbps\" from wifi_survey where $__timeFilter(ts) order by ts desc"
-      } ],
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "options": { "showHeader": true }
+      "id": 3,
+      "type": "table",
+      "title": "All marks",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "events"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "select ts, spot, note, device_name as device, controller, ap, ssid, band, rssi as \"dBm\", download_mbps as \"Mbps\" from wifi_survey where $__timeFilter(ts) order by ts desc"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
     }
   ]
 }
