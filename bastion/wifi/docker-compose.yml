@@ -24,11 +24,13 @@ name: wifi
 
 services:
   omada:
-    # Pinned to the current stable release at build time (2026-10-09). Omada v6 bundles
-    # MongoDB 8, which needs AVX; bastion's i3-7100T has it. `latest` on this image is
-    # deliberately still v5 (the maintainer refuses to auto-migrate), so never use it. Bump
-    # from .claude/skills/homelab-upgrades/packages/omada.md.
-    image: mbentley/omada-controller:6.2.14.11
+    # Pinned (2026-10-09 at 6.2.14.11; 6.3.0.45 on 2026-10-12). Omada v6 bundles MongoDB 8,
+    # which needs AVX; bastion's i3-7100T has it. `latest` on this image is deliberately
+    # still v5 (the maintainer refuses to auto-migrate), so never use it. Bump from
+    # .claude/skills/homelab-upgrades/packages/omada.md. 6.3 also binds UPGRADE_ES_HTTPS_PORT
+    # (8044, ES-switch upgrades; free on this host) and moved its login page to
+    # /independent/index.html#login -- Caddy proxies the whole vhost, so nothing to change.
+    image: mbentley/omada-controller:6.3.0.45
     container_name: omada
     restart: unless-stopped
     network_mode: host
