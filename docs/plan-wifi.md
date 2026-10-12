@@ -506,3 +506,38 @@ end: {month 11, serial 1, day 7, 02:00}}` (the US rule; `mode: 1` "auto" returne
 left DST disabled). `dst-info` now reports `status: true`, period 2026-03-08 → 2026-11-01.
 Verify tonight: `WhiteHouse_Finn` gone at 21:30 sharp, back at 06:00. Any new Omada site
 needs this checked before its first schedule is trusted.
+
+## Coverage survey — wifi.robbywhite.net (built 2026-10-12)
+
+Robby is weighing keeping the AC Lite and/or AC Pro as extra radios for the far parts of the
+house once both EAP772s are up; that decision wants a map, not a feeling. iOS lets neither a
+web page nor an ordinary app read the phone's own WiFi signal, so the page shows the
+**controller's** view, which is the number that matters anyway: Omada knows which AP the phone
+is on, on which band, and how loudly the AP hears it — the same reading roaming and the
+`wifi-weak-signal` rule use.
+
+- `bastion/wifi/survey/` — `server.py` (stdlib + pg8000, runs as nobody in its own container
+  in the `wifi` compose project, on the observability and vault networks like Grafana) and the
+  page. Caddy vhost `wifi.robbywhite.net`, LAN-only; AdGuard rewrite to 192.168.0.10 (added
+  through the AdGuard API, as the others were). Reads Omada with the **Viewer** app, never
+  the Operator's.
+- The device is identified by the address Caddy forwards and matched to Omada's client list,
+  so private Wi-Fi addresses on phones do not matter. A device on the gateway's temporary SSID
+  shows "not in Omada's list" — correct, it is not on an Omada AP.
+- **Survey** tab: AP · band · RSSI live (3 s), a spot name, **Mark**: a 25 MB download from
+  bastion timed on the device, then one row in `wifi_survey` (003-wifi-survey.sql) with AP,
+  band, RSSI, Mbps, spot, note. **Clients** tab: every wireless client, worst signal first,
+  5 s refresh — the live list the Network dashboard cannot be on a phone. **Results** tab:
+  per spot, worst average first; recent marks with delete.
+- Grafana **WiFi survey** dashboard (`wifi-survey.json`): the same per-spot table with colour
+  thresholds (-62/-70 dBm, 100/300 Mbps), signal per spot over time, all marks.
+- Reading it: a spot under **-70 dBm** on the best AP it can reach is a coverage gap; which
+  *band* is weak says what fills it (a 2.4 GHz-only gap is an AC Lite on `WhiteHouse_IoT`; a
+  5 GHz gap needs more). Keeping any UniFi AP means keeping the UniFi controller, so step 5 of
+  the arrival order (retire UniFi) waits for the walk-through with both EAP772s up.
+- On an iPhone, Safari → Share → *Add to Home Screen* makes it a full-screen app.
+
+Procedure for the baseline: walk every room with the phone on `WhiteHouse`, mark once per
+spot standing where you would actually use it, same spot names each time (the field remembers
+them). Do it once now on the ceiling AP alone, again when the closet AP is adopted, and a third
+time with 6 GHz back on: three columns of the same spots is the whole decision.

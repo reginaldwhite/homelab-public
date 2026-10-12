@@ -44,7 +44,11 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > autobackups join `~/backups/` nightly. Vaultwarden's loopback check port moved from 8080 to
 > 8081 to make room for UniFi's inform port. `scripts/wifi-clients.py` reads both controllers'
 > client lists every five minutes into `lan_clients` (AP, SSID, band, signal), so the Network
-> dashboard shows the wireless side of every device. Plan and phases: [docs/plan-wifi.md](docs/plan-wifi.md);
+> dashboard shows the wireless side of every device. `https://wifi.robbywhite.net` (LAN-only,
+> [bastion/wifi/survey/](bastion/wifi/survey/)) is the coverage survey: open it on a phone and it
+> shows which AP the phone is on and how loudly the AP hears it, runs a download test, and
+> records a mark per spot (`wifi_survey`, the *WiFi survey* dashboard); its Clients tab is the
+> live client list, worst signal first. Plan and phases: [docs/plan-wifi.md](docs/plan-wifi.md);
 > the device register (what each MAC is, its fixed address, its SSID and AP): [docs/lan-clients.md](docs/lan-clients.md).
 >
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
