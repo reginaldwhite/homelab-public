@@ -152,3 +152,8 @@ a fourth camera (back yard) which the switch and disk already have room for.
 - Frigate on forge, or GPU detection on forge: the sleeping-host problem, and the iGPU or a Coral is
   enough for ten cameras.
 - Port forwarding to anything here.
+- **Long-term continuous footage on vault** (considered 2026-10-12: a day on bastion, then wake
+  vault to archive). Continuous video is only ever looked at within days; its long-term value is
+  the event clips, which are small and already go to vault on Sunday. Archiving the stream would
+  mean waking the X58 board nightly for ~130 GB (~30 min at 150 W) or a 900 GB Sunday transfer,
+  for ~50 TB a year nobody scrubs. More continuous days = a fourth drive in bastion's array.
