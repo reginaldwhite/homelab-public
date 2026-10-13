@@ -36,8 +36,8 @@ unless Robby later adds a VPN to reach it from outside.
 | Recorder | **Frigate** (Docker, on bastion) | Open source; local object detection; continuous + event recording; its own UI; MQTT out; the standard pairing for the cameras below. Pinned tag, `packages/frigate.md` in the upgrades skill. |
 | Detector | **OpenVINO on bastion's HD 630 iGPU** first; a **Coral USB Accelerator** only if measured inference is poor | Frigate's OpenVINO detector runs on 6th-gen Intel and newer; three cameras at 5 fps detect is ~15 inferences/s against ~20–30 ms each on this iGPU. Decide from the inference time on Frigate's System page after phase 1 (over ~100 ms, or decode and detect fighting for the iGPU, means buy the Coral). If buying: list price is $60 at Coral's distributors (Mouser, DigiKey, Seeed); Amazon resellers at $100+ are a shortage markup, not the price. Detection on the 2-core CPU itself is the one option that does not fit. |
 | Decode | bastion's Quick Sync (`/dev/dri`) | Already there; Frigate's `preset-vaapi` input args. Shared with OpenVINO, which is the thing to watch in phase 1. |
-| Storage | **4 TB USB 3 hard disk** on bastion, ext4, mounted at `/srv/frigate` | Sized below. A disk, not the root filesystem (88 GB free is not an NVR) and not vault (asleep six nights a week). |
-| Cameras | **Reolink RLC-810A** (4K, PoE) for carport and front door; **Reolink RLC-510A** (5 MP, PoE) for the living room | Fully local (RTSP/ONVIF; the cloud is optional and the app works LAN-only), on-camera person/vehicle detection, and the camera Frigate's docs carry a dedicated preset for (`preset-http-reolink`: Reolink's RTSP is quirky, its HTTP stream through go2rtc is the reliable path). The PoE doorbell from the same family if a doorbell form factor is wanted at the front door. *Budget fallback:* Amcrest IP5M-T1179EW (Dahua OEM; fine hardware, weak app and support, which is where its rating goes). *Step up:* EmpireTech (Dahua's proper US channel, English firmware) for low-light, ~$150–200 each. *Avoid:* Hikvision/Dahua grey imports (FCC covered list, firmware provenance) and Ubiquiti (needs Protect). |
+| Storage | **Three 1 TB SATA drives bastion already has, mdadm RAID5 → 2 TB usable**, ext4, mounted at `/srv/frigate` by UUID | Sized below. Parity because the drives are old and unknown: one can fail and recording continues; `smartctl -t long` on each before trusting it, and node exporter's `smartmon` textfile script with a rule on reallocated/pending sectors afterwards. Not the root filesystem (88 GB free is not an NVR) and not vault (asleep six nights a week). A USB disk was the first draft; SATA bays and spare drives make it unnecessary. |
+| Cameras | **Reolink RLC-810A** (4K, PoE) for carport and front door; **Reolink RLC-510A** (5 MP turret, PoE) for the living room ceiling — or the **Reolink FE-P** (6 MP PoE fisheye, a flush smoke-detector-sized puck) if unobtrusive matters more than detail there: one unit covers the whole room at 360°, but Frigate records the raw circular image (no dewarp), so edges distort; fine for events-only | Fully local (RTSP/ONVIF; the cloud is optional and the app works LAN-only), on-camera person/vehicle detection, and the camera Frigate's docs carry a dedicated preset for (`preset-http-reolink`: Reolink's RTSP is quirky, its HTTP stream through go2rtc is the reliable path). The PoE doorbell from the same family if a doorbell form factor is wanted at the front door. *Budget fallback:* Amcrest IP5M-T1179EW (Dahua OEM; fine hardware, weak app and support, which is where its rating goes). *Step up:* EmpireTech (Dahua's proper US channel, English firmware) for low-light, ~$150–200 each. *Avoid:* Hikvision/Dahua grey imports (FCC covered list, firmware provenance) and Ubiquiti (needs Protect). |
 | Power | **TL-SG1005P** gigabit PoE switch (4 PoE ports, 65 W) for the cameras, uplinked to the 2.5 G closet switch | ~$40; a camera draws 5–8 W. The APs keep their POE260S injectors (2.5 G). *One-box alternative:* the Omada **SG2210XMP-M2** (8 × 2.5 G PoE+, 160 W, managed by the controller) powers APs and cameras together and can switch a camera's PoE port off on a schedule — see *Living room* — at about $250. |
 | Viewing | `cameras.robbywhite.net` through Caddy, LAN-only, Frigate's own login | Same `remote_ip` handle and `abort` as Grafana. The Frigate app on the phone points at that name. |
 | Events | **mosquitto** (MQTT) on bastion + a small subscriber writing `events` rows | Frigate publishes every detection; the subscriber is the same shape as `iot-poll.py`'s `record_event`. Home Assistant, if it ever comes, subscribes to the same broker. |
@@ -46,10 +46,10 @@ unless Robby later adds a VPN to reach it from outside.
 
 Three cameras, main stream 2560×1920 at ~4 Mbps, sub stream 640×480 for detection:
 
-- Continuous recording: 4 Mbps ≈ 1.8 GB/h per camera ≈ **130 GB/day for three**.
-- Frigate defaults it is sensible to keep: continuous retained **7 days** (0.9 TB), event clips
-  retained **30 days** (a few hundred GB at most), snapshots 30 days. A 4 TB disk carries that with
-  room to double the continuous window later.
+- Continuous recording: 4 Mbps ≈ 1.8 GB/h per camera ≈ **130 GB/day for three** (less: the living room records events only).
+- Frigate defaults it is sensible to keep: continuous retained **7–10 days** (0.6–0.9 TB for the two outdoor cameras), event clips
+  retained **30 days** (a few hundred GB at most), snapshots 30 days. The 2 TB array carries that;
+  adding a fourth drive later makes it 3 TB.
 - Network: three main streams plus three sub streams is ~15 Mbps on the camera switch's uplink;
   nothing else notices.
 - bastion: Frigate ~1 GB RAM with three cameras; decode and detection on the iGPU (or a Coral).
@@ -91,14 +91,15 @@ The one that needs rules rather than hardware:
 
 ### Phase 0 — parts [you]
 
-The 4 TB disk, three cameras, the camera PoE switch (the Coral only if phase 1 says so), two Cat6 runs to the closet
+Three cameras, the camera PoE switch, SATA cables for the three drives (the Coral only if phase 1 says so), two Cat6 runs to the closet
 (carport, front door) and one to the living room. The carport and front-door runs are the
 work; the living room can be a short run to the nearest jack.
 
 ### Phase 1 — one camera, end to end [you + agent], one evening
 
-1. **[you]** The disk on bastion, formatted ext4 and mounted at `/srv/frigate`
-   with an `fstab` entry by UUID. **[agent]** `bastion/cameras/`: `docker-compose.yml` (Frigate,
+1. **[you]** The three drives in bastion; `smartctl -t long` on each; mdadm RAID5, ext4, mounted at
+   `/srv/frigate` with an `fstab` entry by UUID (agent writes the commands, Robby runs them:
+   partitioning and array creation are destructive). **[agent]** `bastion/cameras/`: `docker-compose.yml` (Frigate,
    `/dev/dri` passed through (OpenVINO detector), `/srv/frigate` for media, `shm_size` per the docs,
    on `vaultwarden_default` for Caddy), `config.yml` with one camera, mosquitto; Caddy vhost;
    AdGuard rewrite; `apply.sh` grows a fourth project; `packages/frigate.md`.
@@ -120,7 +121,8 @@ public-road edge masked so passing cars are not events).
 - MQTT subscriber → `events` rows (`kind=camera`, name=camera, detail: label, score, zone).
 - Grafana *Cameras* dashboard: detections per camera per day, recording segments present per
   hour, disk free on `/srv/frigate`, detector inference time.
-- Alerts: a camera with no recording segments for 15 minutes; the disk under 10% free;
+- Alerts: a camera with no recording segments for 15 minutes; the array under 10% free or
+  degraded (`node_md_disks{state="failed"}`); a drive with reallocated or pending sectors;
   Frigate down (its `/api/version` as a blackbox-http probe).
 - Sunday: last week's event clips to vault; nightly `config.yml` + `frigate.db` to `~/backups`.
 
@@ -135,8 +137,8 @@ a fourth camera (back yard) which the switch and disk already have room for.
   now the NVR). Accepted for the same reason as before — the alternative is a fourth always-on
   machine — but the disk is the thing to watch: Frigate must never fill the root filesystem,
   hence its own disk and the alert on it.
-- **A USB disk is a USB disk.** Fine for recordings that are inherently disposable; the config
-  and database are backed up elsewhere. If it fails, Frigate stops recording and the alert fires.
+- **Old drives.** RAID5 tolerates one failing; the SMART rule says which, and a replacement 1 TB
+  rebuilds in an hour. The config and database are backed up elsewhere; recordings are disposable.
 - **Camera firmware wants the internet.** Some models retry cloud registration forever; with no
   gateway that is harmless noise on the LAN and nothing more.
 - **The indoor camera.** The technical controls above are easy; the rule that matters is that
