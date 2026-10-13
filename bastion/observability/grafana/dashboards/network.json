@@ -523,6 +523,7 @@
    "id": 9,
    "type": "table",
    "title": "Devices: AdGuard's leases and names, plus what the WiFi controllers see",
+   "description": "Sorted by \"on wifi\": when a controller last saw the device associated. The wireless columns are blank unless that was within 15 minutes (three poll cycles) -- signal_dbm is a last value that is never cleared, so a device that left would otherwise keep sorting by the signal it had when it went. \"in adguard\" is only the last AdGuard poll that still listed the device, not a last-seen.",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "events"
@@ -542,13 +543,19 @@
      },
      "format": "table",
      "rawQuery": true,
-     "rawSql": "select coalesce(name, hostname, '') as device, ip, mac, source, array_to_string(tags, ',') as tags, wifi_controller as controller, ap, ssid, band, signal_dbm as \"signal (dBm)\", wifi_seen as \"on wifi\", last_seen from lan_clients order by last_seen desc, ip",
+     "rawSql": "select coalesce(name, hostname, '') as device, ip, mac, source, array_to_string(tags, ',') as tags, case when live then wifi_controller end as controller, case when live then ap end as ap, case when live then ssid end as ssid, case when live then band end as band, case when live then signal_dbm end as \"signal (dBm)\", wifi_seen as \"on wifi\", last_seen as \"in adguard\" from (select *, wifi_seen > now() - interval '15 minutes' as live from lan_clients) c order by wifi_seen desc nulls last, ip",
      "editorMode": "code"
     }
    ],
    "options": {
     "showHeader": true,
-    "cellHeight": "sm"
+    "cellHeight": "sm",
+    "sortBy": [
+     {
+      "displayName": "on wifi",
+      "desc": true
+     }
+    ]
    },
    "fieldConfig": {
     "defaults": {},

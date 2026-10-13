@@ -214,6 +214,24 @@ controller whose credential is missing, so nothing fires until they exist):
   -70/-62) and when it was last seen on WiFi; a signal-history panel below it.
 - Rules in `rules-wifi.yml`: `wifi-weak-signal` (a UniFi-side client below -70 dBm for an
   hour — every UniFi client is on the IoT SSID by design) and `wifi-poll-failed`.
+- **Both halves live 2026-10-12**: the UniFi local admin (`bastion-poller`, View Only,
+  local-access-only) now exists, so the AC Lite's five IoT clients — the HUUM among them —
+  are in the table next to Omada's. Two things that reading the filled-in table turned up,
+  both fixed the same evening:
+  - The wireless columns were a *last* value with nothing to say so. `signal_dbm` is never
+    cleared when a device leaves, so sorting by signal put the personal MacBook — gone to the
+    gateway SSID 18 hours earlier, at the -45 dBm it last had on `WhiteHouse` — above every
+    live device; and `last_seen` reads as a last-seen when `adguard-stats.py` sets it to
+    `now()` for everything AdGuard still lists, which is nearly every row. The table now
+    blanks controller/AP/SSID/band/signal unless `wifi_seen` is within 15 minutes (three
+    poll cycles), sorts by `wifi_seen`, and labels `last_seen` "in adguard".
+  - `wifi-clients.py` now keeps **one row per MAC** (`dedupe`, newest association first by
+    the client's own uptime). With both controllers reporting, a device sitting in both
+    client lists put the same MAC in the upsert twice and Postgres rejected the whole
+    statement — `ON CONFLICT DO UPDATE command cannot affect row a second time` — losing
+    every row of that poll, three times that afternoon. The gauges use the same deduped
+    list, so Prometheus and the table no longer disagree about which controller holds a
+    roaming device.
 - **[you]** the two credentials, into bastion's `.env` (`.env.example` has the exact clicks):
   an Omada Open API client in *Client Credentials* mode with the **Viewer** role
   (`OMADA_CLIENT_ID`, `OMADA_CLIENT_SECRET`), and a UniFi local admin restricted to local
@@ -320,8 +338,8 @@ What changes, phase by phase:
   `UNIFI_PASSWORD`), ufw rules (8443, 8080, 3478/udp, 10001/udp, and 8443 from
   172.16.0.0/12), the `packages/unifi.md` runbook and the `unifi-*` backup line are removed
   once the new AP carries the IoT SSID. Vaultwarden's loopback publish stays on 8081; there
-  is no reason to move it back. The still-unfinished UniFi read-only admin is no longer
-  needed.
+  is no reason to move it back. The UniFi read-only admin (`bastion-poller`, created
+  2026-10-12) goes with the stack, and `wifi-clients.py` loses its UniFi half in phase 4.
 - **Phase 3** — the IoT SSID becomes an Omada WLAN: `WhiteHouse_IoT`, 2.4 GHz only, WPA2,
   **Guest Network on** (Omada's client isolation), 802.11ax off, broadcast from **both APs**
   (decided 2026-10-10: one isolated SSID rather than one per AP — two APs on one controller

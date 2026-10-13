@@ -207,6 +207,33 @@ def unifi_clients(env, extra):
 
 
 # --- outputs --------------------------------------------------------------------------------
+def dedupe(rows):
+    """One row per MAC, newest association first.
+
+    Both APs broadcast the IoT SSID, so a device that roams sits in both controllers' client
+    lists until the one it left expires it. lan_clients is keyed by MAC, and a single INSERT
+    carrying the same MAC twice fails outright -- "ON CONFLICT DO UPDATE command cannot affect
+    row a second time" -- which loses every row of that poll, not just the duplicate (seen
+    three times on 2026-10-12, the afternoon the UniFi credential started working). The
+    client's own uptime is seconds since it associated, so the shorter one is the live
+    association and wins; the gauges then agree with the table instead of preferring whichever
+    controller was polled first.
+    """
+    def newest_first(r):
+        try:
+            return (0, int(r.get("uptime")))
+        except (TypeError, ValueError):
+            return (1, 0)   # no uptime: only used if nothing better exists for that MAC
+
+    best = {}
+    for r in rows:
+        if not r.get("mac"):
+            continue
+        if r["mac"] not in best or newest_first(r) < newest_first(best[r["mac"]]):
+            best[r["mac"]] = r
+    return list(best.values())
+
+
 def sql_str(s):
     if s is None:
         return "null"
@@ -276,11 +303,8 @@ def main():
         lines.append(f'wifi_poll_ok{{controller="{name}"}} 1')
         lines.append(f'wifi_clients{{controller="{name}"}} {len(got)}')
         lines.extend(extra)
-    seen = set()
+    rows = dedupe(rows)
     for r in rows:
-        if not r["mac"] or r["mac"] in seen:
-            continue
-        seen.add(r["mac"])
         labels = (f'controller="{r["controller"]}",mac="{label(r["mac"])}",name="{label(r.get("hostname") or r["mac"])}",'
                   f'ap="{label(r.get("ap"))}",ssid="{label(r.get("ssid"))}",band="{label(r.get("band"))}"')
         if r.get("signal") is not None:
