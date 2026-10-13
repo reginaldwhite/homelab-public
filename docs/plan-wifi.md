@@ -212,8 +212,9 @@ controller whose credential is missing, so nothing fires until they exist):
   `wifi_ap_uptime_seconds` (Omada's `devices` list) with the `wifi-ap-rebooted` rule on it.
 - *Network* dashboard: the device table shows controller, AP, SSID, band, signal (coloured at
   -70/-62) and when it was last seen on WiFi; a signal-history panel below it.
-- Rules in `rules-wifi.yml`: `wifi-weak-signal` (a UniFi-side client below -70 dBm for an
-  hour — every UniFi client is on the IoT SSID by design) and `wifi-poll-failed`.
+- Rules in `rules-wifi.yml`: `wifi-weak-signal` (a client on an IoT SSID below -70 dBm for an
+  hour — `ssid=~"WhiteHouse_IoT.*"`, which covers `WhiteHouse_IoT` on the AC Lite and
+  `WhiteHouse_IoT_Lan` on the EAP772) and `wifi-poll-failed`.
 - **Both halves live 2026-10-12**: the UniFi local admin (`bastion-poller`, View Only,
   local-access-only) now exists, so the AC Lite's five IoT clients — the HUUM among them —
   are in the table next to Omada's. Two things that reading the filled-in table turned up,
@@ -347,8 +348,12 @@ What changes, phase by phase:
   fallback for any single device that ever flaps). The HUUM moves to it (same name and
   password as the UniFi one, so it may simply follow). Done when the controller shows it in
   the -50s on the closet AP and the three-night test passes.
-- **Phase 4** — `wifi-clients.py` loses its UniFi half; the `wifi-weak-signal` rule selects
-  on `ssid="WhiteHouse_IoT"` instead of `controller="unifi"`. Everything else stays.
+- **Phase 4** — `wifi-clients.py` loses its UniFi half. The `wifi-weak-signal` rule no longer
+  needs anything here: it moved off `controller="unifi"` to `ssid=~"WhiteHouse_IoT.*"` on
+  2026-10-13, because both APs already carry an IoT SSID and a device that roamed between them
+  changed its `controller` label and dropped out of the rule mid-problem — and the two Omada
+  IoT devices (the office-bath Echo Spot at -68 dBm, the vault plug) were never in it at all.
+  Everything else stays.
 - **Phase 5** — unchanged; both kids' SSIDs and the home-IoT SSID are Omada WLANs on both
   APs, so a device keeps its SSID when it roams between floors.
 - **Channel plan** — Omada picks per-AP 2.4 GHz channels itself with two of its own APs

@@ -1,9 +1,13 @@
 # Alert rules for the WiFi controllers' client data (docs/plan-wifi.md, phase 4; added
 # 2026-10-10). Evaluated every 5 minutes against the gauges wifi-clients.py writes.
 #
-#   wifi-weak-signal   a client on the UniFi side (every UniFi client is an IoT device on the
-#                      IoT SSID by design) has heard its AP below -70 dBm for a full hour --
-#                      the state the sauna controller was in on the EAP772
+#   wifi-weak-signal   a client on an IoT SSID (WhiteHouse_IoT on the AC Lite, WhiteHouse_IoT_Lan
+#                      on the EAP772) has heard its AP below -70 dBm for a full hour -- the state
+#                      the sauna controller was in on the EAP772. Selected by SSID rather than
+#                      by controller="unifi" (2026-10-13): both APs now carry an IoT SSID, so a
+#                      device that roams changes its controller label and would have dropped out
+#                      of the rule mid-problem. The selector already matches what phase 4 of the
+#                      AC Lite's retirement needs, so it does not change again when UniFi goes.
 #   wifi-poll-failed   wifi-clients.py could not read a controller for 30 minutes
 #   wifi-ap-rebooted   an Omada AP's uptime is under 15 minutes: it rebooted (added 2026-10-11,
 #                      the day the EAP772 turned out to have rebooted ~30 times on firmware
@@ -24,7 +28,7 @@ groups:
         execErrState: Error
         labels: { severity: warning, host: bastion }
         annotations:
-          summary: '{{ $labels.name }} ({{ $labels.mac }}) has been below -70 dBm on {{ $labels.ap }} for an hour (now {{ $values.B }} dBm). Move the device, the AP, or raise its power; at this level cloud connections drop.'
+          summary: '{{ $labels.name }} ({{ $labels.mac }}) has been below -70 dBm on {{ $labels.ap }} ({{ $labels.ssid }}) for an hour (now {{ $values.B }} dBm). Move the device, the AP, or raise its power; at this level cloud connections drop.'
           runbook: docs/plan-wifi.md
         data:
           - refId: A
@@ -34,7 +38,7 @@ groups:
               refId: A
               instant: true
               editorMode: code
-              expr: 'max_over_time(wifi_client_signal_dbm{controller="unifi"}[1h])'
+              expr: 'max_over_time(wifi_client_signal_dbm{ssid=~"WhiteHouse_IoT.*"}[1h])'
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
