@@ -437,6 +437,26 @@ robby holds on cinema. The reason: after the 2026-10-10 power outage cinema boot
 ran for a day and a half, because nothing but "sleep plex" ever stopped it. Log:
 `~/idle-suspend.log`.
 
+#### "Alexa, turn off Plex" (since 2026-10-12)
+
+[bastion/alexa/](bastion/alexa/) runs **fauxmo**, an emulated Philips Hue bridge, on bastion's
+host network. The Echos discover a device called **Plex** over the LAN (SSDP, UDP 1900) and send
+on/off to it directly (TCP 12340): *on* broadcasts the Wake-on-LAN packet, *off* asks cinema to
+suspend, and "is Plex on?" answers from a TCP probe of port 22. Amazon's cloud hears the words;
+the command never leaves the house — no Alexa skill, no Lambda, no account, no port forwarding.
+
+The suspend goes over SSH with a **dedicated key** (`~/.ssh/alexa_ed25519` on bastion) that
+cinema's `authorized_keys` pins to the same forced command as the agent's key
+(`openclaw-cmd suspend health`, `restrict`), so even with the key the bridge can only ask cinema
+to suspend. bastion's `ufw` must allow `1900/udp` and `12340/tcp` from `192.168.0.0/24`.
+
+**Only Plex has a voice device, on purpose.** Hue devices carry no authentication: anyone who
+can talk to an Echo — the children included — can flip them. The sauna (a heater) and the kids'
+internet windows stay off this bridge; adding a device is another block in `config.json` and
+another port, and the question to ask first is who else is in the room. The Echos need to be on
+`WhiteHouse_IoT_Lan` (LAN-visible) to discover it; the isolated IoT SSID cannot see bastion.
+Log: `~/logs/alexa.log` on bastion.
+
 ---
 
 ### `forge` — 192.168.0.12 (Ubuntu) — 5am–11pm Daily
