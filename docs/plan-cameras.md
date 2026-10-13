@@ -24,7 +24,7 @@ unless Robby later adds a VPN to reach it from outside.
 3. **The recorder runs where the lights are on.** bastion is always on; forge sleeps 23:00–05:00,
    which is when cameras matter most, and keeping a 7700K and a 5060 Ti awake all night for three
    cameras is the vault-24/7 argument again. bastion's i3-7100T decodes video in hardware (Quick
-   Sync) and a Coral accelerator does the detection, so the CPU barely notices.
+   Sync) and detection runs on the same iGPU through OpenVINO (a Coral accelerator if that proves slow), so the CPU barely notices.
 4. **The indoor camera is a different kind of thing.** The living room watches the family, not
    the street. It records on events only, it can be switched off from the LAN, and the household
    knows it is there. See *Living room* below.
@@ -52,7 +52,7 @@ Three cameras, main stream 2560×1920 at ~4 Mbps, sub stream 640×480 for detect
   room to double the continuous window later.
 - Network: three main streams plus three sub streams is ~15 Mbps on the camera switch's uplink;
   nothing else notices.
-- bastion: Frigate ~1 GB RAM with three cameras; decode in hardware; the Coral does detection.
+- bastion: Frigate ~1 GB RAM with three cameras; decode and detection on the iGPU (or a Coral).
   Current use is ~4 GB of 16. Disk I/O is a steady ~1.5 MB/s write.
 
 ## Isolation and security
@@ -119,7 +119,7 @@ public-road edge masked so passing cars are not events).
 
 - MQTT subscriber → `events` rows (`kind=camera`, name=camera, detail: label, score, zone).
 - Grafana *Cameras* dashboard: detections per camera per day, recording segments present per
-  hour, disk free on `/srv/frigate`, Coral inference time.
+  hour, disk free on `/srv/frigate`, detector inference time.
 - Alerts: a camera with no recording segments for 15 minutes; the disk under 10% free;
   Frigate down (its `/api/version` as a blackbox-http probe).
 - Sunday: last week's event clips to vault; nightly `config.yml` + `frigate.db` to `~/backups`.
@@ -147,6 +147,6 @@ a fourth camera (back yard) which the switch and disk already have room for.
 - Any cloud NVR, any camera subscription, any doorbell that needs an account (Ring, Nest,
   Arlo, Eufy's app-only models).
 - WiFi cameras.
-- Frigate on forge, or GPU detection on forge: the sleeping-host problem, and the Coral is
+- Frigate on forge, or GPU detection on forge: the sleeping-host problem, and the iGPU or a Coral is
   enough for ten cameras.
 - Port forwarding to anything here.
