@@ -453,9 +453,11 @@ The suspend goes over SSH with a **dedicated key** (`~/.ssh/alexa_ed25519` on ba
 cinema's `authorized_keys` pins to the same forced command as the agent's key
 (`openclaw-cmd suspend health`, `restrict`), so even with the key the bridge can only ask cinema
 to suspend. The device itself lives in ha-bridge's database (the `alexa_data` volume), created
-once through its API: `POST http://192.168.0.11/api/devices` with `name: Plex` and
-`custom`-type on/off items `python3 /app/plex.py wake` / `sleep`; the UI at
-`http://192.168.0.11/` shows it. ha-bridge is last-released 2022 and pinned by version in the
+once through its API (`POST http://192.168.0.11/api/devices`, then `PUT …/devices/<id>`):
+`name: Plex`, `mapType: execDevice`, and on/off call items of **type `exec`** running
+`python3 /app/plex.py wake` / `sleep` (type `custom` means an HTTP call there and fails). The
+UI at `http://192.168.0.11/` shows it; no link button is needed (device linking is unsecured,
+which is the default and the point). ha-bridge is last-released 2022 and pinned by version in the
 Dockerfile (fetched from GitHub at build time; no official image exists).
 
 **Only Plex has a voice device, on purpose.** Hue devices carry no authentication: anyone who
