@@ -35,6 +35,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 | MAC | IP | Device | Notes |
 |---|---|---|---|
+| (macvlan, changes on recreate) | .11 | alexa — ha-bridge, the emulated Hue bridge the Echos control Plex through | A container on bastion's `enp3s0` with its own LAN address (`bastion/alexa/`); reserved here so nothing else takes .11. Reachable on port 80 from the LAN, not from bastion itself. |
 | `48:e2:ad:0b:25:0a` | .1 | AT&T BGW320 gateway | DHCP off; WiFi off since 2026-10-10 except `WhiteHouse_Office` 5 GHz for the two laptops until the second EAP772 arrives |
 | `a8:29:48:16:dd:07` | .2 ✅ | TP-Link EAP772, upstairs ceiling | Omada-managed; 2.4 GHz ch 1, 5 GHz ch 40, 6 GHz ch 69 |
 | `80:2a:a8:78:18:6a` | .3 ✅ (was .136) | Ubiquiti AC Lite, by the sauna (`ac-lite`) | UniFi-managed; retired when the second EAP772 is in |

@@ -111,9 +111,8 @@ if [[ $VALIDATE -eq 1 ]]; then
     fi
     if [[ -d "$ALEXA_DIR" ]]; then
         docker compose -f "$ALEXA_DIR/docker-compose.yml" config --quiet
-        python3 -c 'import ast, json, sys; ast.parse(open(sys.argv[1]).read()); json.load(open(sys.argv[2]))' \
-            "$ALEXA_DIR/plex.py" "$ALEXA_DIR/config.json"
-        say "alexa: compose file, plex.py and config.json valid"
+        python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$ALEXA_DIR/plex.py"
+        say "alexa: compose file and plex.py valid"
     fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"

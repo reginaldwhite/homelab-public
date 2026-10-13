@@ -439,16 +439,24 @@ ran for a day and a half, because nothing but "sleep plex" ever stopped it. Log:
 
 #### "Alexa, turn off Plex" (since 2026-10-12)
 
-[bastion/alexa/](bastion/alexa/) runs **fauxmo**, an emulated Philips Hue bridge, on bastion's
-host network. The Echos discover a device called **Plex** over the LAN (SSDP, UDP 1900) and send
-on/off to it directly (TCP 12340): *on* broadcasts the Wake-on-LAN packet, *off* asks cinema to
-suspend, and "is Plex on?" answers from a TCP probe of port 22. Amazon's cloud hears the words;
-the command never leaves the house — no Alexa skill, no Lambda, no account, no port forwarding.
+[bastion/alexa/](bastion/alexa/) runs **ha-bridge**, an emulated Philips Hue bridge, as a
+container with its own LAN address, **192.168.0.11** (a macvlan on bastion's `enp3s0`: the Echo
+insists on a Hue bridge at port 80, and bastion's 80 is Caddy's). The Echos discover a light
+called **Plex** over the LAN and send on/off to it directly: *on* broadcasts the Wake-on-LAN
+packet, *off* asks cinema to suspend (`plex.py`). Amazon's cloud hears the words; the command
+never leaves the house — no Alexa skill, no Lambda, no account, no port forwarding, and no ufw
+rules either, since a macvlan container is its own host as far as bastion's firewall is
+concerned. The first version used fauxmo (WeMo emulation); current Echo firmware discovers a
+fake WeMo but sends its commands to Belkin's cloud, so it never worked, and that is why Hue.
 
 The suspend goes over SSH with a **dedicated key** (`~/.ssh/alexa_ed25519` on bastion) that
 cinema's `authorized_keys` pins to the same forced command as the agent's key
 (`openclaw-cmd suspend health`, `restrict`), so even with the key the bridge can only ask cinema
-to suspend. bastion's `ufw` must allow `1900/udp` and `12340/tcp` from `192.168.0.0/24`.
+to suspend. The device itself lives in ha-bridge's database (the `alexa_data` volume), created
+once through its API: `POST http://192.168.0.11/api/devices` with `name: Plex` and
+`custom`-type on/off items `python3 /app/plex.py wake` / `sleep`; the UI at
+`http://192.168.0.11/` shows it. ha-bridge is last-released 2022 and pinned by version in the
+Dockerfile (fetched from GitHub at build time; no official image exists).
 
 **Only Plex has a voice device, on purpose.** Hue devices carry no authentication: anyone who
 can talk to an Echo — the children included — can flip them. The sauna (a heater) and the kids'
