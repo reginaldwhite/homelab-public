@@ -34,8 +34,8 @@ unless Robby later adds a VPN to reach it from outside.
 | Part | What | Why this one |
 |---|---|---|
 | Recorder | **Frigate** (Docker, on bastion) | Open source; local object detection; continuous + event recording; its own UI; MQTT out; the standard pairing for the cameras below. Pinned tag, `packages/frigate.md` in the upgrades skill. |
-| Detector | **Coral USB Accelerator** | ~$60; three cameras at Frigate's detect resolution is a few percent of it. Without it, detection on a 2-core CPU is the thing that would not fit. |
-| Decode | bastion's Quick Sync (`/dev/dri`) | Already there; Frigate's `preset-vaapi` input args. |
+| Detector | **OpenVINO on bastion's HD 630 iGPU** first; a **Coral USB Accelerator** only if measured inference is poor | Frigate's OpenVINO detector runs on 6th-gen Intel and newer; three cameras at 5 fps detect is ~15 inferences/s against ~20–30 ms each on this iGPU. Decide from the inference time on Frigate's System page after phase 1 (over ~100 ms, or decode and detect fighting for the iGPU, means buy the Coral). If buying: list price is $60 at Coral's distributors (Mouser, DigiKey, Seeed); Amazon resellers at $100+ are a shortage markup, not the price. Detection on the 2-core CPU itself is the one option that does not fit. |
+| Decode | bastion's Quick Sync (`/dev/dri`) | Already there; Frigate's `preset-vaapi` input args. Shared with OpenVINO, which is the thing to watch in phase 1. |
 | Storage | **4 TB USB 3 hard disk** on bastion, ext4, mounted at `/srv/frigate` | Sized below. A disk, not the root filesystem (88 GB free is not an NVR) and not vault (asleep six nights a week). |
 | Cameras | **Amcrest IP5M-T1179EW** (5 MP turret, PoE) for carport and front door; the same or its indoor sibling for the living room | Dahua-based, RTSP main+sub streams, no account needed, the best-documented camera in Frigate's own docs. Reolink's PoE line is the alternative if a doorbell form factor is wanted at the front door (its PoE doorbell speaks RTSP/ONVIF locally). |
 | Power | **TL-SG1005P** gigabit PoE switch (4 PoE ports, 65 W) for the cameras, uplinked to the 2.5 G closet switch | ~$40; a camera draws 5–8 W. The APs keep their POE260S injectors (2.5 G). *One-box alternative:* the Omada **SG2210XMP-M2** (8 × 2.5 G PoE+, 160 W, managed by the controller) powers APs and cameras together and can switch a camera's PoE port off on a schedule — see *Living room* — at about $250. |
@@ -91,15 +91,15 @@ The one that needs rules rather than hardware:
 
 ### Phase 0 — parts [you]
 
-Coral USB, the 4 TB disk, three cameras, the camera PoE switch, two Cat6 runs to the closet
+The 4 TB disk, three cameras, the camera PoE switch (the Coral only if phase 1 says so), two Cat6 runs to the closet
 (carport, front door) and one to the living room. The carport and front-door runs are the
 work; the living room can be a short run to the nearest jack.
 
 ### Phase 1 — one camera, end to end [you + agent], one evening
 
-1. **[you]** Disk and Coral on bastion; the disk formatted ext4 and mounted at `/srv/frigate`
+1. **[you]** The disk on bastion, formatted ext4 and mounted at `/srv/frigate`
    with an `fstab` entry by UUID. **[agent]** `bastion/cameras/`: `docker-compose.yml` (Frigate,
-   `/dev/dri` and the Coral passed through, `/srv/frigate` for media, `shm_size` per the docs,
+   `/dev/dri` passed through (OpenVINO detector), `/srv/frigate` for media, `shm_size` per the docs,
    on `vaultwarden_default` for Caddy), `config.yml` with one camera, mosquitto; Caddy vhost;
    AdGuard rewrite; `apply.sh` grows a fourth project; `packages/frigate.md`.
 2. **[you]** The first camera (front door) on the PoE switch: set its static address and **no
