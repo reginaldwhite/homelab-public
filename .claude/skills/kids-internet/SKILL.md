@@ -10,13 +10,13 @@ schedule. Ava (15): Sun–Thu 05:30–22:00, Fri–Sat 05:30–23:00. Finn (13):
 06:00–21:30, Fri–Sat 06:00–22:15. The schedule lives on bastion; this skill only reads it or
 overrides it for now.
 
-Use the `bash` exec tool with the script below. Do NOT specify a host — the configured default
-(gateway) applies.
+Run these with the `exec` tool: `command` is the line exactly as printed below, nothing added.
+Leave `host`, `node`, `security` and `ask` unset.
 
 ## Is the kids' internet on or off?
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py status"
+python3 /home/node/.openclaw/scripts/kids-internet.py status
 ```
 
 Prints one line per child: whether the window is open or closed right now, and whether the
@@ -25,24 +25,24 @@ block is present in AdGuard. Those normally agree; if they disagree, say so.
 ## Give a child the night off (no block until their next morning)
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py open ava"
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py open finn"
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py open"        # both
+python3 /home/node/.openclaw/scripts/kids-internet.py open ava
+python3 /home/node/.openclaw/scripts/kids-internet.py open finn
+python3 /home/node/.openclaw/scripts/kids-internet.py open        # both
 ```
 
 ## Turn a child's internet off now, until their next morning (early bedtime)
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py close finn"
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py close ava"
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py close"       # both
+python3 /home/node/.openclaw/scripts/kids-internet.py close finn
+python3 /home/node/.openclaw/scripts/kids-internet.py close ava
+python3 /home/node/.openclaw/scripts/kids-internet.py close       # both
 ```
 
 ## Cancel an override and go back to the normal schedule
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py clear ava"
-bash command:"python3 /home/node/.openclaw/scripts/kids-internet.py clear"       # both
+python3 /home/node/.openclaw/scripts/kids-internet.py clear ava
+python3 /home/node/.openclaw/scripts/kids-internet.py clear       # both
 ```
 
 ## One device off indefinitely

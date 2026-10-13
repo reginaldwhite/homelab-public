@@ -5,12 +5,12 @@ description: Wake up or put to sleep (suspend) the Plex media server. Use when t
 
 # Plex Server Power Control
 
-Use the `bash` exec tool to run the plex-power script. Do NOT specify a host — the configured default (gateway) will be used automatically.
+Run these with the `exec` tool. The tool's `command` parameter is the line exactly as printed below — nothing in front of it, nothing around it. Leave `host`, `node`, `security` and `ask` unset. The only verbs are `wake`, `sleep` and `status`.
 
 ## Wake the server (power on / start up)
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/plex-power.py wake"
+python3 /home/node/.openclaw/scripts/plex-power.py wake
 ```
 
 Sends the WoL magic packet and returns immediately. Follow up with `status` after ~30 seconds to confirm the server is online.
@@ -18,7 +18,7 @@ Sends the WoL magic packet and returns immediately. Follow up with `status` afte
 ## Sleep / suspend the server (power off / shut down)
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/plex-power.py sleep"
+python3 /home/node/.openclaw/scripts/plex-power.py sleep
 ```
 
 SSHes in and runs `sudo systemctl suspend`.
@@ -26,7 +26,7 @@ SSHes in and runs `sudo systemctl suspend`.
 ## Check if the server is online
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/plex-power.py status"
+python3 /home/node/.openclaw/scripts/plex-power.py status
 ```
 
 ## Notes

@@ -7,7 +7,7 @@ description: Schedule, start, stop or check the HUUM sauna. Use when Robby asks 
 
 The heater is controlled through a script on bastion that keeps the schedule itself, so a
 scheduled start is not lost when the sauna's own controller reconnects. Defaults: **93 °C for
-180 minutes** (the controller's maximum). Use the `bash` exec tool; do NOT specify a host.
+180 minutes** (the controller's maximum). Run these with the `exec` tool: `command` is the line exactly as printed below, nothing added. Leave `host`, `node`, `security` and `ask` unset.
 
 ## Translate the request first
 
@@ -19,13 +19,13 @@ scheduled start is not lost when the sauna's own controller reconnects. Defaults
 ## Commands
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py status"
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00"          # default 93 °C, 180 min
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00 85"       # 85 °C
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00 93 120"   # 93 °C, two hours
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py start"                   # heat now
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py stop"
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py cancel"
+python3 /home/node/.openclaw/scripts/sauna.py status
+python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00          # default 93 °C, 180 min
+python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00 85       # 85 °C
+python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00 93 120   # 93 °C, two hours
+python3 /home/node/.openclaw/scripts/sauna.py start                   # heat now
+python3 /home/node/.openclaw/scripts/sauna.py stop
+python3 /home/node/.openclaw/scripts/sauna.py cancel
 ```
 
 ## Notes

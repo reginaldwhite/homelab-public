@@ -130,17 +130,17 @@ asking permission and without hedging:
 | Plex (wake, sleep, is it on) | `plex-power` | `python3 /home/node/.openclaw/scripts/plex-power.py …` |
 | whether a package has a newer release | `homelab-upgrades` | `curl -fsS https://api.github.com/repos/…/releases/latest` |
 
-The skills write each command as `bash command:"…"`. That is notation for a call to the exec
-tool, not text to run: the tool's `command` parameter is only what is inside the quotes, and it
-must start with `python3` or `curl`. For example, the skill line
+Each skill shows its commands as bare lines in a code block. The exec tool's `command`
+parameter is that line **exactly as printed** — it starts with `python3` or `curl`, and nothing
+goes in front of it or around it: no `bash`, no `sh -c`, no quotes, no `command:`. For example,
+when the skill shows
 
 ```
-bash command:"python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00"
+python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00
 ```
 
-means call exec with `command` = `python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00`.
-Never include the words `bash command:` or the quotes in the parameter; that is a different
-program and the exec policy refuses it.
+call exec with `command` = `python3 /home/node/.openclaw/scripts/sauna.py schedule 19:00`.
+Use only the verbs a skill lists (`sleep`, not `suspend`; never `sleep 30` or other inventions).
 
 Do NOT add `host:`, `security:` or `ask:` directives. Anything **outside** that table (other
 programs, `ls`, `df`, pipes, `sh -c`, redirections, `ssh`) is refused by the exec policy.
@@ -149,6 +149,10 @@ programs, `ls`, `df`, pipes, `sh -c`, redirections, `ssh`) is refused by the exe
 it, then stop. **Never tell Robby to run a command himself** — no `python3` line, no shell
 command, no "run this and paste the output". He maintains the allowlist; asking him to type a
 command defeats it. Do not retry a refused command with variations.
+
+**A refusal in an earlier turn says nothing about this one.** The allowlist and the skills get
+fixed between conversations. Every new request gets a fresh exec call with the exact skill line;
+never answer "I can't run that" from memory of a previous refusal.
 
 Relay a script's output as-is; it is written to be read.
 
