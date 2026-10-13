@@ -1,0 +1,18 @@
+{
+  "FAUXMO": {
+    "ip_address": "192.168.0.10"
+  },
+  "PLUGINS": {
+    "CommandLinePlugin": {
+      "DEVICES": [
+        {
+          "name": "Plex",
+          "port": 12340,
+          "on_cmd": "python3 /app/plex.py wake",
+          "off_cmd": "python3 /app/plex.py sleep",
+          "state_cmd": "python3 /app/plex.py status"
+        }
+      ]
+    }
+  }
+}

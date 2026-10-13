@@ -20,6 +20,8 @@ OBS_DIR="$HERE/observability"
 OBS_ENV="$HERE/.env"
 # The WiFi controllers (docs/plan-wifi.md): third compose project, host network, same .env.
 WIFI_DIR="$HERE/wifi"
+# The Alexa bridge (README, "Alexa"): fourth compose project, host network, no .env at all.
+ALEXA_DIR="$HERE/alexa"
 # Where bastion's scripts drop .prom files for node exporter's textfile collector.
 TEXTFILE_DIR="/home/robby/observability/textfile"
 # Hashes of the config trees as last applied, so a changed bind-mounted config reloads its service.
@@ -106,6 +108,12 @@ if [[ $VALIDATE -eq 1 ]]; then
         bash -n "$WIFI_DIR/unifi/init-mongo.sh"
         python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$WIFI_DIR/survey/server.py"
         say "wifi: compose file, init-mongo.sh and survey/server.py valid"
+    fi
+    if [[ -d "$ALEXA_DIR" ]]; then
+        docker compose -f "$ALEXA_DIR/docker-compose.yml" config --quiet
+        python3 -c 'import ast, json, sys; ast.parse(open(sys.argv[1]).read()); json.load(open(sys.argv[2]))' \
+            "$ALEXA_DIR/plex.py" "$ALEXA_DIR/config.json"
+        say "alexa: compose file, plex.py and config.json valid"
     fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
@@ -227,4 +235,17 @@ if [[ -d "$WIFI_DIR" ]]; then
     docker compose --env-file "$OBS_ENV" up -d --build
     docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
     cd "$STACK_DIR"
+fi
+
+# --- alexa bridge ---------------------------------------------------------------------------
+# Needs the dedicated key to exist on this host; without it there is nothing to bridge to.
+if [[ -d "$ALEXA_DIR" ]]; then
+    if [[ ! -f /home/robby/.ssh/alexa_ed25519 ]]; then
+        echo "alexa: /home/robby/.ssh/alexa_ed25519 is missing; not starting the bridge (see bastion/alexa/docker-compose.yml)" >&2
+    else
+        cd "$ALEXA_DIR"
+        docker compose up -d --build
+        docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
+        cd "$STACK_DIR"
+    fi
 fi

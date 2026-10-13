@@ -1,0 +1,29 @@
+# The Alexa bridge: fauxmo pretends to be a Philips Hue bridge, the Echos discover a device
+# called "Plex" over the LAN (SSDP, UDP 1900) and send on/off to it directly (TCP 12340).
+# Amazon's cloud hears the words; the command never leaves the house. plex.py does the work.
+#
+# Host network: SSDP discovery and the Wake-on-LAN broadcast both need bastion's real LAN
+# interface. ufw on bastion must allow, from 192.168.0.0/24: 1900/udp and 12340/tcp.
+#
+# Only Plex has a voice device, on purpose: Hue devices carry no authentication, so anyone who
+# can talk to an Echo (the children included) can flip them. The sauna and the kids' internet
+# stay off this bridge. Adding a device means another block in config.json and another port.
+#
+# The ssh key is a dedicated one (~/.ssh/alexa_ed25519) that cinema's authorized_keys pins to
+# its forced command, so even with the key this container can only ask cinema to suspend.
+services:
+  alexa:
+    build: .
+    image: homelab/alexa:local
+    container_name: alexa
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      - /home/robby/.ssh/alexa_ed25519:/keys/alexa_ed25519:ro
+      - /home/robby/logs:/log
+      - alexa_state:/state
+
+volumes:
+  alexa_state:
