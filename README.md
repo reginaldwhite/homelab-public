@@ -437,35 +437,22 @@ robby holds on cinema. The reason: after the 2026-10-10 power outage cinema boot
 ran for a day and a half, because nothing but "sleep plex" ever stopped it. Log:
 `~/idle-suspend.log`.
 
-#### "Alexa, turn off Plex" (since 2026-10-12)
+#### Alexa: "turn off Plex" — parked, Matter is the plan
 
-[bastion/alexa/](bastion/alexa/) runs **ha-bridge**, an emulated Philips Hue bridge, as a
-container with its own LAN address, **192.168.0.11** (a macvlan on bastion's `enp3s0`: the Echo
-insists on a Hue bridge at port 80, and bastion's 80 is Caddy's). The Echos discover a light
-called **Plex** over the LAN and send on/off to it directly: *on* broadcasts the Wake-on-LAN
-packet, *off* asks cinema to suspend (`plex.py`). Amazon's cloud hears the words; the command
-never leaves the house — no Alexa skill, no Lambda, no account, no port forwarding, and no ufw
-rules either, since a macvlan container is its own host as far as bastion's firewall is
-concerned. The first version used fauxmo (WeMo emulation); current Echo firmware discovers a
-fake WeMo but sends its commands to Belkin's cloud, so it never worked, and that is why Hue.
+Tried 2026-10-12/13 with two LAN emulations and retired both: **fauxmo** (a WeMo socket) was
+discovered by the Echos, but current firmware sends WeMo commands to Belkin's cloud, never to
+the LAN; **ha-bridge** (a Hue bridge, on its own macvlan address so it could own port 80)
+answered discovery on the wire, yet the Echos never searched for it at all — no SSDP, no mDNS
+query, no fetch of the discovery document — while their other multicast crossed the EAP772 to
+the LAN fine. Both tricks depend on Amazon keeping a legacy local-discovery path alive, and the
+evidence says it is gone. The code is in git history (commits of 2026-10-12/13); the caged
+`alexa_ed25519` key on cinema remains authorised to its forced command only and can stay or go.
 
-The suspend goes over SSH with a **dedicated key** (`~/.ssh/alexa_ed25519` on bastion) that
-cinema's `authorized_keys` pins to the same forced command as the agent's key
-(`openclaw-cmd suspend health`, `restrict`), so even with the key the bridge can only ask cinema
-to suspend. The device itself lives in ha-bridge's database (the `alexa_data` volume), created
-once through its API (`POST http://192.168.0.11/api/devices`, then `PUT …/devices/<id>`):
-`name: Plex`, `mapType: execDevice`, and on/off call items of **type `exec`** running
-`python3 /app/plex.py wake` / `sleep` (type `custom` means an HTTP call there and fails). The
-UI at `http://192.168.0.11/` shows it; no link button is needed (device linking is unsecured,
-which is the default and the point). ha-bridge is last-released 2022 and pinned by version in the
-Dockerfile (fetched from GitHub at build time; no official image exists).
-
-**Only Plex has a voice device, on purpose.** Hue devices carry no authentication: anyone who
-can talk to an Echo — the children included — can flip them. The sauna (a heater) and the kids'
-internet windows stay off this bridge; adding a device is another block in `config.json` and
-another port, and the question to ask first is who else is in the room. The Echos need to be on
-`WhiteHouse_IoT_Lan` (LAN-visible) to discover it; the isolated IoT SSID cannot see bastion.
-Log: `~/logs/alexa.log` on bastion.
+**The plan:** a **Matter** virtual on/off device on bastion (`matterbridge` plus a small plugin
+that runs the wake/sleep verbs), commissioned once by QR code — Echos (4th gen and Shows) are
+Matter controllers over Wi-Fi, so control is local and officially supported rather than
+tolerated. Still only Plex: Matter devices have no per-speaker authentication either, so the
+sauna and the kids' internet stay off voice. Its own evening, alongside Home Assistant.
 
 ---
 
