@@ -71,3 +71,17 @@ Restore the previous tag and redeploy. `agh-conf` is backwards compatible within
 across a minor bump it may have been rewritten, in which case restore `AdGuardHome.yaml` from the
 copy you took before starting — or from `/mnt/user/backups/vaultwarden/agh-conf/` on vault, which is
 last Sunday's state and nothing older.
+
+## Upstreams, bootstraps and fallbacks must not share a provider (learned 2026-10-14)
+
+Quad9 became unreachable on port 53 (UDP and TCP; ICMP fine; DoH/DoT fine) from this network
+for most of a day. AdGuard's upstreams are Quad9 over DoH/DoT, which kept working — but its
+bootstrap list held three Quad9 addresses it tried in parallel and waited on for every lookup
+(5,000 timeouts in a few hours), and its fallback upstream was Quad9 DoH, so nothing fell back.
+Symptom: every lookup slow, "error" in the AdGuard dashboard, the `dns-probe` rule silent because
+answers still arrived. Fix: bootstraps `1.1.1.1 8.8.8.8 1.0.0.1 8.8.4.4`, fallback
+`https://dns.cloudflare.com/dns-query` + `tls://1.1.1.1`, applied through
+`POST /control/dns_config` and then `docker restart adguardhome` — the running proxy kept the
+old bootstrap list until restarted. The rule now: upstream, bootstrap and fallback on three
+different providers. AdGuard's DNS settings live in its UI/API, not in this repo; the `dns-slow`
+rule in `rules-hosts.yml` is what catches the degraded-but-answering state.

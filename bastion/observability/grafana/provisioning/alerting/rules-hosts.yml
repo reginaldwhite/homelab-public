@@ -9,6 +9,9 @@
 #   exporter-down      a host answers ping but its node exporter does not (15 min)        warning
 #   vault-probe        vault.robbywhite.net not answering /alive for 10 min               critical
 #   dns-probe          AdGuard not answering DNS for 5 min                                critical
+#   dns-slow           AdGuard answering, but the probe took over 1 s on average for 15 min  warning
+#                      (2026-10-14: a Quad9 port-53 outage made every lookup wait on dead
+#                      bootstraps while dns-probe stayed quiet, because answers still came)
 #   cert-expiring      the vault's certificate has under 21 days left                     warning
 #   textfile-error     node exporter cannot read a .prom file (its gauges are missing)    warning
 #   poller-stale       a 1/5/15-minute poller has not rewritten its file in 30 min        warning
@@ -203,6 +206,31 @@ groups:
           - refId: C
             datasourceUid: __expr__
             model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+      - uid: dns-slow
+        title: AdGuard is answering slowly
+        condition: C
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning, host: bastion }
+        annotations:
+          summary: 'DNS lookups through AdGuard have averaged {{ printf "%.2f" $values.B }} s for 15 minutes (normal is under 0.05). Usually an upstream or bootstrap resolver that stopped answering: docker logs adguardhome | grep -c timeout, then Settings -> DNS -> upstreams/bootstraps/fallback must be three different providers (packages/adguard.md).'
+          runbook: .claude/skills/homelab-upgrades/packages/adguard.md
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              editorMode: code
+              expr: 'avg_over_time(probe_duration_seconds{job="blackbox-dns"}[15m])'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: gt, params: [1] } } ] }
       - uid: cert-expiring
         title: Certificate expiring
         condition: C
