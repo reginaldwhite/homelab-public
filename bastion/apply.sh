@@ -20,6 +20,10 @@ OBS_DIR="$HERE/observability"
 OBS_ENV="$HERE/.env"
 # The WiFi controllers (docs/plan-wifi.md): third compose project, host network, same .env.
 WIFI_DIR="$HERE/wifi"
+# jobhunt (bastion/jobhunt): fifth compose project, built from a source copy the jobhunt
+# repo rsyncs to JOBHUNT_SRC. Same .env as the observability stack.
+JOBHUNT_DIR="$HERE/jobhunt"
+JOBHUNT_SRC="/home/robby/jobhunt-src"
 # Where bastion's scripts drop .prom files for node exporter's textfile collector.
 TEXTFILE_DIR="/home/robby/observability/textfile"
 # Hashes of the config trees as last applied, so a changed bind-mounted config reloads its service.
