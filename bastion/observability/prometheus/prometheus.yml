@@ -89,6 +89,22 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
+  # The same server asked for a public name, so an upstream or bootstrap failure shows up as
+  # slow or failed probes here while the rewrite job above stays green (2026-10-14).
+  - job_name: blackbox-dns-public
+    metrics_path: /probe
+    params: { module: [dns_public] }
+    static_configs:
+      - targets: ["192.168.0.10:53"]
+        labels: { host: bastion, service: adguard }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
   # Reachability of every machine, including the router and vault. vault is off except in its
   # Sunday window; forge and cinema sleep. Down is data here, not an alert.
   - job_name: blackbox-icmp

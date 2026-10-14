@@ -29,3 +29,14 @@ modules:
     timeout: 5s
     icmp:
       preferred_ip_protocol: ip4
+
+  # Ask AdGuard for a public name, so upstream trouble is visible: a local rewrite can answer
+  # from AdGuard's own table while every real lookup waits on a dead bootstrap resolver
+  # (2026-10-14, Quad9's port 53 unreachable for a day). Any answer will do; the point is time.
+  dns_public:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: example.com
+      query_type: A
+      preferred_ip_protocol: ip4
