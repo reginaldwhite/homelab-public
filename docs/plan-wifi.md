@@ -366,10 +366,11 @@ injector (Finding 2026-10-11), 6 GHz is off as the stopgap, the SSID matrix and 
 schedules are already live in Omada, the site clock is fixed (Finding 2026-10-12), and the
 controller is on 6.3, which has AP Groups. So:
 
-1. **Power first, both APs.** The TL-POE260S (2.5 G, 802.3at) replaces the AC Pro injector on
-   the ceiling AP; the closet AP runs from its DC adapter or a second POE260S on the 2.5 G
-   closet switch. The AC Pro injector goes in the drawer labelled *24 W af only*. Nothing else
-   starts until the ceiling AP has run a day without a `wifi-ap-rebooted` alert on proper power.
+1. **Power first, both APs.** *Ceiling AP done 2026-10-13:* the TL-POE260S (2.5 G, 802.3at)
+   replaced the AC Pro injector, and the 6 GHz radio and the `WhiteHouse` 6 GHz band went back
+   on 2026-10-14 (AP at 10 h 41 m uptime at the time, no reboot alert since the swap). The
+   closet AP runs from its DC adapter or a second POE260S on the 2.5 G closet switch. The AC Pro
+   injector is in the drawer labelled *24 W af only*.
 2. **Mount and adopt.** Inside the closet if the wall is drywall, on the office side of that
    wall if the closet is lined with metal or ducting; cable to the closet switch. It appears in
    Omada as pending, adopts with the site's six SSIDs, and the office laptops should land on
