@@ -68,7 +68,7 @@ CHILDREN = {
 # part of the rule written into AdGuard, so the query log says why. Removing the entry and
 # deploying restores that device's normal window on the next run.
 ALWAYS_OFF = {
-    "finn-pc": "playroom PC, off at Robby's request 2026-10-12",
+    # "finn-pc": "playroom PC, off at Robby's request 2026-10-12",   # restored 2026-10-14
 }
 TZ = ZoneInfo("America/Chicago")
 
