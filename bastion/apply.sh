@@ -107,6 +107,11 @@ if [[ $VALIDATE -eq 1 ]]; then
         python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$WIFI_DIR/survey/server.py"
         say "wifi: compose file, init-mongo.sh and survey/server.py valid"
     fi
+    if [[ -d "$JOBHUNT_DIR" ]]; then
+        jh_env=(); [[ -f "$OBS_ENV" ]] && jh_env=(--env-file "$OBS_ENV")
+        docker compose "${jh_env[@]}" -f "$JOBHUNT_DIR/docker-compose.yml" config --quiet
+        say "jobhunt: compose file valid$([[ -d "$JOBHUNT_SRC" ]] || echo " (no source at $JOBHUNT_SRC yet; project will be skipped)")"
+    fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
     crontab -l 2>/dev/null | diff -u --label installed --label repo - "$HERE/crontab" \
@@ -227,5 +232,21 @@ if [[ -d "$WIFI_DIR" ]]; then
     docker compose --env-file "$OBS_ENV" up -d --build
     docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
     cd "$STACK_DIR"
+fi
+
+# --- jobhunt --------------------------------------------------------------------------------
+if [[ -d "$JOBHUNT_DIR" ]]; then
+    if [[ ! -d "$JOBHUNT_SRC" ]]; then
+        say "jobhunt: no source at $JOBHUNT_SRC; run \`npm run deploy:bastion\` in the jobhunt repo first (skipped)"
+    elif [[ ! -f "$OBS_ENV" ]] || ! grep -qE "^JOBHUNT_DB_PASSWORD=.+" "$OBS_ENV"; then
+        echo "jobhunt: JOBHUNT_DB_PASSWORD is not set in $OBS_ENV; not starting (see .env.example)" >&2
+        exit 1
+    else
+        cd "$JOBHUNT_DIR"
+        # Built from the synced source; --build is a no-op when nothing there changed.
+        docker compose --env-file "$OBS_ENV" up -d --build
+        docker compose --env-file "$OBS_ENV" ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
+        cd "$STACK_DIR"
+    fi
 fi
 

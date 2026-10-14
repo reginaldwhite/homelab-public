@@ -40,6 +40,20 @@ else
     EXIT=1
 fi
 
+# jobhunt's database (bastion/jobhunt): postings, scores and the application pipeline. A
+# stopped or absent container is skipped quietly, so this line costs nothing until it exists.
+if docker inspect jobhunt-db >/dev/null 2>&1; then
+    if docker exec jobhunt-db pg_dump -U jobhunt -d jobhunt 2>>"$LOG" | gzip > "$OUT/jobhunt-$DAY.sql.gz.tmp" \
+       && [[ -s "$OUT/jobhunt-$DAY.sql.gz.tmp" ]]; then
+        mv -f "$OUT/jobhunt-$DAY.sql.gz.tmp" "$OUT/jobhunt-$DAY.sql.gz"
+        log "jobhunt database dumped ($(du -h "$OUT/jobhunt-$DAY.sql.gz" | cut -f1))"
+    else
+        rm -f "$OUT/jobhunt-$DAY.sql.gz.tmp"
+        log "ERROR: pg_dump of the jobhunt database failed"
+        EXIT=1
+    fi
+fi
+
 # The volume is read through a throwaway container, so nothing on the host needs to know
 # where Docker keeps it. Grafana keeps running; its SQLite is small and written rarely.
 # plugins/ is skipped: it is the bundled plugin cache (100+ MB) and comes back with the image.
@@ -73,7 +87,7 @@ for spec in "omada:wifi_omada_data:autobackup" "unifi:wifi_unifi_config:data/bac
     fi
 done
 
-for pattern in "events-*.sql.gz" "grafana-*.tgz" "omada-*.tgz" "unifi-*.tgz"; do
+for pattern in "events-*.sql.gz" "jobhunt-*.sql.gz" "grafana-*.tgz" "omada-*.tgz" "unifi-*.tgz"; do
     ls -1t "$OUT"/$pattern 2>/dev/null | tail -n +$((KEEP + 1)) | while IFS= read -r old; do
         rm -f -- "$old" && log "pruned $(basename "$old")"
     done

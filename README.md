@@ -51,6 +51,17 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > live client list, worst signal first. Plan and phases: [docs/plan-wifi.md](docs/plan-wifi.md);
 > the device register (what each MAC is, its fixed address, its SSID and AP): [docs/lan-clients.md](docs/lan-clients.md).
 >
+> **jobhunt (2026-10-14):** a fifth compose project, [bastion/jobhunt/](bastion/jobhunt/), runs
+> the job-feed watcher and application queue from `~/Documents/Github/jobhunt` on the Mac:
+> its own Postgres (`jobhunt-db`, never published), a Next.js web container on the vaultwarden
+> network for Caddy, and a worker that polls job boards and scores postings with the Anthropic
+> API. LAN-only at `https://jobs.robbywhite.net` (AdGuard rewrite added through the API). The
+> image is built on bastion from `/home/robby/jobhunt-src`, which the jobhunt repo's
+> `npm run deploy:bastion` rsyncs and then builds; apply.sh also rebuilds it and skips the
+> project while that directory is absent. Secrets (`JOBHUNT_DB_PASSWORD`, `ANTHROPIC_API_KEY`,
+> `JOBHUNT_SLACK_WEBHOOK_URL`) live in bastion's `.env`; the database joins the nightly
+> `~/backups/` dump.
+>
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that
 > and why it mattered; the runbook records how it was done.

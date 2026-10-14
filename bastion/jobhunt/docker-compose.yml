@@ -1,0 +1,76 @@
+# jobhunt: job-feed watcher and application queue (repo: ~/Documents/Github/jobhunt on the Mac).
+# Fifth compose project on bastion. The image is built HERE from a source copy that the
+# jobhunt repo's `npm run deploy:bastion` rsyncs to /home/robby/jobhunt-src -- no registry,
+# because the image bakes in the resume and positioning files. apply.sh runs `up -d --build`
+# when that directory exists and skips this project when it does not.
+#
+# Variables come from bastion's .env (JOBHUNT_DB_PASSWORD required; ANTHROPIC_API_KEY and
+# JOBHUNT_SLACK_WEBHOOK_URL optional). The web container joins the vaultwarden network so
+# Caddy serves it LAN-only as https://jobs.robbywhite.net; nothing publishes a port.
+services:
+  jobhunt-db:
+    image: postgres:17.6-alpine
+    container_name: jobhunt-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=jobhunt
+      - POSTGRES_PASSWORD=${JOBHUNT_DB_PASSWORD}
+      - POSTGRES_DB=jobhunt
+    volumes:
+      - jobhunt_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobhunt -d jobhunt"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  jobhunt-web:
+    build:
+      context: /home/robby/jobhunt-src
+    image: homelab/jobhunt:local
+    container_name: jobhunt-web
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      - DATABASE_URL=postgres://jobhunt:${JOBHUNT_DB_PASSWORD}@jobhunt-db:5432/jobhunt
+      - JOBHUNT_URL=https://jobs.robbywhite.net
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      jobhunt-db:
+        condition: service_healthy
+    networks:
+      - internal
+      - vaultwarden_default
+
+  jobhunt-worker:
+    image: homelab/jobhunt:local
+    container_name: jobhunt-worker
+    restart: unless-stopped
+    # Migrations run first; the worker then polls sources, scores, and sends the digest.
+    command: ["sh", "-c", "node migrate.js && node worker.js"]
+    environment:
+      - TZ=America/Chicago
+      - DATABASE_URL=postgres://jobhunt:${JOBHUNT_DB_PASSWORD}@jobhunt-db:5432/jobhunt
+      - JOBHUNT_URL=https://jobs.robbywhite.net
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - SLACK_WEBHOOK_URL=${JOBHUNT_SLACK_WEBHOOK_URL:-}
+    depends_on:
+      jobhunt-db:
+        condition: service_healthy
+      jobhunt-web:
+        condition: service_started
+    networks:
+      - internal
+
+volumes:
+  jobhunt_db_data:
+
+networks:
+  internal:
+    name: jobhunt_internal
+  vaultwarden_default:
+    external: true
