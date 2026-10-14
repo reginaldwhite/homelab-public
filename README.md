@@ -448,11 +448,12 @@ the LAN fine. Both tricks depend on Amazon keeping a legacy local-discovery path
 evidence says it is gone. The code is in git history (commits of 2026-10-12/13); the caged
 `alexa_ed25519` key on cinema remains authorised to its forced command only and can stay or go.
 
-**The plan:** a **Matter** virtual on/off device on bastion (`matterbridge` plus a small plugin
-that runs the wake/sleep verbs), commissioned once by QR code — Echos (4th gen and Shows) are
-Matter controllers over Wi-Fi, so control is local and officially supported rather than
-tolerated. Still only Plex: Matter devices have no per-speaker authentication either, so the
-sauna and the kids' internet stay off voice. Its own evening, alongside Home Assistant.
+**The plan is [docs/plan-alexa.md](docs/plan-alexa.md):** a **Matter** virtual device on
+bastion (`matterbridge` plus a small plugin that runs the existing verbs), commissioned once by
+QR code — Echos (4th gen and Shows) are Matter controllers over Wi-Fi, so control is local and
+officially supported rather than tolerated. Plex first; the sauna ("schedule the sauna at 7pm")
+only behind a voice-profile gate, since Matter devices have no per-speaker authentication; the
+kids' internet never.
 
 ---
 
