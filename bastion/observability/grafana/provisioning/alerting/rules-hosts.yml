@@ -206,7 +206,7 @@ groups:
             model: { refId: B, type: reduce, expression: A, reducer: last, datasource: { type: __expr__, uid: __expr__ } }
           - refId: C
             datasourceUid: __expr__
-            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [1] } } ] }
+            model: { refId: C, type: threshold, expression: B, datasource: { type: __expr__, uid: __expr__ }, conditions: [ { evaluator: { type: lt, params: [0.5] } } ] }
       - uid: dns-slow
         title: AdGuard is answering slowly
         condition: C
