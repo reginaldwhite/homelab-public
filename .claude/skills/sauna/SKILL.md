@@ -1,6 +1,6 @@
 ---
 name: sauna
-description: Schedule, start, stop or check the HUUM sauna. Use when Robby asks to schedule a sauna for a time ("sauna at 7pm"), start or stop the sauna, cancel a scheduled sauna, or asks whether the sauna is on or heating.
+description: Schedule, start, stop or check the HUUM sauna, and run the heat-up experiment. Use when Robby asks to schedule a sauna for a time ("sauna at 7pm"), start or stop the sauna, cancel a scheduled sauna, asks whether the sauna is on or heating, or asks about the sauna experiment ("next sauna run", "what should I set the vents to", "sauna runs so far", "label the sauna run").
 ---
 
 # Sauna
@@ -27,6 +27,27 @@ python3 /home/node/.openclaw/scripts/sauna.py start                   # heat now
 python3 /home/node/.openclaw/scripts/sauna.py stop
 python3 /home/node/.openclaw/scripts/sauna.py cancel
 ```
+
+## The heat-up experiment
+
+Robby is testing which heating mode (simple or learning) and which vent positions heat the
+sauna fastest. Before a session he asks for the next run; the script answers with one line
+naming the mode and the two vent slider positions, which he sets by hand. Relay that line
+exactly. If he says the sliders ended up elsewhere, record it with `label`.
+
+```
+python3 /home/node/.openclaw/scripts/sauna.py next                         # "what's the next sauna run"
+python3 /home/node/.openclaw/scripts/sauna.py runs                         # the runs so far
+python3 /home/node/.openclaw/scripts/sauna.py phase                        # where the experiment stands
+python3 /home/node/.openclaw/scripts/sauna.py label bench=0 ceiling=25     # what was actually set
+python3 /home/node/.openclaw/scripts/sauna.py label mode=learning
+python3 /home/node/.openclaw/scripts/sauna.py label clear
+python3 /home/node/.openclaw/scripts/sauna.py phase begin simple           # once, to start: the mode set today
+python3 /home/node/.openclaw/scripts/sauna.py phase decide learning adapts # after phase A: winner, adapts|flat
+```
+
+`label` takes any of `mode=simple|learning`, `bench=0-100`, `ceiling=0-100` (percent open).
+`phase begin` and `phase decide` are Robby's decisions; run them only when he says those words.
 
 ## Notes
 

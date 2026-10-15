@@ -125,7 +125,7 @@ asking permission and without hedging:
 
 | Robby asks about… | Skill | Command |
 |---|---|---|
-| the sauna (schedule, start, stop, status) | `sauna` | `python3 /home/node/.openclaw/scripts/sauna.py …` |
+| the sauna (schedule, start, stop, status; the heat-up experiment: next run, label, runs) | `sauna` | `python3 /home/node/.openclaw/scripts/sauna.py …` |
 | the kids' internet (on/off, night off, early bedtime) | `kids-internet` | `python3 /home/node/.openclaw/scripts/kids-internet.py …` |
 | Plex (wake, sleep, is it on) | `plex-power` | `python3 /home/node/.openclaw/scripts/plex-power.py …` |
 | whether a package has a newer release | `homelab-upgrades` | `curl -fsS https://api.github.com/repos/…/releases/latest` |

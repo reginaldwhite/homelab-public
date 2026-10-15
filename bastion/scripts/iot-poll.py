@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """iot-poll.py — read the sauna and the sprinklers, publish gauges, record sessions and runs.
 
-    iot-poll.py --poll       every 5 minutes from cron: gauges to the textfile collector,
-                             finished sessions and runs to the events database
-    iot-poll.py --dry-run    print what --poll would publish and record; write nothing
+    iot-poll.py --poll-huum    every minute from cron: the sauna's gauges, plus the heat-up
+                               experiment's run row and one-minute samples (docs/plan-sauna-heatup.md)
+    iot-poll.py --poll-rachio  every 5 minutes from cron: the sprinklers
+    iot-poll.py --poll         both at once (by hand)
+    iot-poll.py --dry-run      print what --poll would publish and record; write nothing
 
 Both devices are read from their vendors' clouds (neither exposes a local API), with the
 credentials in ../.env: HUUM_USERNAME/HUUM_PASSWORD (the app login, HTTP basic auth against
@@ -15,6 +17,11 @@ What comes out:
           -- the sauna's status code, temperature, target, door, session end; the sprinkler
           controller's online state, rain delay, whether a zone is running. These are the
           "right now" view that Grafana graphs.
+  runs    a `sauna_runs` row per heating session with its setup (the label sauna.py left
+          pending) and, when it ends, the heat-up responses -- minutes to 80 and to target,
+          overshoot, the curve's tail slope, how steadily it holds -- plus a `sauna_samples`
+          row a minute while heating. The raw status payload is logged once per session, so
+          a field the API only shows while heating is not missed.
   events  a `sauna/session` row when a heating session ends (started_at, minutes, peak_c);
           a `sauna/schedule-lost` row when an armed start disappears without heating;
           and one `sprinkler/<what>` row per finished Rachio event (zone completed, schedule
@@ -30,6 +37,7 @@ See docs/plan-kids-hours-and-iot.md (Part 2) and docs/plan-observability.md.
 import base64
 import json
 import os
+import statistics
 import subprocess
 import sys
 import time
@@ -43,6 +51,9 @@ TEXTFILE_DIR = "/home/robby/observability/textfile"
 STATE_FILE = "/home/robby/logs/iot-state.json"
 LOG = "/home/robby/logs/iot-poll.log"
 EVENT_SH = os.path.join(HERE, "event.sh")
+PLAN_FILE = "/home/robby/logs/sauna-plan.json"     # sauna.py's: the pending label is read here
+DB_CONTAINER = "events-db"
+EXPERIMENT_TARGET = 91                              # 196 F; a run at any other target is invalid
 
 HUUM_STATUS = "https://api.huum.eu/action/home/status"
 RACHIO = "https://api.rach.io/1/public"
@@ -137,6 +148,154 @@ def iso(ts_seconds):
     return datetime.fromtimestamp(int(ts_seconds), tz=timezone.utc).astimezone().isoformat()
 
 
+def db(sql, **vars):
+    """One statement in the events database through `docker exec … psql`, every value a psql
+    variable (the event.sh pattern: nothing is spliced into SQL). Returns the rows as lists of
+    strings, [] for none, or None when the database is absent or the statement failed --
+    logged, never fatal, like event.sh."""
+    if DRY:
+        print("--- sql:", " ".join(sql.split())[:150], {k: v for k, v in vars.items()})
+        return []
+    cmd = ["docker", "exec", "-i", DB_CONTAINER, "psql", "-q", "-At", "-U", "homelab", "-d", "homelab",
+           "-v", "ON_ERROR_STOP=1"]
+    for k, v in vars.items():
+        cmd += ["-v", f"{k}={'' if v is None else v}"]
+    try:
+        r = subprocess.run(cmd, input=sql, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log(f"db: {exc}")
+        return None
+    if r.returncode != 0:
+        log(f"db: {r.stderr.strip()[:200]}")
+        return None
+    return [line.split("|") for line in r.stdout.splitlines() if line]
+
+
+# --- the heat-up experiment (docs/plan-sauna-heatup.md) ---------------------------------
+def read_plan():
+    try:
+        with open(PLAN_FILE) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def consume_label(plan, run_id):
+    plan["pending"] = None
+    plan["last_run_id"] = run_id
+    if DRY:
+        return
+    with open(PLAN_FILE + ".tmp", "w") as fh:
+        json.dump(plan, fh, indent=1)
+    os.replace(PLAN_FILE + ".tmp", PLAN_FILE)
+
+
+def run_start(h, raw, now, temp, target):
+    """First heating sample of a session: open the run with whatever label sauna.py left
+    pending (an unlabelled session still gets a row and its numbers). The run clock starts at
+    this sample, not at HUUM's startDate, so every response is measured the same way."""
+    plan = read_plan()
+    label = (plan or {}).get("pending") or {}
+    rows = db("""insert into sauna_runs (started_at, target_c, mode, bench_pct, ceiling_pct, phase, plan_seq,
+                                         adaptation_run, start_c)
+                 values (to_timestamp(:'ts'::bigint), nullif(:'tg', '')::numeric, nullif(:'m', ''), nullif(:'b', '')::int,
+                         nullif(:'c', '')::int, nullif(:'ph', ''), nullif(:'sq', '')::int, :'ad'::boolean, :'t0'::numeric)
+                 returning id""",
+              ts=now, tg=target, m=label.get("mode"), b=label.get("bench_pct"), c=label.get("ceiling_pct"),
+              ph=label.get("phase"), sq=label.get("plan_seq"), ad="true" if label.get("adaptation_run") else "false",
+              t0=temp)
+    run_id = int(rows[0][0]) if rows else None
+    h["run"] = {"id": run_id, "started_ts": now, "target": target, "door_opened_ts": None}
+    if run_id and plan is not None and label:
+        consume_label(plan, run_id)
+    log(f"huum: run {run_id} started, {json.dumps(label) if label else 'unlabelled'}, start {temp:g}°C; "
+        f"raw status {json.dumps(raw, sort_keys=True)}")
+    if run_id is None:
+        log("huum: run row could not be written; this session's samples will not be recorded")
+
+
+def run_sample(run, now, temp, target, door_closed, code):
+    if not run.get("id"):
+        return
+    db("""insert into sauna_samples (run_id, ts, temp_c, target_c, door_closed, status_code)
+          values (:'r'::bigint, to_timestamp(:'ts'::bigint), :'t'::numeric, nullif(:'tg', '')::numeric, :'d'::boolean, :'c'::int)
+          on conflict do nothing""",
+       r=run["id"], ts=now, t=temp, tg=target or "", d="true" if door_closed else "false", c=code)
+    if not door_closed and not run.get("door_opened_ts"):
+        run["door_opened_ts"] = now
+        db("update sauna_runs set door_opened_at = to_timestamp(:'ts'::bigint) where id = :'r'::bigint", ts=now, r=run["id"])
+        log(f"huum: run {run['id']}: door opened")
+
+
+def heatup_metrics(samples, started_ts, target):
+    """samples: (ts, temp, door_closed) in time order. Minutes are from the first heating sample."""
+    def first_at(threshold):
+        return next((ts for ts, t, _ in samples if t is not None and t >= threshold), None)
+
+    def mins(ts):
+        return None if ts is None else round((ts - started_ts) / 60, 1)
+
+    t80 = first_at(80)
+    ttgt = first_at(target) if target else None
+    temps = [t for _, t, _ in samples if t is not None]
+    m = {"t_80_min": mins(t80), "t_target_min": mins(ttgt), "peak_c": max(temps) if temps else None,
+         "overshoot_c": None, "tail_slope": None, "settle_sd": None, "target_ts": ttgt}
+    if ttgt is None:
+        return m
+    after = [t for ts, t, _ in samples if t is not None and ttgt <= ts <= ttgt + 1800]
+    if after:
+        m["overshoot_c"] = round(max(after) - target, 1)
+    # The curve's knee: the rate over the last 10 degrees before target against the rate over
+    # 50..70, as a ratio. 1 is a straight line; well under 1 means the heater eased off.
+    t_tail, t50, t70 = first_at(target - 10), first_at(50), first_at(70)
+    if t_tail and ttgt > t_tail and t50 and t70 and t70 > t50:
+        m["tail_slope"] = round((10 / (ttgt - t_tail)) / (20 / (t70 - t50)), 2)
+    settle = [t for ts, t, d in samples if t is not None and d and ttgt + 1800 <= ts <= ttgt + 3600]
+    if len(settle) >= 10:
+        m["settle_sd"] = round(statistics.pstdev(settle), 2)
+    return m
+
+
+def run_finish(run, now, end_state):
+    """Heating stopped (or the controller vanished): compute the responses from the samples and
+    decide whether the run can be used by the fit. Invalid runs keep their numbers and say why."""
+    if not run.get("id"):
+        return
+    rows = db("select extract(epoch from ts)::bigint, temp_c, door_closed from sauna_samples "
+              "where run_id = :'r'::bigint order by ts", r=run["id"])
+    samples = [(int(ts), float(t) if t else None, d == "t") for ts, t, d in (rows or [])]
+    target = run.get("target") or 0
+    m = heatup_metrics(samples, run["started_ts"], target)
+    label = db("select mode, bench_pct, ceiling_pct, start_c from sauna_runs where id = :'r'::bigint", r=run["id"])
+    mode, bench, ceiling, start_c = (label[0] if label else ("", "", "", ""))
+    start_c = float(start_c) if start_c else None
+
+    reasons = []
+    if not (mode and bench != "" and ceiling != ""):
+        reasons.append("no label")
+    if start_c is None or start_c >= 40:
+        reasons.append(f"warm start ({start_c:g}°C)" if start_c is not None else "no start temperature")
+    if int(target) != EXPERIMENT_TARGET:
+        reasons.append(f"target {target:g}, not {EXPERIMENT_TARGET}")
+    if m["t_target_min"] is None:
+        reasons.append("controller went offline before target" if end_state == "offline" else "never reached target")
+    elif run.get("door_opened_ts") and run["door_opened_ts"] < m["target_ts"]:
+        reasons.append("door opened before target")
+    valid = not reasons
+    db("""update sauna_runs
+          set ended_at = to_timestamp(:'ts'::bigint), end_state = :'es',
+              t_80_min = nullif(:'t80', '')::numeric, t_target_min = nullif(:'ttg', '')::numeric,
+              overshoot_c = nullif(:'ov', '')::numeric, tail_slope = nullif(:'tl', '')::numeric,
+              settle_sd = nullif(:'sd', '')::numeric, peak_c = nullif(:'pk', '')::numeric,
+              valid = :'v'::boolean, invalid_reason = nullif(:'ir', '')
+          where id = :'r'::bigint""",
+       ts=now, es=end_state, t80=m["t_80_min"], ttg=m["t_target_min"], ov=m["overshoot_c"], tl=m["tail_slope"],
+       sd=m["settle_sd"], pk=m["peak_c"], v="true" if valid else "false", ir="; ".join(reasons), r=run["id"])
+    log(f"huum: run {run['id']} ended: t80 {m['t_80_min']} min, target {m['t_target_min']} min, "
+        f"overshoot {m['overshoot_c']}, tail {m['tail_slope']}, settle sd {m['settle_sd']}, "
+        f"{'valid' if valid else 'INVALID: ' + '; '.join(reasons)}")
+
+
 # --- HUUM -------------------------------------------------------------------------------
 def poll_huum(env, state):
     user, pw = env.get("HUUM_USERNAME"), env.get("HUUM_PASSWORD")
@@ -196,6 +355,19 @@ def poll_huum(env, state):
         h["active"] = None
     if code == 400:
         log("huum: EMERGENCY STOP reported")
+
+    # The heat-up experiment's run and its one-minute samples (this runs every minute from
+    # cron as --poll-huum). A cloud blip (230) ends the run like it ends the session; the
+    # session that follows is a warm start and is marked invalid by itself.
+    run = h.get("run")
+    if heating:
+        if not run:
+            run_start(h, s, now, temp, target)
+            run = h["run"]
+        run_sample(run, now, temp, target, door_closed, code)
+    elif run:
+        run_finish(run, now, HUUM_CODES.get(code, "unknown"))
+        h["run"] = None
 
     # Scheduled-start tracking. A target temperature with no heating means a session is
     # armed (a delayed start set on the controller or in the app). If that target goes back
@@ -285,13 +457,18 @@ def poll_rachio(env, state):
 
 
 def main():
-    if "--poll" not in sys.argv and not DRY:
+    modes = {"--poll": ("huum", "rachio"), "--poll-huum": ("huum",), "--poll-rachio": ("rachio",)}
+    chosen = [m for m in sys.argv[1:] if m in modes]
+    if not chosen and not DRY:
         print(__doc__)
         return 2
+    which = modes[chosen[0]] if chosen else modes["--poll"]
     env = load_env()
     state = load_state()
-    poll_huum(env, state)
-    poll_rachio(env, state)
+    if "huum" in which:
+        poll_huum(env, state)
+    if "rachio" in which:
+        poll_rachio(env, state)
     save_state(state)
     return 0
 

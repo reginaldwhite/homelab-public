@@ -37,6 +37,12 @@
 #                              Starting a heater from Slack is deliberate: the API and the
 #                              script both refuse with the door open, the controller caps a
 #                              session at three hours, and the Slack allowlist is one person.
+#   sauna-next      bastion  — the heat-up experiment (docs/plan-sauna-heatup.md): the next
+#   sauna-runs                 run's setup; the runs so far; where the experiment stands
+#   sauna-phase                ("sauna-phase [begin MODE | decide MODE adapts|flat]"); and the
+#   sauna-label                label for the next run ("sauna-label mode=… bench=… ceiling=…"
+#                              or "sauna-label clear"). Each argument is checked against a
+#                              fixed shape below. None of these touch the heater.
 #
 # Deliberately NOT granted: `shutdown` on bastion. bastion runs DNS and the vault
 # for the whole house; a prompt-injected agent should not be able to halt it.
@@ -76,6 +82,13 @@ case "$verb" in
     sauna-start)
         [[ -z "$args" || "$args" =~ ^([4-9][0-9]|1[01][0-9])$ ]] \
             || { echo "openclaw-cmd: sauna-start wants '[target 40-110]', got '$args'" >&2; exit 126; } ;;
+    sauna-phase)
+        [[ -z "$args" || "$args" =~ ^(begin\ (simple|learning)|decide\ (simple|learning)\ (adapts|flat))$ ]] \
+            || { echo "openclaw-cmd: sauna-phase wants nothing, 'begin MODE' or 'decide MODE adapts|flat', got '$args'" >&2; exit 126; } ;;
+    sauna-label)
+        field='(mode=(simple|learning)|bench=([0-9]|[1-9][0-9]|100)|ceiling=([0-9]|[1-9][0-9]|100))'
+        [[ "$args" =~ ^(clear|$field(\ $field){0,2})$ ]] \
+            || { echo "openclaw-cmd: sauna-label wants 'clear' or mode=simple|learning bench=0-100 ceiling=0-100, got '$args'" >&2; exit 126; } ;;
     *)
         [[ -z "$args" ]] || { echo "openclaw-cmd: '$verb' takes no arguments" >&2; exit 126; } ;;
 esac
@@ -262,6 +275,10 @@ case "$verb" in
     sauna-start)      "$SAUNA" start $args ;;
     sauna-stop)       "$SAUNA" stop ;;
     sauna-cancel)     "$SAUNA" cancel ;;
+    sauna-next)       "$SAUNA" next ;;
+    sauna-runs)       "$SAUNA" runs ;;
+    sauna-phase)      "$SAUNA" phase $args ;;        # $args validated above
+    sauna-label)      "$SAUNA" label $args ;;
     kids-status)      "$KIDS_HOURS" --status; exit 0 ;;   # exit 2 there means "rule out of step", not an error here
     kids-open)        "$KIDS_HOURS" --open  && "$KIDS_HOURS" --status ;;
     kids-close)       "$KIDS_HOURS" --close && "$KIDS_HOURS" --status ;;

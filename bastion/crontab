@@ -35,9 +35,12 @@
 # upserts never race on the same rows. docs/plan-wifi.md phase 4.
 2-59/5 * * * * /home/robby/homelab-deployed/bastion/scripts/wifi-clients.py --poll
 
-# The sauna and the sprinklers: gauges every five minutes, a session or run recorded as an
-# event when it finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2.
-*/5 * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll
+# The sauna and the sprinklers: gauges, a session or run recorded as an event when it
+# finishes. Reads only. docs/plan-kids-hours-and-iot.md part 2. The sauna is read every
+# minute since 2026-10-15 for the heat-up experiment's samples (docs/plan-sauna-heatup.md);
+# the sprinklers stay at five, inside Rachio's daily request budget.
+* * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll-huum
+*/5 * * * * /home/robby/homelab-deployed/bastion/scripts/iot-poll.py --poll-rachio
 
 # The sauna schedule (scripts/sauna.py): fire a due start, stop a due end. The pending start
 # lives in ~/logs/sauna-schedule.json, so the HUUM controller cannot forget it.
