@@ -202,6 +202,16 @@ setup. "Schedule the sauna to be ready at 7" in Slack, and later over Alexa
 - **A second target temperature** or a different probe position: both are follow-ups on the same
   machinery. The probe stays where it is for the whole experiment.
 
+> **Built 2026-10-15** (Robby moved it up from Sunday). Live: `iot-poll.py --poll-huum` every
+> minute with `sauna_runs` / `sauna_samples` (migration 005, applied by apply.sh), the raw
+> status payload logged once per session to `~/logs/iot-poll.log`, `sauna.py next | label |
+> runs | phase` with the plan in `~/logs/sauna-plan.json`, the four `sauna-*` verbs in
+> `openclaw-cmd`, the forge wrapper and allowlist, the `sauna` skill, and the *Sauna heat-up*
+> dashboard. Tested against the database with a synthetic 95-minute session (removed after).
+> Still to do: `sauna-analysis.py` (the effects table is empty until then; the dashboard's
+> per-setup bars and phase A table need no model), `--ready-at`, and the verb grant in
+> bastion's `authorized_keys`, which is done by hand. The experiment begins with `phase begin`.
+
 ## Decisions before Sunday
 
 1. **Which mode is set today** — that is block A1, and it is also what the 26 baseline runs
