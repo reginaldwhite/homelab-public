@@ -1,0 +1,1231 @@
+{
+ "uid": "homelab-kids",
+ "title": "Kids' internet",
+ "tags": [
+  "homelab",
+  "kids"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "5m",
+ "time": {
+  "from": "now-7d",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "Finn \u2014 devices: playroom PC 192.168.0.150, Chromebook 192.168.0.151, Chromebook (b) 192.168.0.157, Roku 192.168.0.152, iPad 192.168.0.153, phone 192.168.0.154",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "collapsed": false,
+   "id": 1
+  },
+  {
+   "type": "state-timeline",
+   "title": "Finn: window and overrides",
+   "gridPos": {
+    "h": 5,
+    "w": 24,
+    "x": 0,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_window_open{child=\"finn\"}",
+     "legendFormat": "window open"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_rule_present{child=\"finn\"}",
+     "legendFormat": "block rule present"
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_override{child=\"finn\"}",
+     "legendFormat": "override active"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "no",
+         "color": "transparent"
+        },
+        "1": {
+         "text": "yes",
+         "color": "green"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "block rule present"
+      },
+      "properties": [
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "transparent",
+           "value": null
+          },
+          {
+           "color": "red",
+           "value": 1
+          }
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "override active"
+      },
+      "properties": [
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "transparent",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 1
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "mergeValues": true,
+    "showValue": "never",
+    "rowHeight": 0.8,
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    }
+   },
+   "id": 2
+  },
+  {
+   "type": "timeseries",
+   "title": "Finn: allowed lookups per 5 min, against the window (allowed traffic while the window is closed means a device that is not on the list)",
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 6
+   },
+   "datasource": {
+    "type": "datasource",
+    "uid": "-- Mixed --"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum(count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(150|151|157|152|153|154)\", filtered=\"false\"}[5m]))",
+     "legendFormat": "allowed / 5 min",
+     "queryType": "range"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_window_open{child=\"finn\"}",
+     "legendFormat": "window open (1)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 60,
+      "lineWidth": 1
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "window open (1)"
+      },
+      "properties": [
+       {
+        "id": "custom.drawStyle",
+        "value": "line"
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 10
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "max",
+        "value": 1
+       },
+       {
+        "id": "min",
+        "value": 0
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       },
+       {
+        "id": "custom.lineWidth",
+        "value": 2
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 3
+  },
+  {
+   "type": "timeseries",
+   "title": "Finn: lookups per 5 min by device",
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 14
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum by (client) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(150|151|157|152|153|154)\"}[5m]))",
+     "legendFormat": "{{client}}",
+     "queryType": "range"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 50,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.150"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "playroom PC (150)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.151"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Chromebook (151)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.157"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Chromebook (b) (157)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.152"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Roku (152)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.153"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "iPad (153)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.154"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "phone (154)"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 4
+  },
+  {
+   "type": "timeseries",
+   "title": "Finn: blocked vs allowed per 5 min",
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 14
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum by (filtered) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(150|151|157|152|153|154)\"}[5m]))",
+     "legendFormat": "filtered={{filtered}}",
+     "queryType": "range"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 50,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "filtered=true"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "blocked"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "filtered=false"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "allowed"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 5
+  },
+  {
+   "type": "table",
+   "title": "Finn: top domains in the selected range (allowed)",
+   "gridPos": {
+    "h": 10,
+    "w": 12,
+    "x": 0,
+    "y": 22
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "topk(25, sum by (domain) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(150|151|157|152|153|154)\", filtered=\"false\"} | pattern \"<ip> <domain> <type> <_>\" [$__range])))",
+     "queryType": "instant",
+     "legendFormat": "{{domain}}"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "reduce",
+     "options": {
+      "reducers": [
+       "lastNotNull"
+      ],
+      "labelsToFields": true
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Field": true
+      },
+      "renameByName": {
+       "domain": "domain",
+       "Last *": "lookups"
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Last *",
+      "desc": true
+     }
+    ]
+   },
+   "id": 6
+  },
+  {
+   "type": "table",
+   "title": "Finn: top blocked domains in the selected range",
+   "gridPos": {
+    "h": 10,
+    "w": 12,
+    "x": 12,
+    "y": 22
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "topk(25, sum by (domain) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(150|151|157|152|153|154)\", filtered=\"true\"} | pattern \"<ip> <domain> <type> <_>\" [$__range])))",
+     "queryType": "instant",
+     "legendFormat": "{{domain}}"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "reduce",
+     "options": {
+      "reducers": [
+       "lastNotNull"
+      ],
+      "labelsToFields": true
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Field": true
+      },
+      "renameByName": {
+       "Last *": "lookups"
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Last *",
+      "desc": true
+     }
+    ]
+   },
+   "id": 7
+  },
+  {
+   "type": "timeseries",
+   "title": "Finn: devices on the WiFi (signal as the AP hears them)",
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 32
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "wifi_client_signal_dbm{name=~\"finn-.*\"}",
+     "legendFormat": "{{name}} \u00b7 {{ap}} {{band}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "dBm",
+     "custom": {
+      "drawStyle": "points",
+      "pointSize": 4,
+      "showPoints": "always"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 8
+  },
+  {
+   "type": "row",
+   "title": "Ava \u2014 devices: phone 192.168.0.155, Chromebook 192.168.0.158, iPad mini 192.168.0.156",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 39
+   },
+   "collapsed": false,
+   "id": 9
+  },
+  {
+   "type": "state-timeline",
+   "title": "Ava: window and overrides",
+   "gridPos": {
+    "h": 5,
+    "w": 24,
+    "x": 0,
+    "y": 40
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_window_open{child=\"ava\"}",
+     "legendFormat": "window open"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_rule_present{child=\"ava\"}",
+     "legendFormat": "block rule present"
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_override{child=\"ava\"}",
+     "legendFormat": "override active"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "no",
+         "color": "transparent"
+        },
+        "1": {
+         "text": "yes",
+         "color": "green"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "block rule present"
+      },
+      "properties": [
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "transparent",
+           "value": null
+          },
+          {
+           "color": "red",
+           "value": 1
+          }
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "override active"
+      },
+      "properties": [
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "transparent",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 1
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "mergeValues": true,
+    "showValue": "never",
+    "rowHeight": 0.8,
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    }
+   },
+   "id": 10
+  },
+  {
+   "type": "timeseries",
+   "title": "Ava: allowed lookups per 5 min, against the window (allowed traffic while the window is closed means a device that is not on the list)",
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 45
+   },
+   "datasource": {
+    "type": "datasource",
+    "uid": "-- Mixed --"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum(count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(155|158|156)\", filtered=\"false\"}[5m]))",
+     "legendFormat": "allowed / 5 min",
+     "queryType": "range"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "homelab_kids_window_open{child=\"ava\"}",
+     "legendFormat": "window open (1)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 60,
+      "lineWidth": 1
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "window open (1)"
+      },
+      "properties": [
+       {
+        "id": "custom.drawStyle",
+        "value": "line"
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 10
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "max",
+        "value": 1
+       },
+       {
+        "id": "min",
+        "value": 0
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       },
+       {
+        "id": "custom.lineWidth",
+        "value": 2
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 11
+  },
+  {
+   "type": "timeseries",
+   "title": "Ava: lookups per 5 min by device",
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 53
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum by (client) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(155|158|156)\"}[5m]))",
+     "legendFormat": "{{client}}",
+     "queryType": "range"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 50,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.155"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "phone (155)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.158"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Chromebook (158)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "192.168.0.156"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "iPad mini (156)"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 12
+  },
+  {
+   "type": "timeseries",
+   "title": "Ava: blocked vs allowed per 5 min",
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 53
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "sum by (filtered) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(155|158|156)\"}[5m]))",
+     "legendFormat": "filtered={{filtered}}",
+     "queryType": "range"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 50,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "filtered=true"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "blocked"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "filtered=false"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "allowed"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 13
+  },
+  {
+   "type": "table",
+   "title": "Ava: top domains in the selected range (allowed)",
+   "gridPos": {
+    "h": 10,
+    "w": 12,
+    "x": 0,
+    "y": 61
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "topk(25, sum by (domain) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(155|158|156)\", filtered=\"false\"} | pattern \"<ip> <domain> <type> <_>\" [$__range])))",
+     "queryType": "instant",
+     "legendFormat": "{{domain}}"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "reduce",
+     "options": {
+      "reducers": [
+       "lastNotNull"
+      ],
+      "labelsToFields": true
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Field": true
+      },
+      "renameByName": {
+       "domain": "domain",
+       "Last *": "lookups"
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Last *",
+      "desc": true
+     }
+    ]
+   },
+   "id": 14
+  },
+  {
+   "type": "table",
+   "title": "Ava: top blocked domains in the selected range",
+   "gridPos": {
+    "h": 10,
+    "w": 12,
+    "x": 12,
+    "y": 61
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "topk(25, sum by (domain) (count_over_time({job=\"adguard-querylog\", client=~\"192.168.0.(155|158|156)\", filtered=\"true\"} | pattern \"<ip> <domain> <type> <_>\" [$__range])))",
+     "queryType": "instant",
+     "legendFormat": "{{domain}}"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "reduce",
+     "options": {
+      "reducers": [
+       "lastNotNull"
+      ],
+      "labelsToFields": true
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Field": true
+      },
+      "renameByName": {
+       "Last *": "lookups"
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Last *",
+      "desc": true
+     }
+    ]
+   },
+   "id": 15
+  },
+  {
+   "type": "timeseries",
+   "title": "Ava: devices on the WiFi (signal as the AP hears them)",
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 71
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "wifi_client_signal_dbm{name=~\"ava-.*\"}",
+     "legendFormat": "{{name}} \u00b7 {{ap}} {{band}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "dBm",
+     "custom": {
+      "drawStyle": "points",
+      "pointSize": 4,
+      "showPoints": "always"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "id": 16
+  }
+ ],
+ "description": "Each child's window (kids-hours.py), what their devices looked up (AdGuard's query log in Loki, 30 days) and when they were on the WiFi. Allowed lookups while the window is closed mean a device that is not on the child's list in kids-hours.py."
+}
