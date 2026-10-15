@@ -1,0 +1,382 @@
+{
+ "uid": "homelab-sauna-heatup",
+ "title": "Sauna heat-up",
+ "tags": [
+  "homelab",
+  "iot",
+  "sauna"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "refresh": "1m",
+ "time": {
+  "from": "now-30d",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "xychart",
+   "title": "Heat-up curves (minutes from the first heating sample; one line per run)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 12
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select (extract(epoch from s.ts - r.started_at) / 60)::float as minutes, s.temp_c::float as temp_c, r.id::text || ' ' || coalesce(r.phase, '-') || ' ' || coalesce(r.mode, '?') || ' b' || coalesce(r.bench_pct::text, '?') || ' c' || coalesce(r.ceiling_pct::text, '?') as run\n            from sauna_samples s join sauna_runs r on r.id = s.run_id\n            where r.started_at > $__timeFrom() and s.ts < r.started_at + interval '3 hours' order by r.id, s.ts"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "show": "lines",
+      "lineWidth": 1,
+      "pointSize": 3
+     },
+     "unit": "celsius"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "minutes"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "m"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "mapping": "auto",
+    "series": [],
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "single"
+    },
+    "show": "lines"
+   },
+   "transformations": [
+    {
+     "id": "partitionByValues",
+     "options": {
+      "fields": [
+       "run"
+      ],
+      "naming": {
+       "asLabels": false
+      },
+      "keepFields": false
+     }
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "table",
+   "title": "Phase A: simple vs learning, run by run (A2 in order, so drift reads top to bottom)",
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 24,
+    "h": 9
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select phase, plan_seq as seq, mode, to_char(started_at at time zone 'America/Chicago', 'MM-DD HH24:MI') as started,\n                  start_c, t_80_min, t_target_min, overshoot_c, tail_slope, settle_sd,\n                  case when ended_at is null then 'heating' when valid then 'ok' else coalesce(invalid_reason, 'invalid') end as status\n           from sauna_runs where phase in ('A1', 'A2') order by phase, plan_seq, started_at"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   }
+  },
+  {
+   "id": 3,
+   "type": "barchart",
+   "title": "Minutes to target by setup (valid runs; the bars are means, the table below has each run)",
+   "gridPos": {
+    "x": 0,
+    "y": 21,
+    "w": 12,
+    "h": 9
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select mode || ' b' || bench_pct || ' c' || ceiling_pct as setup,\n                  round(avg(t_target_min), 1)::float as \"to target\", round(avg(t_80_min), 1)::float as \"to 80\",\n                  count(*)::int as runs\n           from sauna_runs where valid and not adaptation_run and mode is not null\n           group by 1 order by 2"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "m"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "runs"
+      },
+      "properties": [
+       {
+        "id": "custom.hideFrom",
+        "value": {
+         "viz": true,
+         "legend": true,
+         "tooltip": false
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "orientation": "horizontal",
+    "showValue": "always",
+    "legend": {
+     "showLegend": true,
+     "placement": "bottom",
+     "displayMode": "list"
+    },
+    "xField": "setup",
+    "groupWidth": 0.7,
+    "barWidth": 0.8
+   }
+  },
+  {
+   "id": 4,
+   "type": "xychart",
+   "title": "Start temperature vs minutes to target (every finished run; the scheduling estimate)",
+   "gridPos": {
+    "x": 12,
+    "y": 21,
+    "w": 12,
+    "h": 9
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select start_c::float as start_c, t_target_min::float as \"to target\", coalesce(mode, 'unlabelled') as mode\n           from sauna_runs where t_target_min is not null and start_c is not null order by start_c"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "show": "points",
+      "pointSize": 7
+     },
+     "unit": "m"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "start_c"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "celsius"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "mapping": "auto",
+    "series": [],
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "show": "points"
+   },
+   "transformations": [
+    {
+     "id": "partitionByValues",
+     "options": {
+      "fields": [
+       "mode"
+      ],
+      "naming": {
+       "asLabels": false
+      },
+      "keepFields": false
+     }
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "table",
+   "title": "Effects (from sauna-analysis.py; empty until phase B has runs)",
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select phase, response, term, round(estimate, 1) as estimate, round(low, 1) as low, round(high, 1) as high, n,\n                  to_char(fitted_at at time zone 'America/Chicago', 'MM-DD HH24:MI') as fitted\n           from sauna_model order by phase, response, term"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   }
+  },
+  {
+   "id": 6,
+   "type": "barchart",
+   "title": "Overshoot and tail slope by mode (valid runs)",
+   "gridPos": {
+    "x": 12,
+    "y": 30,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select mode, round(avg(overshoot_c), 1)::float as \"overshoot C\", round(avg(tail_slope), 2)::float as \"tail slope\",\n                  round(avg(settle_sd), 2)::float as \"settle sd\"\n           from sauna_runs where valid and mode is not null group by mode order by mode"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "orientation": "vertical",
+    "showValue": "always",
+    "xField": "mode",
+    "legend": {
+     "showLegend": true,
+     "placement": "bottom",
+     "displayMode": "list"
+    }
+   }
+  },
+  {
+   "id": 7,
+   "type": "table",
+   "title": "Runs, newest first (invalid ones say why; adaptation runs are recorded but not scored)",
+   "gridPos": {
+    "x": 0,
+    "y": 38,
+    "w": 24,
+    "h": 11
+   },
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "events"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "events"
+     },
+     "format": "table",
+     "rawQuery": true,
+     "rawSql": "select id, to_char(started_at at time zone 'America/Chicago', 'MM-DD HH24:MI') as started, phase, plan_seq as seq, mode,\n                  bench_pct as bench, ceiling_pct as ceiling, adaptation_run as adapt, start_c, t_80_min, t_target_min, overshoot_c,\n                  tail_slope, settle_sd, peak_c, end_state,\n                  case when ended_at is null then 'heating' when valid then 'ok' else coalesce(invalid_reason, 'invalid') end as status\n           from sauna_runs order by started_at desc limit 50"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "enablePagination": true
+   }
+  }
+ ],
+ "description": "The heat-up experiment (docs/plan-sauna-heatup.md): heating mode first, then the vents. Data from sauna_runs and sauna_samples, written by iot-poll.py --poll-huum."
+}
