@@ -1,238 +1,232 @@
-# Plan: sauna heat-up experiment — which vents, which heating mode, how long
+# Plan: sauna heat-up experiment — heating mode first, then the vents
 
-Written 2026-10-15; implementation starts Sunday 2026-10-18. Builds on the HUUM poller and
-`sauna.py` from [plan-kids-hours-and-iot.md](plan-kids-hours-and-iot.md) (Part 2).
+Written 2026-10-15, revised the same day after Robby's answers; implementation starts Sunday
+2026-10-18. Builds on the HUUM poller and `sauna.py` from
+[plan-kids-hours-and-iot.md](plan-kids-hours-and-iot.md) (Part 2).
 
 ## The question
 
-The sauna has one fixed intake by the heater and two adjustable exhaust vents, one under the
-top bench and one in the ceiling. The heater offers a *standard* and a *smart* heating cycle.
-Robby wants to know, with numbers rather than a feeling:
+The sauna has one fixed intake by the heater and two adjustable exhaust vents — sliders — one
+under the top bench and one in the ceiling. Today the bench vent is closed and the ceiling vent
+is open about 10 %. The controller offers two heating modes, **simple** and **learning**, set on
+the local panel. The temperature probe is a remote one at the bench, so the controller reads
+what a person feels. The target is 196 °F, which the controller holds as **91 °C**; it stays at
+91 for the whole experiment. The sauna is indoors, on a floor partly below ground, so ambient
+conditions barely move — the 26 recorded cold starts sit at 23–33 °C.
 
-1. **Which combination of vent positions and heating mode reaches the target fastest.**
-2. **How long heating takes**, well enough that "sauna at 7" can mean *ready* at 7, not *switched
-   on* at 7.
+Two things to settle, in this order:
 
-The hunch about the modes is that *standard* runs the elements flat out until the target and
-*smart* eases off as it approaches. That is unverified: the HUUM API exposes no mode field
-while idle (`maxHeatingTime, statusCode, door, config, temperature, remoteSafetyState`), so step
-0 captures a payload while heating to see whether one appears. Either way, the temperature
-curve itself will show it — an easing-off mode shows a slope that flattens in the last 10 °C
-and a smaller overshoot, and that is measurable.
+1. **Which heating mode is better** — and what "learning" actually does.
+2. **Which vent positions heat fastest**, in the winning mode.
+
+And the by-product: **how long heating takes**, well enough that "sauna at 7" can mean *ready*
+at 7.
 
 ## What the data already says
 
-Prometheus has held `huum_temperature_celsius` at 5-minute resolution since 2026-09-27, so a
-baseline exists without doing anything. Reconstructed from the 26 heating intervals in the last
-18 days (cold evening starts only; the short second sessions of an evening excluded):
+Prometheus has held `huum_temperature_celsius` at 5-minute resolution since 2026-09-27.
+Reconstructed from the 26 heating intervals of the last 18 days, cold evening starts only, with
+the vents where they are now and whichever mode is set now:
 
 | | cold start 23–27 °C, target 93 | notes |
 |---|---|---|
 | minutes to 80 °C | **60–65** | every run within that band |
 | minutes to target | **80–90** | 5-minute resolution, so ±5 |
-| peak | **95–98** (target 93) | 3–5 °C of overshoot; smart mode may be about this |
-| 82 °C target (2026-10-13) | 60 to target | |
+| peak | **95–98** (target 93) | 3–5 °C of overshoot |
+| 91/82 °C targets (10-13/14) | 60–75 to target | |
 
-Three points this settles about the experiment design:
+What this settles:
 
-- **The process is very repeatable.** With the same vents and mode (whatever they were), run-to-
-  run spread is about ±5 minutes at the current resolution. A 10-minute difference between
-  combinations will therefore be obvious with two replicates each; a 5-minute one needs the
-  finer sampling below and three.
-- **Start temperature is the big covariate.** A 61 °C start reached target in 50 minutes against
-  85 from 25 °C. Evening cold starts sit at 23–33 °C today, and that band will move down with
-  the weather. Every run must record its start temperature and the model must adjust for it.
-- **5-minute polling is too coarse** for the question. Reaching target is a single sample
+- **The process is very repeatable** — the same setup gives the same curve within ±5 minutes at
+  the current resolution. A 10-minute difference between setups will be obvious with two runs
+  each; a 5-minute one needs the one-minute sampling below and three.
+- **Start temperature still matters** even indoors: a 61 °C warm start reached target in 50
+  minutes against 85 from 25 °C. Every run records it and the vent model adjusts for it, but
+  with a stable room it is a small correction, not the weather problem it would be outdoors.
+- **5-minute polling is too coarse** for the question: reaching target is a single sample
   crossing, so the measurement error is the poll interval. One-minute sampling while heating
   cuts that to ±1.
-- Several evenings show the temperature stalling at 91 and never touching 93 — that is the door
-  opening when the session starts, not the heater. Runs are scored on the *heat-up*, which ends
-  at the first door opening or the first target crossing, whichever is first.
+- Evenings where the temperature stalled at 91 and never touched 93 are the door opening when
+  the session started, not the heater. A run is scored on the *heat-up*, which ends at the first
+  door opening or the first target crossing, whichever is first.
+- **This baseline is one cell already**: current vents, current mode. The first thing Sunday's
+  code does is re-measure it at one-minute resolution.
 
-## Factors and responses
+## Responses
 
-**Factors** (three, two levels each → 8 cells):
-
-| factor | levels | set where |
-|---|---|---|
-| bench vent | closed / open | by hand, before starting |
-| ceiling vent | closed / open | by hand, before starting |
-| heating mode | standard / smart | on the controller or in the HUUM app, before starting |
-
-Vents are tested fully open versus fully closed. If they have detents or a half position, that
-is a second experiment once the full-open/closed answer exists.
-
-**Held fixed:** target temperature (one value for the whole experiment; 91 or 93, decide below),
-door closed throughout the heat-up, a cold start (first sample under 40 °C — a second session of
-the evening is never a run), no steamer.
-
-**Recorded covariates:** start temperature (first sample), outdoor temperature and wind at the
-start (Open-Meteo, free, no key, hourly for a latitude/longitude), hour of day, date.
-
-**Responses**, per run, all computed from one-minute samples:
+Per run, all from one-minute samples:
 
 | name | definition | what it answers |
 |---|---|---|
-| `t_80` | minutes from heating start to first sample ≥ 80 °C | "usable" time; robust to mode differences near the target |
-| `t_target` | minutes to first sample ≥ target | the primary response |
-| `overshoot_c` | max temperature in the 30 min after `t_target`, minus target | what smart mode probably changes |
-| `tail_slope` | °C/min over the last 10 °C before target, divided by the slope over 50→70 °C | the curve's knee; < 0.7 means the heater eased off |
-| `settle_sd` | standard deviation of temperature from 30 to 60 min after target, door closed | how steady it holds, if the session gets that far |
+| `t_80` | minutes from heating start to first sample ≥ 80 °C | "usable" time; robust to how a mode behaves near target |
+| `t_target` | minutes to first sample ≥ 91 °C | the primary response |
+| `overshoot_c` | max temperature in the 30 min after `t_target`, minus 91 | what a smarter mode most likely changes |
+| `tail_slope` | °C/min over the last 10 °C before target ÷ the slope over 50→70 °C | the curve's knee; < 0.7 means the heater eased off |
+| `settle_sd` | std dev of temperature 30–60 min after target, door closed | how steady it holds at 196 °F — comfort, and a reason to prefer a slightly slower mode |
 
-## Experimental design
+## Phase A — heating mode
 
-A **2³ full factorial with two replicates: 16 runs**, which at roughly one sauna an evening is
-about three weeks. The order is randomised, with one constraint: runs 1–8 are a complete
-replicate (every cell once) and runs 9–16 are the second. If the experiment stops early at 8,
-every cell has still been seen once; if two cells are within each other's confidence interval
-after 16, a third replicate of just those two decides it.
+**Setup fixed:** bench vent closed, ceiling 10 % (today's positions), target 91, cold start.
 
-The script picks the order (seeded, so it is reproducible) and tells Robby what to set next;
-nobody chooses a cell by mood, which is what makes the weather and the calendar average out
-instead of lining up with a factor.
+**Why blocks, not alternation.** A mode named *learning* presumably adapts from session to
+session. If it does, alternating simple/learning would hand it a different history every time
+and measure nothing; and its first sessions after a switch are not its real behaviour. So:
+
+| block | runs | purpose |
+|---|---|---|
+| A1: the mode set today | 3 | re-measure the baseline at one-minute resolution (the 26 old runs say what to expect) |
+| A2: the other mode | 6 | enough to see whether runs 1→6 drift (adapting) or are flat (just a different control law) |
+
+Nine evenings. The ordering A1 then A2 is deliberate: the current mode has months of state, if
+state is a thing, and is measured as it is; the other mode is then given six runs from a clean
+switch and is judged on its **last three**.
+
+**What "learning" is, read from the data:** if A2's curves change monotonically across the six
+runs — `t_target` falling, `overshoot_c` shrinking — the mode adapts, and the plan's phase B
+rules for adapting modes apply. If run 1 looks like run 6, it does not adapt in any way that
+matters here, and it is simply the second control law. If it adapts but has not settled by run
+6, extend A2 three runs at a time until two consecutive runs agree within 2 minutes.
+
+**Decision rule:** compare A1 (3 runs) against A2's last three on `t_target` and `t_80` (a
+two-sample t-test is plenty with a room this stable; the dashboard shows the runs side by side
+anyway). The faster mode wins unless it is within 5 minutes of the other *and* clearly worse on
+`overshoot_c` or `settle_sd` — in which case the steadier one wins, because 5 minutes is less
+than the comfort difference of a 4 °C overshoot at 196 °F. Record the choice at the top of this
+file and set the panel to it.
+
+## Phase B — vents, in the winning mode
+
+**Factors:** bench vent and ceiling vent, each **closed (0 %) and fully open (100 %)** — the
+ends of the sliders, four cells. Today's "ceiling 10 %" is the baseline cell and already has
+its runs from phase A, so it is a fifth point for free, not a sixth cell to run.
+
+| if the winning mode… | design | runs |
+|---|---|---|
+| does not adapt | 2 × 2, two replicates, cell order randomised by the script | 8 |
+| adapts | each cell a block of **three consecutive** runs; the first is the adaptation run and is recorded but excluded; cell order randomised | 12 |
+
+**Model:** `t_target = β0 + β1·bench + β2·ceiling + β3·bench×ceiling + β4·start_c`, least
+squares, same for `t_80` and `overshoot_c`. Output in minutes with 95 % intervals: *opening the
+ceiling vent costs 9 min (95 % CI 4–14)*, and a prediction per cell at a 25 °C start. The best
+cell is settled when its interval does not overlap the runner-up's; otherwise two more runs of
+each of the top two, and if they still tie, pick by comfort.
+
+**Phase C, optional:** with the better bench setting fixed, the ceiling slider at 25 % and
+50 % (two runs each) — because a slider's answer is rarely at its ends, and the baseline 10 %
+point already hints at the shape. Same machinery; percentages are first-class in the schema
+for this reason.
 
 **A run is invalid**, and its cell goes back in the queue, when: the door opens before target;
-the start temperature is 40 °C or over; the target differs from the fixed one; the controller
-goes offline mid-heat-up (`statusCode 230` — the 2026-10-07 sessions); or the label was never
-set. Invalid runs are kept in the table, flagged, and excluded from the model, never deleted.
-
-## Analysis
-
-Two views, both on the dashboard:
-
-1. **Per cell, plainly:** mean `t_target` and `t_80` with the individual runs shown, so the
-   picture needs no statistics to read.
-2. **A fitted model**, because start temperature and weather differ between runs and two
-   replicates per cell are few. Least squares on
-
-   `t_target = β0 + β1·bench + β2·ceiling + β3·mode + β4·bench×ceiling + β5·bench×mode + β6·ceiling×mode + β7·start_c + ε`
-
-   (the three-way interaction is dropped; the outdoor temperature is tried as β8 and kept only
-   if it earns its place). Sixteen runs against eight coefficients leaves eight degrees of
-   freedom — enough for a t-based 95 % interval on each effect. The output is a table in minutes:
-   *closing the ceiling vent saves 9 min (95 % CI 4–14)*, and a predicted time per cell at a
-   reference start of 25 °C. The best cell is the one with the lowest prediction; it is
-   "determined" when its interval does not overlap the runner-up's, and otherwise the honest
-   answer is "these two are the same, pick by comfort".
-
-   The same model is fitted to `t_80` and `overshoot_c`. The fit is a 8×8 normal-equations
-   solve in pure Python (bastion has no numpy and does not need it for this).
-
-**Reading the heating-mode hypothesis:** if smart mode shows a lower `tail_slope` and smaller
-`overshoot_c` at the cost of a longer `t_target` but a similar `t_80`, the hunch is confirmed
-and the choice is "do you want the last 10 °C fast, or no overshoot". If the curves are
-indistinguishable, the mode is cosmetic and the experiment collapses to four cells.
+the start temperature is 40 °C or over (a second session of the evening is never a run); the
+target is not 91; the controller goes offline mid-heat-up (`statusCode 230`); or no label was
+set. Invalid runs stay in the table, flagged, and are excluded from the fit — never deleted.
 
 ## What gets built
 
-### Data capture (the part that must land on Sunday; everything else can follow while runs accumulate)
+### Data capture — lands Sunday; everything else can follow while runs accumulate
 
 - **One-minute HUUM polling.** `iot-poll.py` gains `--poll-huum` for a `* * * * *` cron line;
-  the existing `*/5` line keeps Rachio (its 3 500/day budget is why the two split). HUUM's
-  status is one small JSON a minute, 1 440 a day; Home Assistant polls it faster than that.
-  The 5-minute gauges and the `sauna/session` event are unchanged.
+  the existing `*/5` line keeps Rachio (its 3 500/day budget is why they split). One small JSON
+  a minute to HUUM, 1 440 a day; Home Assistant polls it faster. The 5-minute gauges and the
+  `sauna/session` event are unchanged.
 - **Two tables**, migration `bastion/observability/postgres/005-sauna.sql`, applied by hand with
   psql as the file's header says:
-  - `sauna_runs` — `id, started_at, ended_at, target_c, bench_vent, ceiling_vent, mode, start_c,
-    outdoor_c, wind_kph, t_80_min, t_target_min, overshoot_c, tail_slope, settle_sd, door_opened_at,
-    valid, invalid_reason, plan_seq, note`. One row per heating session, labelled or not; unlabelled
-    sessions outside the experiment still get their numbers, which keeps the heat-up estimate
-    improving after the experiment ends.
+  - `sauna_runs` — `id, started_at, ended_at, target_c, mode, bench_pct, ceiling_pct, start_c,
+    t_80_min, t_target_min, overshoot_c, tail_slope, settle_sd, door_opened_at, phase, plan_seq,
+    adaptation_run, valid, invalid_reason, note`. One row per heating session, labelled or not —
+    unlabelled sessions outside the experiment still get their numbers, which keeps the heat-up
+    estimate improving after the experiment ends.
   - `sauna_samples` — `run_id, ts, temp_c, target_c, door_closed, status_code`, one row a minute
-    while heating. Small: a 3-hour session is 180 rows.
-- **Run lifecycle in the poller:** heating seen → insert a run (start temperature from this
-  sample, Open-Meteo lookup, pending label attached if one is set); each minute → a sample; door
-  opens or target crossed → freeze the heat-up responses; heating stops → close the run and
-  compute the rest. State lives in the existing `iot-state.json`.
+    while heating; a 3-hour session is 180 rows.
+- **Run lifecycle in the poller:** heating seen → insert a run with the start temperature and
+  the pending label; each minute → a sample; door opens or target crossed → freeze the heat-up
+  responses; heating stops → close the run and compute the rest. State in the existing
+  `iot-state.json`.
 - **Labels and the plan, in `sauna.py`:**
   ```
-  sauna.py next                          # prints the next cell to set up, e.g.
-                                         #   run 5 of 16: bench CLOSED, ceiling OPEN, mode SMART — label set
-  sauna.py label bench=open ceiling=closed mode=standard   # label by hand instead
+  sauna.py next        # the next run to set up, and sets it as the pending label, e.g.
+                       #   phase A2 run 4 of 6: mode LEARNING, bench 0 %, ceiling 10 %
+                       #   phase B run 3 of 8: mode LEARNING, bench 100 %, ceiling 0 %
+  sauna.py label mode=learning bench=0 ceiling=10   # record what was actually set, if different
   sauna.py label clear
-  sauna.py runs                          # the table so far, one line a run
+  sauna.py runs        # the table so far, one line a run
+  sauna.py phase       # where the experiment stands; after phase A, which mode won and why
   ```
-  A label is "pending" until a session starts, then attaches to that run; `next` both prints
-  and sets it. The randomised order lives in `~/logs/sauna-plan.json`, created on first `next`
-  with a fixed seed. These verbs are read-mostly and get `exec-approvals` entries and lines in
-  the `sauna` skill, so "what's the next sauna experiment" works from Slack; the agent still
-  cannot change vents, so the skill says to relay the line and nothing else.
-- **Weather:** Open-Meteo's forecast endpoint with the sauna's coordinates (`SAUNA_LAT`/`SAUNA_LON`
-  in bastion's `.env`), current temperature and wind, fetched once at run start; a failure
-  leaves the columns null rather than blocking the run.
+  The plan — the phase list, the block structure, the seeded random cell order for phase B —
+  lives in `~/logs/sauna-plan.json`, created on first `next`. Phase B's shape (8 or 12 runs)
+  is written into it when phase A is decided, by `sauna.py phase decide learning|simple`.
+  These verbs are read-mostly and get `exec-approvals` entries and lines in the `sauna` skill,
+  so the evening flow is: ask in Slack *"what's the next sauna run"* → the agent relays the
+  line → Robby sets the panel and the sliders, checks them → starts the session as usual (panel,
+  app or Slack; it makes no difference). If the sliders end up somewhere else, *"sauna label
+  bench 0 ceiling 25"* corrects the pending label. The agent relays and never improvises; it
+  cannot touch the vents or the panel.
 
 ### Analysis
 
-`bastion/scripts/sauna-analysis.py`, run from cron an hour after each session ends (or daily at
-06:50 — simpler, and nothing is lost): fits the model above to the valid labelled runs, writes
-the effect table and per-cell predictions to a small `sauna_model` table (one row per term per
-response, with estimate, low, high, n, fitted_at), and prints the same to stdout so it can be
-read from a shell. It also updates the plain heat-up estimate used for scheduling:
-`t_target` as a function of start temperature over *all* valid runs, labelled or not.
+`bastion/scripts/sauna-analysis.py`, daily at 06:50 from cron and on demand: the phase-A
+comparison while in phase A (both blocks, the drift check on A2, the decision rule's verdict as
+a suggestion — the decision itself is Robby's, by `phase decide`), the 2 × 2 fit in phase B, the
+per-cell predictions, all written to a small `sauna_model` table (one row per term per
+response: estimate, low, high, n, fitted_at) and printed to stdout. It also maintains the plain
+heat-up estimate for scheduling — `t_target` as a function of start temperature over *all*
+valid runs in the chosen setup. The fit is an n×n normal-equations solve in pure Python; bastion
+has no numpy and does not need it for five coefficients.
 
 ### Dashboard — *Sauna heat-up* (`grafana/dashboards/sauna-heatup.json`, uid `homelab-sauna-heatup`)
 
-| panel | source | shows |
-|---|---|---|
-| Heat-up curves | XY chart on `sauna_samples` joined to runs, x = minutes since start, one line per run coloured by cell | the whole experiment at a glance; the smart-mode knee if it exists |
-| Minutes to target by cell | bar chart with the individual runs as points | the plain answer |
-| Effects | table from `sauna_model` | each factor in minutes with its interval; best cell and whether it is settled |
-| Runs | table from `sauna_runs`, newest first, invalid rows dimmed with their reason | what has been done, what is queued |
-| Progress | stat: valid runs / 16, next cell | |
-| Start temperature vs minutes to target | scatter, all runs, the fitted line | why the model adjusts for it |
-| Overshoot and tail slope by mode | two small bars | the mode hypothesis |
+| panel | shows |
+|---|---|
+| Heat-up curves | XY chart on `sauna_samples`, x = minutes since start, one line per run, coloured by setup; the learning-mode drift and the smart knee, if they exist, are visible here before any statistic |
+| Phase A: simple vs learning | `t_target`, `t_80`, `overshoot_c`, `settle_sd` per run, the two blocks side by side, A2 in run order so drift reads left to right |
+| Phase B: minutes to target by cell | bars with the individual runs as points; the 10 % baseline shown as a fifth point |
+| Effects | table from `sauna_model`: each factor in minutes with its interval; best cell and whether it is settled |
+| Runs | `sauna_runs` newest first; invalid rows dimmed with their reason; adaptation runs marked |
+| Progress | phase, valid runs done / planned, next setup |
+| Start temperature vs minutes to target | scatter with the fitted line — the scheduling estimate, and why the model adjusts for start temperature |
 
-The existing *Sauna and Sprinklers* dashboard keeps its live panels; this one is history and
-analysis.
+The existing *Sauna and Sprinklers* dashboard keeps its live panels; this one is history.
 
 ### Payoff: ready-at scheduling
 
-Once the heat-up estimate exists, `sauna.py schedule` gains `--ready-at HH:MM`: start time =
-ready time − predicted `t_target` for the sauna's temperature right now (read from the last
-gauge) under the chosen cell. "Schedule the sauna to be ready at 7" in Slack, and later over
-Alexa ([plan-alexa.md](plan-alexa.md)), becomes exactly that.
+With the heat-up estimate in hand, `sauna.py schedule` gains `--ready-at HH:MM`: start = ready
+time − predicted `t_target` for the sauna's temperature right now (the last gauge) in the chosen
+setup. "Schedule the sauna to be ready at 7" in Slack, and later over Alexa
+([plan-alexa.md](plan-alexa.md)), becomes exactly that.
 
 ## Not in this plan
 
-- **Energy.** There is no power meter on a 9 kW circuit and a smart plug cannot go there; smart
-  mode's energy claim is not testable here, only its time and overshoot. A CT clamp on the
-  heater's breaker is a separate small project if the answer matters.
-- **Bench temperature.** The controller's sensor is high on the wall; the experiment optimises
-  what *it* reads. A second sensor at bench height (a Zigbee or BLE thermometer and a bridge on
-  bastion) would show whether a vent combination that is fastest at the sensor is also warmest
-  on the bench. Worth doing after, not before.
-- **Partial vent positions** and a second target temperature: follow-up experiments on the
-  same machinery.
+- **Energy.** No meter on a 9 kW circuit and a smart plug cannot go there; a mode's energy claim
+  is not testable here, only its time, overshoot and steadiness. A CT clamp on the heater's
+  breaker is a separate small project if the answer matters.
+- **A second target temperature** or a different probe position: both are follow-ups on the same
+  machinery. The probe stays where it is for the whole experiment.
 
 ## Decisions before Sunday
 
-1. **Vents:** are they open/closed only, or sliders with positions? (The plan assumes two
-   positions; a slider is still tested at its ends.)
-2. **Target for the experiment:** 91 or 93 °C. Recent sessions used both; the model cannot
-   compare across targets, so one value for the whole run of 16.
-3. **Where the heating mode is set** (controller panel or app) and what the app calls the two
-   options, so the labels use the real names.
-4. **Coordinates** for the weather lookup (two decimals is plenty) — and confirmation that the
-   sauna is a separate building, which is why outdoor temperature is in the model at all.
-5. **Starting the sessions:** panel, app or Slack, any of them; the only rule is `sauna.py next`
-   (or a Slack "next sauna experiment") *before* setting the vents, so the label is pending when
-   the session starts.
+1. **Which mode is set today** — that is block A1, and it is also what the 26 baseline runs
+   measured.
+2. **Slider reading:** confirm "closed / 10 % / fully open" are positions you can set and
+   reproduce by eye (a mark on the slider is enough). The labels are percentages.
+3. **Nothing else.** The target (91), the room (stable) and the probe (bench) are settled by
+   your answers; the weather lookup is gone from the plan.
 
 ## Steps
 
 0. **[agent, before Sunday]** Capture a raw HUUM status payload during one heating session to
-   see whether the mode is visible. Reconstruct the baseline table above from Prometheus into a
-   one-off note in this file (done: the table in *What the data already says*).
-1. **[you, Sunday]** Answer the five decisions; put `SAUNA_LAT`/`SAUNA_LON` in bastion's `.env`.
+   see whether the mode shows up in the API (nothing while idle). *Baseline table: done, above.*
+1. **[you, Sunday]** Decision 1 and 2.
 2. **[agent]** `005-sauna.sql`; `iot-poll.py --poll-huum` with run and sample recording;
    crontab lines; `--dry-run` shown before deploy. **[you]** apply the migration with psql.
-3. **[agent]** `sauna.py next | label | runs`, the seeded plan, `exec-approvals` entries, the
-   `sauna` skill lines. Deploy forge for the skill, bastion for the scripts.
-4. **[you]** That evening: `sauna.py next` (or ask in Slack), set vents and mode, start as
-   usual. **[agent]** Next morning: confirm run 1 has 1-minute samples, a label, a start
-   temperature and weather, and the right `t_80`/`t_target`.
-5. **[agent, during the week]** `sauna-analysis.py` and the dashboard; both useful from about
-   run 8, so there is no rush before then.
-6. **[both]** After run 16: read the effects table. Settled → write the answer at the top of this
-   file and set the cell as the default in the skill text. Two cells tied → runs 17–20 on those
-   two. Then `--ready-at`.
+3. **[agent]** `sauna.py next | label | runs | phase`, the plan file, `exec-approvals` entries,
+   the `sauna` skill lines. Deploy forge for the skill, bastion for the scripts.
+4. **[you]** That evening: ask Slack for the next run, set and check the sliders, start as
+   usual. **[agent]** Next morning: confirm run 1 has one-minute samples, its label, a start
+   temperature, and the right `t_80`/`t_target` against the old 5-minute figure.
+5. **[agent, during the week]** `sauna-analysis.py` and the dashboard; first useful after A1's
+   three runs, needed by the end of A2 (about nine evenings in).
+6. **[you]** `sauna.py phase decide …` after A2 — switch the panel to the winner if it is the
+   other one. **[agent]** writes the phase B plan.
+7. **[both]** After phase B: read the effects table; settled → the answer goes at the top of this
+   file and becomes the default setup in the skill text; tied → two more of each of the top
+   two. Optional phase C on the ceiling slider. Then `--ready-at`.
