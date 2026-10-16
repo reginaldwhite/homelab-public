@@ -212,6 +212,17 @@ setup. "Schedule the sauna to be ready at 7" in Slack, and later over Alexa
 > per-setup bars and phase A table need no model), `--ready-at`, and the verb grant in
 > bastion's `authorized_keys`, which is done by hand. The experiment begins with `phase begin`.
 
+> **Runs 1–2 (2026-10-15/16), and two poller faults found by them.** Run 1: 25 °C start, 62 min
+> to 80, 76 to 91, 1 °C overshoot. Run 2: 28 °C start, 61 to 80, 78 to 91, no overshoot. Both
+> simple, bench 0 %, ceiling 10 %. Faults: (1) the minute and five-minute cron polls shared one
+> state file and raced at 18:50, opening run 1 twice -- each poll now writes back only its own
+> section; (2) after HUUM's cloud outage at 23:52 the controller reported status 230 "offline"
+> for the entire morning session while its readings kept updating, so the poller saw no session
+> and run 2 had to be reconstructed from Prometheus (15 s scrapes of the minute gauges) -- a
+> session the API still describes (target set, end in the future) now counts as heating under
+> 230 too, and a warm start never consumes the pending label. The API shows no heating-mode
+> field while heating either (`config: 0, duration, startDate, endDate, targetTemperature`).
+
 ## Decisions before Sunday
 
 1. **Which mode is set today** — that is block A1, and it is also what the 26 baseline runs
