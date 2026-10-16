@@ -203,6 +203,11 @@ def run_start(h, raw, now, temp, target):
     this sample, not at HUUM's startDate, so every response is measured the same way."""
     plan = read_plan()
     label = (plan or {}).get("pending") or {}
+    if label and temp >= 40:
+        # A warm start is never an experiment run (a second session of the evening, or the
+        # cloud still describing a session that has ended): leave the label for the next cold one.
+        log(f"huum: warm start ({temp:g}°C); the pending label stays for the next cold start")
+        label = {}
     rows = db("""insert into sauna_runs (started_at, target_c, mode, bench_pct, ceiling_pct, phase, plan_seq,
                                          adaptation_run, start_c)
                  values (to_timestamp(:'ts'::bigint), nullif(:'tg', '')::numeric, nullif(:'m', ''), nullif(:'b', '')::int,
@@ -325,12 +330,20 @@ def poll_huum(env, state):
     end_ts = int(s.get("endDate") or 0)
     start_ts = int(s.get("startDate") or 0)
     heating = 1 if code == 231 else 0
+    # The controller reports 230 ("offline") for long stretches while its readings keep
+    # arriving -- the whole of the 2026-10-16 morning session, which the poller therefore
+    # never saw as a session or a run. A session the API still describes (a target, an end in
+    # the future) counts as heating for the session, run and armed tracking below; the strict
+    # gauge keeps the controller's own word, and huum_session_live shows the difference.
+    session_live = 1 if (target > 0 and end_ts > now) else 0
+    heating_like = 1 if (heating or (code == 230 and session_live)) else 0
     lines = [
         f"huum_poll_success 1",
         f"huum_last_poll_timestamp {now}",
         f"huum_status_code {code}",
         f'huum_status{{state="{HUUM_CODES.get(code, "unknown")}"}} 1',
         f"huum_heating {heating}",
+        f"huum_session_live {session_live}",
         f"huum_temperature_celsius {temp}",
         f"huum_target_celsius {target}",
         f"huum_door_closed {door_closed}",
@@ -344,7 +357,7 @@ def poll_huum(env, state):
     # stops. Peak temperature is tracked across polls; the session row is written once.
     h = state.setdefault("huum", {})
     active = h.get("active")
-    if heating:
+    if heating_like:
         if not active:
             active = {"started_ts": start_ts or now, "target": target, "peak": temp}
             h["active"] = active
@@ -367,7 +380,7 @@ def poll_huum(env, state):
     # cron as --poll-huum). A cloud blip (230) ends the run like it ends the session; the
     # session that follows is a warm start and is marked invalid by itself.
     run = h.get("run")
-    if heating:
+    if heating_like:
         if not run:
             run_start(h, s, now, temp, target)
             run = h["run"]
@@ -384,7 +397,7 @@ def poll_huum(env, state):
     # apart. While the controller is offline (230) nothing is concluded: its target reads 0
     # only because nobody can read it.
     armed = h.get("armed")
-    if heating:
+    if heating_like:
         if armed:
             h["armed"] = None            # started as planned
     elif code == 230:
