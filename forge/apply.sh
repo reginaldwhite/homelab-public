@@ -42,8 +42,12 @@ openclaw_state_checks() {
         say "exec approvals: could not read the stored policy (approvals get failed)"
     else
         # `approvals get --json` redacts the socket token; the raw row in SQLite does not,
-        # so read it through the CLI and never out of the database.
-        printf '%s' "$stored" | python3 - "$doc" <<'PYAPPROVALS'
+        # so read it through the CLI and never out of the database. The snapshot goes in as an
+        # argument, not on stdin: stdin is the heredoc carrying the program itself.
+        #
+        # `|| say` because this is a report. A deploy that is otherwise correct must not fail
+        # on the checker -- which is exactly what the first version of it did.
+        python3 - "$doc" "$stored" <<'PYAPPROVALS' || say "exec approvals: check itself failed"
 import json, re, sys
 
 # The document is JSON5 (comments, unquoted keys, trailing commas), and one pattern
@@ -59,7 +63,7 @@ for m in re.finditer(r'\b(pattern|argPattern)\s*:\s*("(?:[^"\\]|\\.)*")', text):
         current["argPattern"] = value
 want = {(e["pattern"], e["argPattern"]) for e in entries}
 
-stored = json.load(sys.stdin)
+stored = json.loads(sys.argv[2])
 have = {(e.get("pattern"), e.get("argPattern"))
         for e in (stored.get("file", {}).get("agents", {}).get("main", {}).get("allowlist") or [])}
 
