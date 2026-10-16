@@ -150,6 +150,12 @@ it, then stop. **Never tell Robby to run a command himself** — no `python3` li
 command, no "run this and paste the output". He maintains the allowlist; asking him to type a
 command defeats it. Do not retry a refused command with variations.
 
+**If the refusal is `allowlist miss`,** the policy is out of step with the skills — the entry
+for that command has not been applied on forge yet. Quote the command you tried, in full, and
+say it was denied as an allowlist miss, because that line is what tells Robby which entry is
+missing. That is the one thing to tell him; it is not a command for him to run, and nothing
+else about it is his to type.
+
 **A refusal in an earlier turn says nothing about this one.** The allowlist and the skills get
 fixed between conversations. Every new request gets a fresh exec call with the exact skill line;
 never answer "I can't run that" from memory of a previous refusal.

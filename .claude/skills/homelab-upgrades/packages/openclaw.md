@@ -74,6 +74,21 @@ release **before** bumping the tag.
    After an upgrade, `approvals get` must still show `allowlist` on both sides — a release
    that migrates the document could reset it.
 
+   **A deploy does not apply it.** Adding a verb to a script, committing the matching entry
+   and deploying leaves the stored policy behind, and the new verb is denied as an allowlist
+   miss — `sauna.py next|runs|phase|label` shipped on 2026-10-15 and were dead all day for
+   exactly this reason, with the agent telling Robby to run the command himself. Since then
+   `forge/apply.sh` compares the document with `approvals get --json` at the end of every
+   deploy and prints the entries that are not live, with the command to apply them. Read the
+   last lines of a forge deploy.
+6. **Skills belong in `openclaw-state/skills/`, nothing else.** OpenClaw also reads a `skills/`
+   directory inside the workspace, and a copy there shadows the deployed one. The March 2026
+   install left `openclaw-state/workspace/skills/plex-power/` behind, still carrying the
+   `bash command:"…"` notation that was removed from the real skill in 5cf7db0 — on 2026-10-15
+   the agent pasted that line into `exec` verbatim and the call was denied, because the binary
+   it names is then `bash`. `apply.sh` reports such a directory on every deploy; it never
+   deletes from the state dir, so move it aside by hand.
+
 ## Before upgrading
 
 - `openclaw-state/` goes to vault weekly via `bastion/scripts/sync-forge.sh` in the Sunday window.

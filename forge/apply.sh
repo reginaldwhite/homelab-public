@@ -21,6 +21,76 @@ OPENCLAW_CMD="/home/robby/bin/openclaw-cmd"
 
 say() { echo "    $*"; }
 
+# --- the two pieces of live state a deploy cannot fix by copying files -------------
+# Both of these have made the agent refuse its own skills, and in both cases every
+# file this script owns was correct, so nothing said anything. Checked on every
+# deploy, reported at the end, never fixed from here: the exec policy has to go in
+# through the CLI (which rejects a concurrent edit instead of overwriting it), and
+# deleting from $STATE is not deploy's business.
+openclaw_state_checks() {
+    # 1. The exec allowlist lives in SQLite and is applied by hand, so adding a verb to a
+    #    script and deploying it leaves the stored policy behind -- and the new verb is
+    #    denied as an allowlist miss. 2026-10-15: sauna.py next|runs|phase|label deployed
+    #    at 07:22 and were denied all day against a policy stored two days earlier, with
+    #    the agent telling Robby to run the command himself instead.
+    local doc="$HERE/openclaw/exec-approvals.json5" stored=""
+    if [[ ! -f "$doc" ]]; then
+        say "exec approvals: $doc is missing"
+    elif ! docker ps --format '{{.Names}}' | grep -qx openclaw; then
+        say "exec approvals: openclaw is not running, stored policy not checked"
+    elif ! stored=$(docker exec openclaw node openclaw.mjs approvals get --json 2>/dev/null); then
+        say "exec approvals: could not read the stored policy (approvals get failed)"
+    else
+        # `approvals get --json` redacts the socket token; the raw row in SQLite does not,
+        # so read it through the CLI and never out of the database.
+        printf '%s' "$stored" | python3 - "$doc" <<'PYAPPROVALS'
+import json, re, sys
+
+# The document is JSON5 (comments, unquoted keys, trailing commas), and one pattern
+# contains "//" -- so pull the string literals out rather than trying to parse it.
+text = open(sys.argv[1]).read()
+entries, current = [], None
+for m in re.finditer(r'\b(pattern|argPattern)\s*:\s*("(?:[^"\\]|\\.)*")', text):
+    key, value = m.group(1), json.loads(m.group(2))
+    if key == "pattern":
+        current = {"pattern": value, "argPattern": None}
+        entries.append(current)
+    elif current is not None:
+        current["argPattern"] = value
+want = {(e["pattern"], e["argPattern"]) for e in entries}
+
+stored = json.load(sys.stdin)
+have = {(e.get("pattern"), e.get("argPattern"))
+        for e in (stored.get("file", {}).get("agents", {}).get("main", {}).get("allowlist") or [])}
+
+missing, extra = sorted(want - have), sorted(have - want)
+if not (missing or extra):
+    print(f"    exec approvals: stored policy matches the document ({len(want)} entries)")
+    sys.exit(0)
+print(f"    exec approvals: STALE -- the agent is running a policy that is not this document")
+for pattern, arg in missing:
+    print(f"      not allowed yet: {pattern} {arg}")
+for pattern, arg in extra:
+    print(f"      allowed but gone from the document: {pattern} {arg}")
+print("    Apply it (it is not applied from here -- the CLI checks the stored hash):")
+print("      docker exec -i openclaw node openclaw.mjs approvals set --stdin \\")
+print("        < /home/robby/homelab-deployed/forge/openclaw/exec-approvals.json5")
+PYAPPROVALS
+    fi
+
+    # 2. A skills directory inside the workspace shadows the deployed one. The March 2026
+    #    install left $STATE/workspace/skills/plex-power behind, still carrying the
+    #    `bash command:"..."` notation that 5cf7db0 removed from the real skill; on
+    #    2026-10-15 the agent pasted that line into exec verbatim (70 chars, sha256
+    #    5da0d504...) and the call was denied, because the binary is then `bash`.
+    if [[ -d "$STATE/workspace/skills" ]]; then
+        say "skills: $STATE/workspace/skills exists and shadows the deployed skills in $STATE/skills"
+        say "  $(find "$STATE/workspace/skills" -name SKILL.md -printf '%p (%TY-%Tm-%Td)\n' 2>/dev/null | tr '\n' ' ')"
+        say "  Move it aside; deploy never deletes from \$STATE:"
+        say "    mv $STATE/workspace/skills $STATE/workspace/skills.stale"
+    fi
+}
+
 # Config files that deploy owns, as "source:destination-under-$STATE:mode".
 #
 # The mode is explicit because the source mode is not usable: git tracks only the
@@ -167,6 +237,7 @@ PYVALIDATE
     fi
     crontab -l 2>/dev/null | diff -u --label installed --label repo - "$HERE/crontab" \
         | sed 's/^/    /' || true
+    openclaw_state_checks
     exit 0
 fi
 
@@ -242,6 +313,9 @@ if [[ $openclaw_changed -eq 1 ]]; then
     docker compose restart openclaw
     say "openclaw restarted to pick up new config"
 fi
+
+# Last, so a pending manual step is the final thing on screen rather than scrolled past.
+openclaw_state_checks
 
 # Alloy's config is a bind mount, which `up -d` does not watch. Restart it when the shared
 # file's content changed since the last apply (bastion does the same for its whole stack).

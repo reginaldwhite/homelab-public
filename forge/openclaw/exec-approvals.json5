@@ -6,6 +6,11 @@
 //   docker exec -i openclaw node openclaw.mjs approvals set --stdin < exec-approvals.json5
 //   docker exec openclaw node openclaw.mjs approvals get           # confirm the effective policy
 //
+// Editing this file therefore changes nothing by itself. apply.sh compares it with the stored
+// policy at the end of every deploy and prints the entries that are not live: an entry added
+// here with a new script verb stays denied until the command above runs, and the agent's only
+// symptom is "exec denied: allowlist miss" in its log and a refusal in Slack.
+//
 // Effective policy is the STRICTER of this document and tools.exec in openclaw.json, and both
 // say allowlist: the agent may run exactly what is listed here and nothing else, and a miss is
 // denied outright (askFallback: deny) because no approval UI is ever connected. Since
