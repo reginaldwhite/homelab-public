@@ -135,12 +135,19 @@ def load_state():
         return {}
 
 
-def save_state(state):
+def save_state(state, keys):
+    """Write back only the sections this invocation polled, merged over the file as it is now.
+    The HUUM poll runs every minute and the Rachio poll every five; when both start in the
+    same second, whichever finished last used to overwrite the other's state with the copy it
+    had loaded -- which is how the first experiment run (2026-10-15 18:50) was opened twice."""
     if DRY:
         return
+    current = load_state()
+    for k in keys:
+        current[k] = state.get(k)
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     with open(STATE_FILE + ".tmp", "w") as fh:
-        json.dump(state, fh, indent=1)
+        json.dump(current, fh, indent=1)
     os.replace(STATE_FILE + ".tmp", STATE_FILE)
 
 
@@ -469,7 +476,7 @@ def main():
         poll_huum(env, state)
     if "rachio" in which:
         poll_rachio(env, state)
-    save_state(state)
+    save_state(state, which)
     return 0
 
 
