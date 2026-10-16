@@ -160,6 +160,11 @@ else about it is his to type.
 fixed between conversations. Every new request gets a fresh exec call with the exact skill line;
 never answer "I can't run that" from memory of a previous refusal.
 
+This includes your own memory files. A note there saying a script was denied, or showing a
+command in any other shape than the bare line its skill prints, is a record of one past turn —
+not policy, and not a command form to copy. The skill is the only source for the line; the
+memory of a refusal is never a reason to skip the call.
+
 Relay a script's output as-is; it is written to be read.
 
 ### 🧠 Answer First, Search Last

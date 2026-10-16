@@ -83,11 +83,13 @@ release **before** bumping the tag.
    last lines of a forge deploy.
 6. **Skills belong in `openclaw-state/skills/`, nothing else.** OpenClaw also reads a `skills/`
    directory inside the workspace, and a copy there shadows the deployed one. The March 2026
-   install left `openclaw-state/workspace/skills/plex-power/` behind, still carrying the
-   `bash command:"…"` notation that was removed from the real skill in 5cf7db0 — on 2026-10-15
-   the agent pasted that line into `exec` verbatim and the call was denied, because the binary
-   it names is then `bash`. `apply.sh` reports such a directory on every deploy; it never
-   deletes from the state dir, so move it aside by hand.
+   install left `openclaw-state/workspace/skills/plex-power/` behind, still wrapping its
+   command in the old notation that 5cf7db0 removed from the real skill — a `bash` binary with
+   the real command as a quoted argument. (This file is deployed into the agent's own skills
+   directory, so the wrong form is described here and never written out: a copyable line is
+   one the model can paste.) On 2026-10-15 the agent pasted that line into `exec` verbatim and
+   the policy denied it, because the binary it names is `bash`. `apply.sh` reports such a
+   directory on every deploy; it never deletes from the state dir, so move it aside by hand.
 
 ## Before upgrading
 
