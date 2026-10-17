@@ -335,7 +335,9 @@ def poll_huum(env, state):
     # never saw as a session or a run. A session the API still describes (a target, an end in
     # the future) counts as heating for the session, run and armed tracking below; the strict
     # gauge keeps the controller's own word, and huum_session_live shows the difference.
-    session_live = 1 if (target > 0 and end_ts > now) else 0
+    # A start in the future is a session armed on the panel, not one heating: without the
+    # start check, run 3 on 2026-10-16 opened at arming time and read 23 minutes slow.
+    session_live = 1 if (target > 0 and end_ts > now and 0 < start_ts <= now) else 0
     heating_like = 1 if (heating or (code == 230 and session_live)) else 0
     lines = [
         f"huum_poll_success 1",
