@@ -222,6 +222,14 @@ setup. "Schedule the sauna to be ready at 7" in Slack, and later over Alexa
 > session the API still describes (target set, end in the future) now counts as heating under
 > 230 too, and a warm start never consumes the pending label. The API shows no heating-mode
 > field while heating either (`config: 0, duration, startDate, endDate, targetTemperature`).
+>
+> **Phase A1 complete 2026-10-16** (simple: 62/76, 61/78, 60/72 min to 80/91 from 25/28/32 °C;
+> thermostat hold sags 2–5 °C). **A2 (learning) runs 1–2** on 10-17/18: 63/79 from 25 °C and
+> 62/77 from 29 °C, 1 °C overshoot, hold sd 0.3/0.5 -- same heat-up, far steadier hold, no
+> drift yet. The controller stayed "offline" to HUUM's cloud from the 10-15 23:52 outage until
+> Robby **power-cycled it 2026-10-18 ~17:40** (status back to 232; the cloud rejected starts with
+> HTTP 400 meanwhile). Learning runs 3–6 are after the power cycle; the controller asks for a
+> confirmation before clearing learned data, so it should be unaffected -- watch run 3 anyway.
 
 ## Decisions before Sunday
 
