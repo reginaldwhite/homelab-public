@@ -361,6 +361,21 @@ What changes, phase by phase:
 
 ### Order when the AP arrives (revised 2026-10-12)
 
+> **Arrived 2026-10-20.** It is an **EAP770** (DHCP hostname `eap770-a8-29-48-81-29-0b`, MAC
+> `a8:29:48:81:29:0b`), not the EAP772 ordered -- same Omada management, same tri-band radios,
+> same 802.3at or DC power need; nothing below changes. On the LAN at .120, discovered by Omada
+> as `NO_MANAGED` at 14:58 the same day. Static lease `.4` (`eap770-closet`) set by Robby; an ICMP
+> probe target for `.4` added in `prometheus.yml`. **Adopted the same evening, with one trap worth
+> recording:** the controller logged the discovery twice and the pending list stayed empty on the
+> Devices page *and* in the Open API (`grid/devices/pending` returned nothing), so it looked like
+> a protocol or firmware mismatch. It was neither. In 6.3 a discovered-but-unplaced device is
+> found under **Devices → Add Devices → Find**, where you pick its location, and only then does
+> it become pending and adoptable. Pointing the AP's inform address at `.10` from its standalone
+> page was not needed. Note for the upgrades skill: `mbentley/omada-controller:6.3.0.111` was
+> published 2026-10-17. The AP adopted on firmware 1.3.2 Build 20250901 (the EAP772 runs 1.4.3);
+> let the controller offer the upgrade rather than flashing by hand. Its device name is still
+> its MAC -- rename it in Omada so dashboards and the AP-rebooted alert read `closet`.
+
 What changed since this was first written: the ceiling AP's reboot loop was its 24 W
 injector (Finding 2026-10-11), 6 GHz is off as the stopgap, the SSID matrix and the kids'
 schedules are already live in Omada, the site clock is fixed (Finding 2026-10-12), and the

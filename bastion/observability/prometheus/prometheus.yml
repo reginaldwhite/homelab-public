@@ -123,6 +123,8 @@ scrape_configs:
         labels: { host: vault }
       - targets: ["192.168.0.2"]
         labels: { host: access-point }
+      - targets: ["192.168.0.4"]
+        labels: { host: access-point-closet }
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
