@@ -1,4 +1,4 @@
-Caddy, Vaultwarden, AdGuard Home, OpenClaw, Grafana, Prometheus, Omada |---
+---
 name: homelab-upgrades
 description: Assess which homelab packages need updating and plan or apply the upgrade. Use when asked what needs updating, whether a package should be upgraded, or to plan an upgrade to Caddy, Vaultwarden, AdGuard Home, Plex, OpenClaw, Grafana, the Omada WiFi controller, ollama or open-webui.
 ---
@@ -20,7 +20,7 @@ behind.
 
 | Tier | Packages | Handling |
 |---|---|---|
-| **Watch** | Caddy, Vaultwarden, AdGuard Home, OpenClaw, Grafana, Prometheus, Omada, UniFi | Drifting far is unacceptable — either internet-facing, or holding credentials and able to execute. Check often, upgrade in small hops, and never let one reach six months behind. A security release here is worth interrupting someone for. |
+| **Watch** | Caddy, Vaultwarden, AdGuard Home, OpenClaw, Grafana, Prometheus, Omada | Drifting far is unacceptable — either internet-facing, or holding credentials and able to execute. Check often, upgrade in small hops, and never let one reach six months behind. A security release here is worth interrupting someone for. |
 | **Drift** | Plex, ollama, open-webui, and the observability parts that hold no login and face no one: Loki, Alloy, Postgres, blackbox, node exporter, cAdvisor | LAN-only, failure is self-announcing, and nothing else in the homelab depends on them. Report them so they are never invisible, but do not queue them. Upgrade one when you actually want something from it, accepting it will be a project. |
 
 A Drift package sitting a year behind is the intended behaviour, not a backlog. Say so plainly
