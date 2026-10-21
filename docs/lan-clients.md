@@ -38,7 +38,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `48:e2:ad:0b:25:0a` | .1 | AT&T BGW320 gateway | DHCP off; WiFi off since 2026-10-10 except `WhiteHouse_Office` 5 GHz for the two laptops until the second EAP772 arrives |
 | `a8:29:48:16:dd:07` | .2 ✅ | TP-Link EAP772, upstairs ceiling | Omada-managed; 2.4 GHz ch 1, 5 GHz ch 40, 6 GHz ch 69 |
 | `a8:29:48:81:29:0b` | .4 ✅ | TP-Link **EAP770**, utility closet (`eap770-closet`) — arrived and adopted 2026-10-20; the box shipped a 770, not the 772 the plan names, and Omada manages both the same way | Omada-managed; 6 GHz on from the start (plan-wifi step 3) |
-| `80:2a:a8:78:18:6a` | .3 (free since 2026-10-20) | Ubiquiti AC Lite, by the sauna (`ac-lite`) — **retired 2026-10-20** with the UniFi stack; the closet EAP770 carries that cell | spare, with its 24 W injector |
+| `80:2a:a8:78:18:6a` | .3 (free since 2026-10-20) | Ubiquiti AC Lite, by the sauna (`ac-lite`) — **retired 2026-10-20** with the UniFi stack; the closet EAP770 carries that cell | spare, with its 24 W injector; the AC Pro may return for outdoor coverage (indoor-rated, so under cover) |
 | — | .10 | bastion | wired |
 | — | .12 | forge | wired |
 | — | .13 | cinema | wired |
