@@ -12,9 +12,8 @@ against this server and writes one row to wifi_survey with the spot's name; the 
 and the Grafana "WiFi survey" dashboard read those rows back. The Clients tab is the whole
 wireless client list, worst signal first, for the same reason: live on a phone beats Grafana.
 
-Reads Omada with the Viewer app (OMADA_CLIENT_ID/SECRET -- never the Operator's) and, while the
-AC Lite is still in service, UniFi with a View Only local admin (UNIFI_USER/PASSWORD; both lists
-are merged, each client tagged with its controller). Writes only
+Reads Omada with the Viewer app (OMADA_CLIENT_ID/SECRET -- never the Operator's); the UniFi
+read for the AC Lite went with it on 2026-10-20. Writes only
 the wifi_survey table (EVENTS_DB_PASSWORD), and runs as nobody in its own container on the
 observability and vault networks (events-db by name; Caddy by name). Nothing here needs
 authentication beyond "on the LAN": the worst a LAN user can do is add or delete survey rows.
@@ -132,71 +131,9 @@ class Omada:
 OMADA_API = Omada()
 
 
-# --- UniFi (the AC Lite, while it lasts) -----------------------------------------------------
-UNIFI = os.environ.get("UNIFI_URL", "https://192.168.0.10:8443")
-UNIFI_USER, UNIFI_PASSWORD = os.environ.get("UNIFI_USER"), os.environ.get("UNIFI_PASSWORD")
-UNIFI_BAND = {"ng": "2.4", "na": "5", "6e": "6"}
-_unifi_cache = (0.0, [])
-
-
-def unifi_clients():
-    """Wireless clients on the UniFi side, same shape as Omada's; empty when no credential is set.
-
-    The legacy local API with a View Only admin (log in, read, log out), as wifi-clients.py
-    does. Cached for three seconds like the Omada list; a failure returns the stale list and
-    logs once, so the page keeps working on Omada alone.
-    """
-    global _unifi_cache
-    if not (UNIFI_USER and UNIFI_PASSWORD):
-        return []
-    ts, cached = _unifi_cache
-    if time.time() - ts < 3:
-        return cached
-    import http.cookiejar
-    jar = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=CTX),
-                                         urllib.request.HTTPCookieProcessor(jar))
-
-    def req(path, body=None, headers=None):
-        data = json.dumps(body).encode() if body is not None else None
-        hdrs = {"Content-Type": "application/json", "Accept": "application/json"}
-        hdrs.update(headers or {})
-        r = urllib.request.Request(f"{UNIFI}{path}", data=data, headers=hdrs, method="POST" if data is not None else "GET")
-        with opener.open(r, timeout=10) as resp:
-            return json.load(resp)
-
-    out = []
-    try:
-        if (req("/api/login", {"username": UNIFI_USER, "password": UNIFI_PASSWORD, "remember": False}).get("meta") or {}).get("rc") != "ok":
-            raise RuntimeError("unifi login refused")
-        try:
-            for site in req("/api/self/sites").get("data") or []:
-                aps = {d.get("mac", "").lower(): d.get("name") or d.get("model") or d.get("mac")
-                       for d in req(f"/api/s/{site['name']}/stat/device").get("data") or []}
-                for c in req(f"/api/s/{site['name']}/stat/sta").get("data") or []:
-                    if c.get("is_wired"):
-                        continue
-                    out.append({"mac": (c.get("mac") or "").lower(), "ip": c.get("ip"),
-                                "omada_name": c.get("hostname") or c.get("name"),
-                                "ap": aps.get((c.get("ap_mac") or "").lower(), c.get("ap_mac")),
-                                "ssid": c.get("essid"), "band": UNIFI_BAND.get(c.get("radio"), c.get("radio") or "?"),
-                                "rssi": c.get("signal"), "uptime": c.get("uptime"), "controller": "unifi"})
-        finally:
-            csrf = next((ck.value for ck in jar if ck.name == "csrf_token"), None)
-            try:
-                req("/api/logout", {}, {"X-Csrf-Token": csrf} if csrf else None)
-            except (urllib.error.URLError, ValueError, OSError):
-                pass
-    except (urllib.error.URLError, RuntimeError, ValueError, OSError, KeyError) as exc:
-        log(f"unifi: {exc}; using the last list")
-        return cached
-    _unifi_cache = (time.time(), out)
-    return out
-
-
 def all_clients():
-    """Both controllers' wireless clients; Omada's carry controller=omada."""
-    return [dict(c, controller="omada") for c in OMADA_API.clients()] + unifi_clients()
+    """The controller's wireless clients, each tagged controller=omada (the column outlived UniFi)."""
+    return [dict(c, controller="omada") for c in OMADA_API.clients()]
 
 
 # --- the events database --------------------------------------------------------------------

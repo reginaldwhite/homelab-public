@@ -398,7 +398,7 @@ controller is on 6.3, which has AP Groups. So:
    AC Lite's, so the controller may simply follow the stronger cell; if it does not, power-cycle
    it. Done when Omada shows it in the -50s on the closet AP and three nights pass with no
    `huum-reconnects` or `huum-schedule-lost` alert. The AC Lite stays up until then.
-5. **Retire UniFi** (Phase 1 above): compose services and volumes, Caddy vhost, AdGuard
+5. **Retire UniFi** (Phase 1 above) — *done 2026-10-20: AC Lite unplugged, containers and volumes removed by Robby, repo stripped the same evening; left for Robby: the ufw rules, the two AdGuard rewrites, the `UNIFI_*` lines in bastion's `.env`, Bitwarden.* compose services and volumes, Caddy vhost, AdGuard
    rewrites, `.env` entries, ufw rules, `packages/unifi.md`, the `unifi-*` backup line, the
    UniFi half of `wifi-clients.py`, and `wifi-weak-signal` selecting on
    `ssid="WhiteHouse_IoT"` instead of `controller="unifi"`. Volumes are removed by Robby, not

@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """wifi-clients.py — the wireless half of the network map (docs/plan-wifi.md, phase 4).
 
-    wifi-clients.py --poll       every 5 minutes: both controllers' client lists -> lan_clients
+    wifi-clients.py --poll       every 5 minutes: the controller's client list -> lan_clients
                                  (AP, SSID, band, signal, uptime) and gauges for Prometheus
     wifi-clients.py --dry-run    print what --poll would write instead of writing it
-    wifi-clients.py --dump       print the raw client objects each controller returns, for
+    wifi-clients.py --dump       print the raw client objects the controller returns, for
                                  checking the field mapping below after a controller upgrade
 
-Two controllers, two APIs, both on bastion's host network with self-signed certificates, so
-this talks to 127.0.0.1 only and skips certificate verification for exactly that reason.
+One controller on bastion's host network with a self-signed certificate, so this talks to
+127.0.0.1 only and skips certificate verification for exactly that reason.
 
   Omada   OpenAPI, client-credentials mode, an app with the Viewer role created in
           Omada -> Settings -> Platform Integration -> Open API.  OMADA_CLIENT_ID / _SECRET
-  UniFi   the Network application's local API with a read-only local admin.
-          UNIFI_USER / UNIFI_PASSWORD
 
-A controller whose credential is missing from .env is skipped silently (the stack can be
-deployed before the credentials exist); one whose poll fails publishes wifi_poll_ok 0, which
+(The UniFi half, which read the AC Lite's controller, went with it on 2026-10-20.)
+
+A missing credential in .env skips the poll silently (the stack can be deployed before the
+credential exists); a poll that fails publishes wifi_poll_ok 0, which
 the wifi-poll-failed rule turns into a Slack message after 30 minutes.
 
 Gauges, in ~/observability/textfile/wifi.prom:
@@ -33,7 +33,6 @@ rule turns it into a timestamped Slack message.
 """
 import re
 
-import http.cookiejar
 import json
 import os
 import ssl
@@ -50,7 +49,6 @@ TEXTFILE_DIR = "/home/robby/observability/textfile"
 LOG = "/home/robby/logs/wifi-clients.log"
 DB_CONTAINER = "events-db"
 OMADA = "https://127.0.0.1:8043"
-UNIFI = "https://127.0.0.1:8443"
 DRY = "--dry-run" in sys.argv
 DUMP = "--dump" in sys.argv
 
@@ -163,61 +161,16 @@ def omada_clients(env, extra):
     return out
 
 
-# --- UniFi ----------------------------------------------------------------------------------
-UNIFI_BAND = {"ng": "2.4", "na": "5", "6e": "6"}
-
-
-def unifi_clients(env, extra):
-    user, pw = env.get("UNIFI_USER"), env.get("UNIFI_PASSWORD")
-    if not (user and pw):
-        return None
-    jar = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=CTX),
-                                         urllib.request.HTTPCookieProcessor(jar))
-    r = request(opener, f"{UNIFI}/api/login", {"username": user, "password": pw, "remember": False})
-    if (r.get("meta") or {}).get("rc") != "ok":
-        raise RuntimeError(f"unifi login: {r.get('meta')}")
-    out = []
-    try:
-        for site in request(opener, f"{UNIFI}/api/self/sites").get("data") or []:
-            name = site["name"]
-            aps = {}
-            for d in request(opener, f"{UNIFI}/api/s/{name}/stat/device").get("data") or []:
-                aps[norm_mac(d.get("mac"))] = d.get("name") or d.get("model") or norm_mac(d.get("mac"))
-            data = request(opener, f"{UNIFI}/api/s/{name}/stat/sta").get("data") or []
-            if DUMP and data:
-                print("--- unifi raw client:", json.dumps(data[0], indent=1)[:2500])
-            for c in data:
-                if c.get("is_wired"):
-                    continue
-                out.append({
-                    "controller": "unifi", "mac": norm_mac(c.get("mac")), "ip": c.get("ip"),
-                    "hostname": c.get("hostname") or c.get("name"),
-                    "ap": aps.get(norm_mac(c.get("ap_mac")), norm_mac(c.get("ap_mac"))),
-                    "ssid": c.get("essid"), "band": UNIFI_BAND.get(c.get("radio"), c.get("radio") or ""),
-                    "signal": c.get("signal"), "uptime": c.get("uptime"),
-                })
-    finally:
-        csrf = next((ck.value for ck in jar if ck.name == "csrf_token"), None)
-        try:
-            request(opener, f"{UNIFI}/api/logout", {}, {"X-Csrf-Token": csrf} if csrf else None)
-        except (urllib.error.URLError, ValueError, OSError):
-            pass
-    return out
-
-
 # --- outputs --------------------------------------------------------------------------------
 def dedupe(rows):
     """One row per MAC, newest association first.
 
-    Both APs broadcast the IoT SSID, so a device that roams sits in both controllers' client
-    lists until the one it left expires it. lan_clients is keyed by MAC, and a single INSERT
+    Both APs broadcast every SSID, and for a moment after a roam the controller can list a
+    device under both; while two controllers were polled it happened every afternoon. lan_clients is keyed by MAC, and a single INSERT
     carrying the same MAC twice fails outright -- "ON CONFLICT DO UPDATE command cannot affect
     row a second time" -- which loses every row of that poll, not just the duplicate (seen
-    three times on 2026-10-12, the afternoon the UniFi credential started working). The
-    client's own uptime is seconds since it associated, so the shorter one is the live
-    association and wins; the gauges then agree with the table instead of preferring whichever
-    controller was polled first.
+    three times on 2026-10-12). The client's own uptime is seconds since it associated, so the
+    shorter one is the live association and wins.
     """
     def newest_first(r):
         try:
@@ -289,7 +242,7 @@ def main():
         print(__doc__); return 2
     env = load_env()
     rows, lines = [], []
-    for name, fn in (("omada", omada_clients), ("unifi", unifi_clients)):
+    for name, fn in (("omada", omada_clients),):
         extra = []
         try:
             got = fn(env, extra)

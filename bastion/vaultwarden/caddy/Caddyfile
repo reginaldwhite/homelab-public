@@ -89,16 +89,16 @@ jobs.robbywhite.net {
     }
 }
 
-# The two WiFi controllers (bastion/wifi, docs/plan-wifi.md). Both run on the host network,
-# so like AdGuard they are reached on the host's LAN address, and both present their own
-# self-signed certificate, hence tls_insecure_skip_verify on the upstream — the hop is
-# loopback-to-container on bastion itself. Same LAN-only guard as the others; the UIs also
-# answer directly on 192.168.0.10:8043 and :8443 for the LAN.
+# The Omada WiFi controller (bastion/wifi, docs/plan-wifi.md). It runs on the host network, so
+# like AdGuard it is reached on the host's LAN address, and it presents its own self-signed
+# certificate, hence tls_insecure_skip_verify on the upstream — the hop is loopback-to-container
+# on bastion itself. Same LAN-only guard as the others; the UI also answers directly on
+# 192.168.0.10:8043 for the LAN. (unifi.robbywhite.net went with the AC Lite on 2026-10-20.)
 #
 # header_up Host {host}: for an https:// upstream Caddy replaces the Host header with the
-# upstream address (it keeps it for plain upstreams). UniFi compares Origin with Host on
-# every POST and answered 403 "Cannot configure network server" in its setup wizard until
-# the browser's Host was passed through unchanged (found 2026-10-09).
+# upstream address (it keeps it for plain upstreams). The UniFi controller, when it lived here,
+# compared Origin with Host on every POST and answered 403 until the browser's Host was passed
+# through unchanged (found 2026-10-09); kept for Omada, which is happy either way.
 omada.robbywhite.net {
     tls internal
     @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
@@ -115,18 +115,3 @@ omada.robbywhite.net {
     }
 }
 
-unifi.robbywhite.net {
-    tls internal
-    @lan remote_ip 192.168.0.0/24 172.16.0.0/12 127.0.0.1/32
-    handle @lan {
-        reverse_proxy https://192.168.0.10:8443 {
-            header_up Host {host}
-            transport http {
-                tls_insecure_skip_verify
-            }
-        }
-    }
-    handle {
-        abort
-    }
-}

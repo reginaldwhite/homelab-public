@@ -1,6 +1,6 @@
----
+Caddy, Vaultwarden, AdGuard Home, OpenClaw, Grafana, Prometheus, Omada |---
 name: homelab-upgrades
-description: Assess which homelab packages need updating and plan or apply the upgrade. Use when asked what needs updating, whether a package should be upgraded, or to plan an upgrade to Caddy, Vaultwarden, AdGuard Home, Plex, OpenClaw, Grafana, the Omada or UniFi WiFi controllers, ollama or open-webui.
+description: Assess which homelab packages need updating and plan or apply the upgrade. Use when asked what needs updating, whether a package should be upgraded, or to plan an upgrade to Caddy, Vaultwarden, AdGuard Home, Plex, OpenClaw, Grafana, the Omada WiFi controller, ollama or open-webui.
 ---
 
 # Homelab upgrades
@@ -190,7 +190,6 @@ and then its runbook:
 | Grafana | `packages/grafana.md` | Watch |
 | Prometheus | `packages/prometheus.md` | Watch |
 | Omada controller | `packages/omada.md` | Watch (tag written in full; `latest` is still v5) |
-| UniFi Network | `packages/unifi.md` | Watch (moves together with its MongoDB) |
 | Plex | `packages/plex.md` | Drift |
 | ollama | `packages/ollama.md` | Drift |
 | open-webui | `packages/open-webui.md` | Drift |

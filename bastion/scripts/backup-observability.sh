@@ -10,7 +10,6 @@
 #   ~/backups/grafana-YYYY-MM-DD.tgz      the grafana_data volume (users, preferences; dashboards
 #                                         and data sources are provisioned from git)
 #   ~/backups/omada-YYYY-MM-DD.tgz        the Omada controller's own autobackup files
-#   ~/backups/unifi-YYYY-MM-DD.tgz        the UniFi controller's own autobackup files
 #
 # Fourteen of each are kept; backup-to-tower.sh mirrors ~/backups/ to vault weekly.
 
@@ -71,7 +70,7 @@ fi
 # volume; those files are the restorable form (the UIs import them), so they are what travels.
 # A controller that is not running yet, or has no autobackup yet, is skipped without an
 # error: the directory does not exist until the first-run wizard has been through.
-for spec in "omada:wifi_omada_data:autobackup" "unifi:wifi_unifi_config:data/backup/autobackup"; do
+for spec in "omada:wifi_omada_data:autobackup"; do
     IFS=: read -r name volume sub <<<"$spec"
     docker volume inspect "$volume" >/dev/null 2>&1 || continue
     if ! docker run --rm -v "$volume:/d:ro" alpine test -d "/d/$sub" 2>/dev/null; then
@@ -87,7 +86,7 @@ for spec in "omada:wifi_omada_data:autobackup" "unifi:wifi_unifi_config:data/bac
     fi
 done
 
-for pattern in "events-*.sql.gz" "jobhunt-*.sql.gz" "grafana-*.tgz" "omada-*.tgz" "unifi-*.tgz"; do
+for pattern in "events-*.sql.gz" "jobhunt-*.sql.gz" "grafana-*.tgz" "omada-*.tgz" "unifi-*.tgz"; do  # unifi-*: prune the leftovers, nothing writes them since 2026-10-20
     ls -1t "$OUT"/$pattern 2>/dev/null | tail -n +$((KEEP + 1)) | while IFS= read -r old; do
         rm -f -- "$old" && log "pruned $(basename "$old")"
     done

@@ -107,9 +107,8 @@ if [[ $VALIDATE -eq 1 ]]; then
     if [[ -d "$WIFI_DIR" ]]; then
         wifi_env=(); [[ -f "$OBS_ENV" ]] && wifi_env=(--env-file "$OBS_ENV")
         docker compose "${wifi_env[@]}" -f "$WIFI_DIR/docker-compose.yml" config --quiet
-        bash -n "$WIFI_DIR/unifi/init-mongo.sh"
         python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$WIFI_DIR/survey/server.py"
-        say "wifi: compose file, init-mongo.sh and survey/server.py valid"
+        say "wifi: compose file and survey/server.py valid"
     fi
     if [[ -d "$JOBHUNT_DIR" ]]; then
         jh_env=(); [[ -f "$OBS_ENV" ]] && jh_env=(--env-file "$OBS_ENV")
@@ -222,15 +221,8 @@ fi
 
 # --- wifi controllers -----------------------------------------------------------------------
 if [[ -d "$WIFI_DIR" ]]; then
-    for var in UNIFI_MONGO_ROOT_PASSWORD UNIFI_MONGO_PASSWORD; do
-        if [[ ! -f "$OBS_ENV" ]] || ! grep -qE "^$var=.+" "$OBS_ENV"; then
-            echo "wifi: $var is not set in $OBS_ENV; not starting the controllers" >&2
-            echo "  (add it -- see .env.example -- and run the deploy again; nothing else was skipped)" >&2
-            exit 1
-        fi
-    done
     cd "$WIFI_DIR"
-    # Both controllers keep their state in volumes and are configured through their UIs; the
+    # The controller keeps its state in a volume and is configured through its UI; the
     # survey page is built from survey/ here, so --build picks up its source changes (a no-op
     # when nothing under survey/ changed).
     docker compose --env-file "$OBS_ENV" up -d --build

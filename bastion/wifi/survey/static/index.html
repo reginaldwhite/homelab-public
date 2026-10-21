@@ -142,7 +142,7 @@ async function pollClients() {
     const j = await getJSON('/api/clients');
     $('#cl-sub').textContent = `${j.clients.length} wireless clients · ${new Date().toLocaleTimeString()}`;
     $('#cl-body').innerHTML = j.clients.map(c =>
-      `<tr><td>${esc(c.name)}</td><td>${esc(c.ap)}${c.controller === 'unifi' ? ' <span style="color:var(--mut)">(UniFi)</span>' : ''}<br><span style="color:var(--mut)">${esc(c.ssid)}</span></td>` +
+      `<tr><td>${esc(c.name)}</td><td>${esc(c.ap)}<br><span style="color:var(--mut)">${esc(c.ssid)}</span></td>` +
       `<td class="n">${esc(c.band)}</td><td class="n ${cls(c.rssi)}"><b>${c.rssi ?? '—'}</b></td></tr>`).join('');
   } catch (e) { $('#cl-sub').textContent = 'error: ' + e.message; }
 }

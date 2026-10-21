@@ -36,14 +36,16 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > into Loki too, and the EAP772 access point sends its syslog to bastion on 1514/UDP (job
 > `syslog` in Loki, since 2026-10-07). Design and phases: [docs/plan-observability.md](docs/plan-observability.md).
 >
-> **WiFi controllers (2026-10-09):** a third compose project, [bastion/wifi/](bastion/wifi/),
-> runs the Omada controller (for the TP-Link EAP772) and the UniFi Network application with its
-> own MongoDB (for the Ubiquiti AC Lite by the sauna). Both on the host network — the APs find
-> them through AdGuard's `omada` and `unifi` rewrites to 192.168.0.10 — LAN-only at
-> `https://omada.robbywhite.net` and `https://unifi.robbywhite.net`, logins in Bitwarden. Their
-> autobackups join `~/backups/` nightly. Vaultwarden's loopback check port moved from 8080 to
-> 8081 to make room for UniFi's inform port. `scripts/wifi-clients.py` reads both controllers'
-> client lists every five minutes into `lan_clients` (AP, SSID, band, signal), so the Network
+> **WiFi controller (2026-10-09, UniFi retired 2026-10-20):** a third compose project,
+> [bastion/wifi/](bastion/wifi/), runs the Omada controller for the two TP-Link APs (the EAP772 on
+> the upstairs ceiling, the EAP770 in the utility closet since 2026-10-20). Host network — the APs
+> find it through AdGuard's `omada` rewrite to 192.168.0.10 — LAN-only at
+> `https://omada.robbywhite.net`, login in Bitwarden. Its autobackups join `~/backups/` nightly.
+> Until 2026-10-20 a UniFi Network application and its MongoDB ran beside it for the Ubiquiti AC
+> Lite by the sauna; the closet AP replaced that cell and the stack, its vhost and its credentials
+> are gone (Vaultwarden's loopback check port stays on 8081, where UniFi's inform port pushed it).
+> `scripts/wifi-clients.py` reads the controller's
+> client list every five minutes into `lan_clients` (AP, SSID, band, signal), so the Network
 > dashboard shows the wireless side of every device. `https://wifi.robbywhite.net` (LAN-only,
 > [bastion/wifi/survey/](bastion/wifi/survey/)) is the coverage survey: open it on a phone and it
 > shows which AP the phone is on and how loudly the AP hears it, runs a download test, and

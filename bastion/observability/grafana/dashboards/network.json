@@ -616,7 +616,7 @@
     "w": 24,
     "h": 8
    },
-   "description": "From wifi-clients.py every five minutes: every wireless client both controllers see. The IoT SSID's devices live on the UniFi AC Lite; -70 dBm or worse for an hour raises the wifi-weak-signal alert.",
+   "description": "From wifi-clients.py every five minutes: every wireless client the Omada controller sees on either AP. -70 dBm or worse for an hour on an IoT SSID raises the wifi-weak-signal alert.",
    "fieldConfig": {
     "defaults": {
      "unit": "dBm",

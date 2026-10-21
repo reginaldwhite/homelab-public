@@ -1,25 +1,22 @@
-# WiFi controllers (docs/plan-wifi.md). Deployed to bastion by ../../deploy.sh and run from
+# WiFi controller (docs/plan-wifi.md). Deployed to bastion by ../../deploy.sh and run from
 # /home/robby/homelab-deployed/bastion/wifi as the third compose project, after vaultwarden
 # and observability. Variables come from bastion's .env (see ../.env.example), which apply.sh
 # passes with --env-file.
 #
-# Two vendors, two controllers: Omada manages the TP-Link EAP772, UniFi Network the Ubiquiti
-# AC Lite (and AC Pro, later). Both run on the host network because their access points find
-# them on fixed ports — the EAP772 asks DNS for `omada`, the UniFi APs for `unifi`, and
-# AdGuard rewrites both names to 192.168.0.10. Each UI is reached through Caddy on its LAN
-# name (omada.robbywhite.net, unifi.robbywhite.net) or directly on its own port from the LAN;
-# nothing here is published to the internet.
+# One controller: Omada manages both TP-Link APs (the EAP772 on the upstairs ceiling, the EAP770
+# in the utility closet). It runs on the host network because the APs find it on fixed ports —
+# they ask DNS for `omada`, which AdGuard rewrites to 192.168.0.10. The UI is reached through
+# Caddy on its LAN name (omada.robbywhite.net) or directly on its own port from the LAN; nothing
+# here is published to the internet. The UniFi Network application and its MongoDB, which managed
+# the Ubiquiti AC Lite by the sauna, were retired on 2026-10-20 when the closet AP took over that
+# cell (docs/plan-wifi.md, step 5).
 #
 # Ports claimed on the host (ufw rules for the LAN side are listed in docs/plan-wifi.md):
-#   Omada  8088 http, 8043 https (UI), 8844 portal (moved off 8843, which UniFi also wants),
-#          27001/udp app discovery, 29810/udp device discovery, 29811-29816/tcp manage/adopt,
+#   Omada  8088 http, 8043 https (UI), 8844 portal (moved off 8843 while UniFi shared the host),
+#          27001/udp app discovery, 29810/udp device discovery, 29811-29817/tcp manage/adopt,
 #          127.0.0.1:27217 its bundled MongoDB
-#   UniFi  8443 https (UI), 8080 inform, 8843/8880 portal, 6789 speed test, 3478/udp STUN,
-#          10001/udp discovery, 5514/udp remote syslog (unused)
-#   Mongo  127.0.0.1:27017 only (UniFi's database; bridge network, loopback publish)
 #
-# Memory: both controllers are Java with a MongoDB behind them, about 1.5 GB for Omada and
-# 1 GB for UniFi at idle. bastion has 16 GB and was using under 2 before they arrived.
+# Memory: Omada is Java with a MongoDB behind it, about 1.5 GB at idle.
 name: wifi
 
 services:
@@ -43,7 +40,7 @@ services:
       - TZ=America/Chicago
       - MANAGE_HTTP_PORT=8088
       - MANAGE_HTTPS_PORT=8043
-      # UniFi's guest portal also binds 8843 (not configurable there), so Omada's moves.
+      # Kept on 8844 since the days UniFi's guest portal held 8843; nothing depends on it.
       - PORTAL_HTTPS_PORT=8844
       - PORT_APP_DISCOVERY=27001
       - PORT_DISCOVERY=29810
@@ -57,61 +54,6 @@ services:
     volumes:
       - omada_data:/opt/tplink/EAPController/data
       - omada_logs:/opt/tplink/EAPController/logs
-
-  unifi-db:
-    # UniFi's database. The application supports MongoDB 3.6 through 8.0 (linuxserver README);
-    # 7.0 is pinned so the two never drift into an unsupported pair by accident. MongoDB does
-    # not upgrade across majors on its own: a major bump here is a migration, see
-    # .claude/skills/homelab-upgrades/packages/unifi.md. Bridge network, so the only way to it
-    # is the loopback publish below — UniFi runs on the host network and connects to
-    # 127.0.0.1:27017; nothing on the LAN can.
-    image: mongo:7.0.43
-    container_name: unifi-db
-    restart: unless-stopped
-    # WiredTiger's cache defaults to half the host's RAM (7.4 GB on bastion) for a database
-    # that stays well under 100 MB; 0.25 GB is the smallest mongod accepts.
-    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
-    ports:
-      - 127.0.0.1:27017:27017
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=${UNIFI_MONGO_ROOT_PASSWORD}
-      # Read by init-mongo.sh, which creates the application user. Runs only on an empty
-      # volume, like Postgres' init in the observability stack.
-      - MONGO_USER=unifi
-      - MONGO_PASS=${UNIFI_MONGO_PASSWORD}
-      - MONGO_DBNAME=unifi
-      - MONGO_AUTHSOURCE=admin
-    volumes:
-      - unifi_db:/data/db
-      - ./unifi/init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh:ro
-
-  unifi:
-    # Pinned to the current linuxserver release at build time (2026-10-09); the tag is the
-    # UniFi version plus linuxserver's build number. Bump from
-    # .claude/skills/homelab-upgrades/packages/unifi.md.
-    image: lscr.io/linuxserver/unifi-network-application:10.6.106-ls149
-    container_name: unifi
-    restart: unless-stopped
-    network_mode: host
-    depends_on:
-      - unifi-db
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Chicago
-      # The MONGO_* values are read on first run only and written into the application's own
-      # system.properties; changing them later means editing that file in the config volume.
-      - MONGO_USER=unifi
-      - MONGO_PASS=${UNIFI_MONGO_PASSWORD}
-      - MONGO_HOST=127.0.0.1
-      - MONGO_PORT=27017
-      - MONGO_DBNAME=unifi
-      - MONGO_AUTHSOURCE=admin
-      - MEM_LIMIT=1024
-      - MEM_STARTUP=512
-    volumes:
-      - unifi_config:/config
 
   wifi-survey:
     # The coverage survey page (survey/server.py; docs/plan-wifi.md, "Coverage survey"), reached
@@ -128,10 +70,6 @@ services:
       - OMADA_URL=https://192.168.0.10:8043
       - OMADA_CLIENT_ID=${OMADA_CLIENT_ID}
       - OMADA_CLIENT_SECRET=${OMADA_CLIENT_SECRET}
-      # The AC Lite's side, read with the View Only local admin; blank once UniFi is retired.
-      - UNIFI_URL=https://192.168.0.10:8443
-      - UNIFI_USER=${UNIFI_USER:-}
-      - UNIFI_PASSWORD=${UNIFI_PASSWORD:-}
       - EVENTS_DB_PASSWORD=${EVENTS_DB_PASSWORD}
     networks:
       - observability_internal
@@ -146,5 +84,3 @@ networks:
 volumes:
   omada_data:
   omada_logs:
-  unifi_db:
-  unifi_config:
