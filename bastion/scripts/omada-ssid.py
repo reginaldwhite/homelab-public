@@ -27,6 +27,17 @@ pair every writing command stops with a clear message. Every write takes --dry-r
     omada-ssid.py time-range delete <name>
     omada-ssid.py mac-group create|set <name> --mac label=aa:bb:cc:f3:32:a3 [--mac …]
     omada-ssid.py mac-group delete <name>
+    omada-ssid.py ap-groups                    every AP group: which APs are in it, which SSIDs it carries
+    omada-ssid.py ap-group create <group>      a new, empty AP group
+    omada-ssid.py ap-group move <group> --ap <mac>
+                                               put an AP in the group (an AP is in exactly one group, so
+                                               this also takes it out of the one it was in)
+    omada-ssid.py ap-group bind <ssid> --groups Default,Closet
+                                               the groups whose APs broadcast the SSID
+    An AP only broadcasts the SSIDs bound to ITS group, so the safe order to pin an SSID to one
+    AP is: create the group empty, bind every other SSID to both groups, bind the one SSID to
+    the new group alone, and only then move the AP in. Moving first strips the AP of every SSID
+    not yet bound to the new group (2026-10-22).
 
 The SSID design these commands implement is the table at the top of docs/lan-clients.md.
 """
@@ -133,6 +144,18 @@ class Omada:
                 d["ssidId"] = s["ssidId"]
                 return d
         sys.exit(f"no SSID named {name!r} (have: {', '.join(x['name'] for x in self.ssids())})")
+
+    def ap_groups(self):
+        return self.api("GET", "/ap-groups?page=1&pageSize=50")["result"]["data"]
+
+    def ap_group(self, name):
+        for g in self.ap_groups():
+            if g.get("name") == name:
+                return g
+        sys.exit(f"no AP group named {name!r} (have: {', '.join(g['name'] for g in self.ap_groups())})")
+
+    def aps(self):
+        return self.api("GET", "/ap-groups/aps?page=1&pageSize=50")["result"]["data"]
 
     def time_ranges(self):
         r = self.api("GET", "/time-range-profiles")["result"]
@@ -281,6 +304,35 @@ def cmd_mac_filter(o, a):
           f"{a.ssid}: MAC filter {a.policy} group {a.group}")
 
 
+def cmd_ap_groups(o, a):
+    aps = o.aps()
+    for g in o.ap_groups():
+        members = [f"{x.get('name') or x['mac']} ({x['mac']})" for x in aps if x.get("apGroupId") == g["id"]]
+        print(f"{g['name']}{' (default)' if g.get('primary') else ''}: {len(members)} AP(s)")
+        for m in members:
+            print(f"    {m}")
+        print(f"    SSIDs: {', '.join(g.get('ssidNameList') or []) or 'none'}")
+
+
+def cmd_ap_group(o, a):
+    if a.action == "create":
+        write(o, a, "POST", "/ap-groups", {"name": a.name, "apMacs": []}, f"AP group {a.name} created (empty)")
+    elif a.action == "move":
+        a.ap or sys.exit("ap-group move needs --ap <mac>")
+        mac = a.ap.upper().replace(":", "-")
+        g = o.ap_group(a.name)
+        known = {x["mac"]: x.get("apGroupName") for x in o.aps()}
+        mac in known or sys.exit(f"no AP with MAC {mac} (have: {', '.join(known)})")
+        write(o, a, "PATCH", f"/ap-groups/{g['id']}", {"name": a.name, "addApMacs": [mac], "removeApMacs": []},
+              f"AP {mac}: group {known[mac]} -> {a.name}")
+    elif a.action == "bind":
+        a.groups or sys.exit("ap-group bind needs --groups <group>[,<group>]")
+        d = o.ssid(a.name)
+        ids = [o.ap_group(n.strip())["id"] for n in a.groups.split(",") if n.strip()]
+        write(o, a, "PATCH", f"/wireless-network/ssids/{d['ssidId']}/ap-groups", {"apGroupIds": ids},
+              f"{a.name}: broadcast by AP group(s) {a.groups}")
+
+
 def parse_span(text):
     """'sun-thu 22:00-05:30' -> list of (dayType, sh, sm, eh, em); a span over midnight is split."""
     try:
@@ -379,6 +431,10 @@ def main():
     s.add_argument("--span", action="append"); s.set_defaults(fn=cmd_time_range, write=True)
     s = sub.add_parser("mac-group"); s.add_argument("action", choices=["create", "set", "delete"]); s.add_argument("name")
     s.add_argument("--mac", action="append"); s.set_defaults(fn=cmd_mac_group, write=True)
+    sub.add_parser("ap-groups").set_defaults(fn=cmd_ap_groups, write=False)
+    s = sub.add_parser("ap-group"); s.add_argument("action", choices=["create", "move", "bind"]); s.add_argument("name")
+    s.add_argument("--ap", help="AP MAC, for move"); s.add_argument("--groups", help="comma-separated group names, for bind")
+    s.set_defaults(fn=cmd_ap_group, write=True)
     a = p.parse_args()
     if getattr(a, "policy", None) in ("deny", "allow") and not a.group:
         p.error("mac-filter deny|allow needs a group name")
