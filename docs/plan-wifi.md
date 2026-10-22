@@ -427,9 +427,10 @@ Settled the same morning: 6 GHz is off on `WhiteHouse` and lives on `WhiteHouse_
 hand on a device that sits beside an AP; nothing uses it yet. Band steering on `WhiteHouse` is
 "Prefer 5 GHz / 6 GHz" (Omada's steering is 2.4 versus the high bands; it has no 5-versus-6
 notion). Both changes cost nothing measurable and can be undone in the SSID's band list.
-After WLAN Optimization (2026-10-20 17:42) the closet AP's 5 GHz was set back by hand from
-52 @ 160 MHz (DFS) to 36 @ 80 MHz, and both 6 GHz radios from 320 to 160 MHz; the ceiling
-5 GHz stays on 149 @ 80, the 2.4 GHz radios on 1 (ceiling) and 6 (closet).
+WLAN Optimization (2026-10-20 17:42) left the closet AP's 5 GHz on 52 @ 160 MHz (a DFS block)
+and both 6 GHz radios at 320 MHz; the recommendation, not yet confirmed applied, is 36 @ 80 MHz
+for the closet 5 GHz and 160 MHz for both 6 GHz radios. The ceiling 5 GHz stays on 149 @ 80,
+the 2.4 GHz radios on 1 (ceiling) and 6 (closet). Power was untouched (25/25/23 dBm).
 
 Still open: the basement walk (office, playroom, laundry, sauna, both kids' rooms) with the
 closet AP live. The kids' phones sat at -75 and -82 on the ceiling AP overnight, which is the
