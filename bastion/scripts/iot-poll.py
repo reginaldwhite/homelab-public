@@ -239,8 +239,13 @@ def run_sample(run, now, temp, target, door_closed, code):
         log(f"huum: run {run['id']}: door opened")
 
 
-def heatup_metrics(samples, started_ts, target):
-    """samples: (ts, temp, door_closed) in time order. Minutes are from the first heating sample."""
+def heatup_metrics(samples, started_ts, target, score_target=None):
+    """samples: (ts, temp, door_closed) in time order. Minutes are from the first heating sample.
+    score_target is the temperature "time to target" is measured to -- the experiment's 91 even
+    when the controller's setpoint is 92 (it was, from 2026-10-20) -- so runs stay comparable;
+    overshoot stays relative to the setpoint, which is what the controller was aiming at."""
+    score_target = score_target or target
+
     def first_at(threshold):
         return next((ts for ts, t, _ in samples if t is not None and t >= threshold), None)
 
@@ -248,7 +253,7 @@ def heatup_metrics(samples, started_ts, target):
         return None if ts is None else round((ts - started_ts) / 60, 1)
 
     t80 = first_at(80)
-    ttgt = first_at(target) if target else None
+    ttgt = first_at(score_target) if score_target else None
     temps = [t for _, t, _ in samples if t is not None]
     m = {"t_80_min": mins(t80), "t_target_min": mins(ttgt), "peak_c": max(temps) if temps else None,
          "overshoot_c": None, "tail_slope": None, "settle_sd": None, "target_ts": ttgt}
@@ -259,7 +264,7 @@ def heatup_metrics(samples, started_ts, target):
         m["overshoot_c"] = round(max(after) - target, 1)
     # The curve's knee: the rate over the last 10 degrees before target against the rate over
     # 50..70, as a ratio. 1 is a straight line; well under 1 means the heater eased off.
-    t_tail, t50, t70 = first_at(target - 10), first_at(50), first_at(70)
+    t_tail, t50, t70 = first_at(score_target - 10), first_at(50), first_at(70)
     if t_tail and ttgt > t_tail and t50 and t70 and t70 > t50:
         m["tail_slope"] = round((10 / (ttgt - t_tail)) / (20 / (t70 - t50)), 2)
     settle = [t for ts, t, d in samples if t is not None and d and ttgt + 1800 <= ts <= ttgt + 3600]
@@ -277,7 +282,10 @@ def run_finish(run, now, end_state):
               "where run_id = :'r'::bigint order by ts", r=run["id"])
     samples = [(int(ts), float(t) if t else None, d == "t") for ts, t, d in (rows or [])]
     target = run.get("target") or 0
-    m = heatup_metrics(samples, run["started_ts"], target)
+    # A setpoint within a degree of the experiment's target is scored to the experiment's
+    # target, so a 92 on the panel does not throw a run away; further off, the run is invalid.
+    near_target = abs(target - EXPERIMENT_TARGET) <= 1
+    m = heatup_metrics(samples, run["started_ts"], target, EXPERIMENT_TARGET if near_target else None)
     label = db("select mode, bench_pct, ceiling_pct, start_c from sauna_runs where id = :'r'::bigint", r=run["id"])
     mode, bench, ceiling, start_c = (label[0] if label else ("", "", "", ""))
     start_c = float(start_c) if start_c else None
@@ -287,7 +295,7 @@ def run_finish(run, now, end_state):
         reasons.append("no label")
     if start_c is None or start_c >= 40:
         reasons.append(f"warm start ({start_c:g}°C)" if start_c is not None else "no start temperature")
-    if int(target) != EXPERIMENT_TARGET:
+    if not near_target:
         reasons.append(f"target {target:g}, not {EXPERIMENT_TARGET}")
     if m["t_target_min"] is None:
         reasons.append("controller went offline before target" if end_state == "offline" else "never reached target")
