@@ -27,6 +27,12 @@ pair every writing command stops with a clear message. Every write takes --dry-r
     omada-ssid.py time-range delete <name>
     omada-ssid.py mac-group create|set <name> --mac label=aa:bb:cc:f3:32:a3 [--mac …]
     omada-ssid.py mac-group delete <name>
+    omada-ssid.py clone <ssid> <new-name> [--groups Default,Office]
+                                               a new SSID with the source's bands, security, guest
+                                               isolation and PSK settings, bound to the named AP
+                                               groups (default: the source's). The controller never
+                                               returns a password, so the new one is taken from
+                                               OMADA_SSID_PASSWORD in the environment
     omada-ssid.py ap-groups                    every AP group: which APs are in it, which SSIDs it carries
     omada-ssid.py ap-group create <group>      a new, empty AP group
     omada-ssid.py ap-group move <group> --ap <mac>
@@ -304,6 +310,35 @@ def cmd_mac_filter(o, a):
           f"{a.ssid}: MAC filter {a.policy} group {a.group}")
 
 
+def cmd_clone(o, a):
+    d = o.ssid(a.ssid)
+    body = {k: d[k] for k in ("band", "broadcast", "guestNetEnable", "security", "vlanEnable",
+                              "mloEnable", "pmfMode", "enable11r") if k in d}
+    body["name"] = a.new_name
+    body["deviceType"] = d.get("deviceType", 1)
+    body["hidePwd"] = bool(d.get("hidePwd", False))
+    for k in ("pskSetting", "prohibitWifiShare", "enhancedIotConnectivity", "autoWanAccess"):
+        if d.get(k) is not None:
+            body[k] = d[k]
+    if d.get("vlanEnable"):
+        for k in ("vlanId", "vlanSetting"):
+            if d.get(k) is not None:
+                body[k] = d[k]
+    if body.get("security") == 3:
+        key = os.environ.get("OMADA_SSID_PASSWORD")
+        if not key:
+            sys.exit("the new SSID needs a password: re-run with OMADA_SSID_PASSWORD=<password> in the environment")
+        body.setdefault("pskSetting", {})["securityKey"] = key
+    if a.groups:
+        body["apGroupIds"] = [o.ap_group(n.strip())["id"] for n in a.groups.split(",") if n.strip()]
+    else:
+        bound = o.api("GET", f"/wireless-network/ssids/{d['ssidId']}/ap-groups")["result"]["apGroups"]
+        body["apGroupIds"] = [g["id"] for g in bound]
+    write(o, a, "POST", f"/wireless-network/wlans/{d['wlanId']}/ssids", body,
+          f"{a.new_name}: created from {a.ssid} (bands {bands_str(body['band'])}, guest {body.get('guestNetEnable')}, "
+          f"groups {a.groups or 'as source'})")
+
+
 def cmd_ap_groups(o, a):
     aps = o.aps()
     for g in o.ap_groups():
@@ -431,6 +466,8 @@ def main():
     s.add_argument("--span", action="append"); s.set_defaults(fn=cmd_time_range, write=True)
     s = sub.add_parser("mac-group"); s.add_argument("action", choices=["create", "set", "delete"]); s.add_argument("name")
     s.add_argument("--mac", action="append"); s.set_defaults(fn=cmd_mac_group, write=True)
+    s = sub.add_parser("clone"); s.add_argument("ssid"); s.add_argument("new_name"); s.add_argument("--groups")
+    s.set_defaults(fn=cmd_clone, write=True)
     sub.add_parser("ap-groups").set_defaults(fn=cmd_ap_groups, write=False)
     s = sub.add_parser("ap-group"); s.add_argument("action", choices=["create", "move", "bind"]); s.add_argument("name")
     s.add_argument("--ap", help="AP MAC, for move"); s.add_argument("--groups", help="comma-separated group names, for bind")

@@ -439,6 +439,24 @@ Still open: the basement walk (office, playroom, laundry, sauna, both kids' room
 closet AP live. The kids' phones sat at -75 and -82 on the ceiling AP overnight, which is the
 case for moving the EAP770 to a central basement ceiling; the walk decides.
 
+## Finding 2026-10-22 — AP groups, and a second isolated IoT SSID
+
+The reserve option (step 8) is used: with the P105s rejoining the ceiling AP after every closet
+radio restart, the fix is to make the ceiling stop answering to their SSID. 6.3's AP groups do
+that -- an AP is in one group, an SSID is bound to groups, a device only ever joins an SSID. The
+reconciliation of every device against the register showed thirteen still on `WhiteHouse`, and
+that one isolated IoT SSID cannot serve both floors once it is pinned, so there are now two:
+`WhiteHouse_IoT` bound to Default (ceiling) for the upstairs switches and plug, and
+`WhiteHouse_IoT_Office` bound to the new Office group (closet) for the P105s, HUUM, Rachio and
+the office switch. `WhiteHouse_IoT_Lan` stays on both for the Echos, ecobee, fan and vault plug.
+Seven SSIDs; the Default group's 2.4 GHz radio has room for one more and no more.
+
+Order of operations, because an AP only broadcasts the SSIDs bound to its group and the HUUM is
+on the old IoT name: create the Office group empty; bind every SSID to both groups; clone
+`WhiteHouse_IoT` as `WhiteHouse_IoT_Office` bound to Office; move the closet AP in; re-join the
+basement devices app by app; only then bind `WhiteHouse_IoT` to Default alone. `omada-ssid.py`
+gained `ap-groups`, `ap-group create|move|bind` and `clone` for it.
+
 ## Which device goes where
 
 The per-device answer — SSID, AP, fixed address, what the thing is — lives in

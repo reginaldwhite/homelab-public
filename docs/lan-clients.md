@@ -12,8 +12,9 @@ the revision of 2026-10-10 in [plan-wifi.md](plan-wifi.md):
 | SSID | Bands | Security | Guest (isolation) | Schedule | APs | For |
 |---|---|---|---|---|---|---|
 | `WhiteHouse` | 2.4 + 5 + 6 | WPA2/WPA3; password rotated after the moves, kids excluded | off | none | both | adults' phones, laptops, iPads |
-| `WhiteHouse_IoT_Lan` | 2.4 | WPA2 | off | none | both | Echos (incl. the kids' Spots — never on a scheduled SSID), ecobee, Haiku fan |
-| `WhiteHouse_IoT` | 2.4 | WPA2 | **on** | none | both | plugs, switches, HUUM, Rachio — cloud-only devices |
+| `WhiteHouse_IoT_Lan` | 2.4 | WPA2 | off | none | both | every Echo (the master-bedroom Echo, the office-bath, Finn's and Ava's Spots — never on a scheduled SSID), ecobee, Haiku fan, the vault plug (on it today) |
+| `WhiteHouse_IoT` | 2.4 | WPA2 | **on** | none | **ceiling AP only** (AP group Default) | upstairs cloud-only devices: the backyard, carport and bedroom light switches, the Amazon plug |
+| `WhiteHouse_IoT_Office` | 2.4 | WPA2 | **on** | none | **closet AP only** (AP group Office) | basement cloud-only devices: the three Tapo P105s, HUUM, Rachio, the office light switch. Added 2026-10-22 so a closet radio restart cannot send them upstairs |
 | `WhiteHouse_Ava` | 2.4 + 5 | WPA2/WPA3 | off | off 22:00 Sun–Thu / 23:00 Fri–Sat, on 05:30 | both | Ava's phone, Chromebook, iPad mini |
 | `WhiteHouse_Finn` | 2.4 + 5 | WPA2/WPA3 | off | off 21:30 Sun–Thu / 22:15 Fri–Sat, on 06:00 | both | Finn's phone, iPad, Chromebook, Roku (the PC is wired: DNS rule only) |
 | `WhiteHouse_Guest` | 2.4 + 5 | WPA2, simple password, not given to the kids | **on** | off 02:00, on 08:00 | both | visitors; MAC group `kids-devices` denied (catches the Roku and Chromebooks; phones and iPads randomise their MAC on a new SSID, so the password is the real control) |
@@ -88,22 +89,30 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 Which Echo is in which room: Alexa app → Devices → each → *About* shows the MAC.
 
-## Cloud-only IoT, isolated — `WhiteHouse_IoT` (both APs; the AP column is the expected one from the signal map)
+## Cloud-only IoT, isolated — `WhiteHouse_IoT` (ceiling AP only, since 2026-10-22) and `WhiteHouse_IoT_Office` (closet AP only)
+
+Reconciled 2026-10-22: every device below was still on `WhiteHouse` or, for the plugs and HUUM, on an IoT SSID
+broadcast by both APs. The basement set moves to `WhiteHouse_IoT_Office`; the rest to `WhiteHouse_IoT`.
+
+| MAC | IP | Fixed IP | Device | Signal | SSID / AP |
+|---|---|---|---|---|---|
+| `3c:78:95:e3:05:d8` | — | .173 ✅ | **Tapo P115, vault's power plug** (`vault-plug`) — back in service 2026-10-11 with its own schedule (on Sun 01:55, off 05:00) after Wake-on-LAN proved unable to wake the board from a multi-day sleep; see docs/vault-power.md | — | `WhiteHouse_IoT`, downstairs (utility closet) |
+| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
+| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
+| `d4:91:0f:13:77:99` | .116 | .176 ✅ | **Amazon Smart Plug, 1st gen** (`amazon-plug`; its own hostname `AmazonPlug09AS`) — **outlet unknown**: not one Robby could place on 2026-10-10. Find it in the Alexa app (Devices → All Devices → the plug → About shows this MAC) | -63 | by location |
+| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | upstairs |
+| `a4:d7:3c:40:f6:c6` | .125 | .184 ✅ | Epson printer (`epson-printer`) | wired — on no controller | — |
+
+### `WhiteHouse_IoT_Office` — basement, closet AP only
 
 | MAC | IP | Fixed IP | Device | Signal | SSID / AP |
 |---|---|---|---|---|---|
 | `60:83:e7:74:84:07` | .113 | .170 ✅ | **Tapo P105 "Office Computer"** — the monitors' plug, so they are fully off at night | -70 | downstairs |
 | `60:83:e7:42:1b:99` | .110 | .171 ✅ | **Tapo P105 "Office Stereo"** — the desktop amp's plug | -73 | downstairs |
 | `60:83:e7:f3:6b:4e` | .132 | .172 ✅ | **Tapo P105 "Towel Warmer"** — runs it on a 3-hour cycle instead of 24/7 | -76 | downstairs |
-| `3c:78:95:e3:05:d8` | — | .173 ✅ | **Tapo P115, vault's power plug** (`vault-plug`) — back in service 2026-10-11 with its own schedule (on Sun 01:55, off 05:00) after Wake-on-LAN proved unable to wake the board from a multi-day sleep; see docs/vault-power.md | — | `WhiteHouse_IoT`, downstairs (utility closet) |
-| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
-| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
-| `d4:91:0f:13:77:99` | .116 | .176 ✅ | **Amazon Smart Plug, 1st gen** (`amazon-plug`; its own hostname `AmazonPlug09AS`) — **outlet unknown**: not one Robby could place on 2026-10-10. Find it in the Alexa app (Devices → All Devices → the plug → About shows this MAC) | -63 | by location |
 | `ac:0b:fb:11:2f:68` | .118 | .177 ✅ | **Amazon Basics light switch, office** (`office-light-switch`) — proven 2026-10-10 by cutting the office lighting breaker: this MAC stopped answering ping. (The stronger upstairs signal had suggested the bedroom; the AP sits directly over the office, so that inference was backwards.) | -53 | downstairs |
-| `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | upstairs |
 | `d4:8a:fc:c1:06:31` | .128 | .182 ✅ | HUUM sauna controller (`huum`) — the reconnect alert and the IoT dashboard match both .128 and .182 across the lease change | -52 on the AC Lite | downstairs (moved 2026-10-10) |
 | `0c:2a:69:0f:57:89` | .120 | .183 ✅ | Rachio sprinkler controller (`rachio`; Electric Imp module) — in the office closet with the gateway and the AC Lite | -74 | downstairs — it will be a metre from the closet AP |
-| `a4:d7:3c:40:f6:c6` | .125 | .184 ✅ | Epson printer (`epson-printer`) | wired — on no controller | — |
 
 ## How to change this file
 
