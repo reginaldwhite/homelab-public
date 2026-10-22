@@ -413,6 +413,28 @@ controller is on 6.3, which has AP Groups. So:
 8. **Reserve, not planned:** 6.3's AP Groups can bind an SSID to one AP; use it only if a
    specific device is seen flapping between the two in the controller's client history.
 
+## Finding 2026-10-22 — read the survey by download speed, not RSSI
+
+The controller's RSSI for a WiFi 7 phone is not the link you experience. In the master bedroom,
+one wall from the ceiling AP, the iPhone logged -79 to -88 dBm on 6 GHz while downloading at
+68 to 527 Mbps, and -79 on 5 GHz at 220 to 275 Mbps. Omada reports what the AP hears of the
+phone's uplink, sampled across multi-link, and it bounced 25 dB at one spot in two minutes.
+Decisions made on that column alone were wrong twice (the laptops' -79/-81 on 6 GHz in the
+office, then this). The survey page's download test is the number to act on; RSSI is a hint,
+and for 2.4 GHz plugs with no download test it is all there is, where it is also more honest.
+
+Settled the same morning: 6 GHz is off on `WhiteHouse` and lives on `WhiteHouse_6`, joined by
+hand on a device that sits beside an AP; nothing uses it yet. Band steering on `WhiteHouse` is
+"Prefer 5 GHz / 6 GHz" (Omada's steering is 2.4 versus the high bands; it has no 5-versus-6
+notion). Both changes cost nothing measurable and can be undone in the SSID's band list.
+After WLAN Optimization (2026-10-20 17:42) the closet AP's 5 GHz was set back by hand from
+52 @ 160 MHz (DFS) to 36 @ 80 MHz, and both 6 GHz radios from 320 to 160 MHz; the ceiling
+5 GHz stays on 149 @ 80, the 2.4 GHz radios on 1 (ceiling) and 6 (closet).
+
+Still open: the basement walk (office, playroom, laundry, sauna, both kids' rooms) with the
+closet AP live. The kids' phones sat at -75 and -82 on the ceiling AP overnight, which is the
+case for moving the EAP770 to a central basement ceiling; the walk decides.
+
 ## Which device goes where
 
 The per-device answer — SSID, AP, fixed address, what the thing is — lives in
