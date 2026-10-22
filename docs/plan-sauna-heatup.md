@@ -230,6 +230,14 @@ setup. "Schedule the sauna to be ready at 7" in Slack, and later over Alexa
 > Robby **power-cycled it 2026-10-18 ~17:40** (status back to 232; the cloud rejected starts with
 > HTTP 400 meanwhile). Learning runs 3–6 are after the power cycle; the controller asks for a
 > confirmation before clearing learned data, so it should be unaffected -- watch run 3 anyway.
+>
+> **Phase A decided 2026-10-22: learning, flat.** Simple (3 runs): 61.0 min to 80, 75.3 to 91,
+> hold sd 1.83. Learning (6 runs): 61.8 / 77.5, hold sd 0.55; runs to 91 were 79, 77, 78, 79,
+> 73, 79 -- no drift, before or after the power cycle. Same heat-up, steadier hold. The panel's
+> setpoint read 92 from run 4 of the block (2026-10-20 morning) onward; time-to-target is now
+> always scored to 91 and a setpoint within a degree is accepted, so those runs count. Phase B:
+> 8 runs in learning, two replicates of the four vent cells, seeded order
+> (100/0, 100/100, 0/0, 0/100, 0/100, 100/0, 0/0, 100/100 as bench/ceiling %).
 
 ## Decisions before Sunday
 
