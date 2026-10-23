@@ -528,15 +528,25 @@ resident until something else is requested.
 docker exec ollama ollama ps    # what is resident right now
 ```
 
-#### Context length is 16384
+#### Context length: 16384 server-wide, 32768 for the agent's model
 
 Ollama's own default lands on **4096** here. That is below OpenClaw's hard minimum of 16000, and
 an agent turn fails outright with `Model context window too small (4096 tokens)` — so the server
-has to be told explicitly. `OLLAMA_CONTEXT_LENGTH=16384` on the `ollama` service does that, and
-OpenClaw's model definitions declare `contextWindow: 16384` / `maxTokens: 4096` to match.
+has to be told explicitly. `OLLAMA_CONTEXT_LENGTH=16384` on the `ollama` service does that.
 
-Both numbers have to agree. If the server serves less than OpenClaw declares, prompts are
-silently truncated; if it serves less than 16000, the agent refuses to run at all.
+`OLLAMA_CONTEXT_LENGTH` is only the **default** for a request that does not ask for a size. A
+request carrying its own `num_ctx` overrides it in either direction, which was measured on
+2026-10-23: with the server default at 16384, a generate call with `num_ctx: 32768` came back
+with `context_length: 32768` and **14.9 GB, 100% GPU**. So `gpt-oss:20b` — the only model the
+agent runs — declares `contextWindow: 32768` / `params.num_ctx: 32768`, while the two dense
+models stay at 16384 and the server default stays where it is, so nothing else spills to CPU.
+The reason is prompt budget: OpenClaw reserves `maxTokens` for output, so 16384 left about 12288
+for the prompt, and the agent's floor measured ~17.7k — every turn was being compacted before it
+reached the model. 32768 gives roughly 28672.
+
+The declaration and the request have to agree. `contextWindow` without a matching
+`params.num_ctx` tells OpenClaw it has room the server will not serve, and prompts are silently
+truncated; below 16000 the agent refuses to run at all.
 
 **16384 is the ceiling that keeps every model fully on the GPU.** Measured on the 16 GB card by
 loading each model at a forced `num_ctx` and reading `ollama ps`:
@@ -547,11 +557,10 @@ loading each model at a forced `num_ctx` and reading `ollama ps`:
 | `qwen2.5-coder:14b` (dense) | 13 GB, **100% GPU** | 18 GB, 15% CPU / 85% GPU |
 | `Apriel-1.6-15b-Thinker` (dense) | 12 GB, **100% GPU** | 17 GB, 9% CPU / 91% GPU |
 
-`gpt-oss:20b` alone would run at 32768, but `OLLAMA_CONTEXT_LENGTH` is a single server-wide
-default, so raising it past 16384 would push the two dense models into CPU offload. If you ever
-change it, update both `contextWindow` and `params.num_ctx` on every model under
-`models.providers.ollama.models` in `openclaw.json`, and keep `maxTokens` well under it to leave
-room for input. (`agents/main/agent/models.json` used to carry a second copy that had to be kept
+This is why the 32768 above is set **per model** rather than on the server: raising
+`OLLAMA_CONTEXT_LENGTH` itself would push the two dense models into CPU offload, while a
+per-request `num_ctx` lifts only the model that asks. Keep `maxTokens` well under whatever a
+model declares, to leave room for input. (`agents/main/agent/models.json` used to carry a second copy that had to be kept
 in step; since OpenClaw 2026.9 the agent regenerates that file itself and deploy no longer
 manages it.)
 

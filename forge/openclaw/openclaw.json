@@ -38,10 +38,10 @@
               "cacheRead": 0,
               "cacheWrite": 0
             },
-            "contextWindow": 16384,
+            "contextWindow": 32768,
             "maxTokens": 4096,
             "params": {
-              "num_ctx": 16384
+              "num_ctx": 32768
             }
           },
           {
