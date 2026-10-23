@@ -577,9 +577,24 @@ every turn was arriving at 13k–20k tokens, and one Slack thread session open s
 | `resetByType.thread.idleMinutes: 120` | thread sessions, the ones that grew, also clear after two quiet hours |
 
 `session.resetByChannel` takes the same shape per channel id, and a channel entry under
-`channels.slack.channels` can carry its own `skills`, `tools` and `systemPrompt` — which is how a
-narrow "command" channel stays cheap: `tools: { allow: ["exec"] }` keeps the 32-tool catalogue out
-of its prompt. `session.resetTriggers` is the manual version: a phrase that forces a reset.
+`channels.slack.channels` can carry its own `skills`, `tools` and `systemPrompt`.
+`session.resetTriggers` is the manual version: a phrase that forces a reset.
+
+#### `#homelab-commands` (`C0CBC8E2YMT`) — one command, no history
+
+`session.resetByChannel` gives that channel `{ mode: "idle", idleMinutes: 1 }`, so anything more
+than a minute after the last message starts a fresh session: a command carries no history, while a
+quick follow-up still lands in the same one. Its channel entry also pins `skills` to the four verb
+skills, so the upgrade runbook is not offered there at all.
+
+Two knobs are deliberately **not** set on it:
+
+- `tools: { allow: [...] }` — a skill body is read through the `fs` tool, so an exec-only allowlist
+  would stop the agent reading the exact command line out of its own skill, which is how it
+  invented one and got denied in the first place (2026-10-15).
+- `systemPrompt` — whether a channel prompt replaces or appends to `AGENTS.md` is not documented
+  and not evident in the bundle. Replacing it would drop the exec-notation rules, with the same
+  consequence. Verify against a real turn before setting it.
 
 `openclaw config patch --stdin --dry-run` validates a change against the live config without
 writing it; the repo file is the source of truth, so make the change here and deploy.

@@ -93,6 +93,12 @@
         "mode": "idle",
         "idleMinutes": 120
       }
+    },
+    "resetByChannel": {
+      "C0CBC8E2YMT": {
+        "mode": "idle",
+        "idleMinutes": 1
+      }
     }
   },
   "tools": {
@@ -145,6 +151,19 @@
           "requireMention": false,
           "users": [
             "U01E91JBPPG"
+          ]
+        },
+        "C0CBC8E2YMT": {
+          "enabled": true,
+          "requireMention": false,
+          "users": [
+            "U01E91JBPPG"
+          ],
+          "skills": [
+            "plex-power",
+            "sauna",
+            "kids-internet",
+            "package-versions"
           ]
         }
       },
