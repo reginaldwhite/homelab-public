@@ -338,8 +338,15 @@ def cmd_clone(o, a):
         bound = o.api("GET", f"/wireless-network/ssids/{d['ssidId']}/ap-groups")["result"]["apGroups"]
         body["apGroupIds"] = [g["id"] for g in bound]
     write(o, a, "POST", f"/wireless-network/wlans/{d['wlanId']}/ssids", body,
-          f"{a.new_name}: created from {a.ssid} (bands {bands_str(body['band'])}, guest {body.get('guestNetEnable')}, "
-          f"groups {a.groups or 'as source'})")
+          f"{a.new_name}: created from {a.ssid} (bands {bands_str(body['band'])}, guest {body.get('guestNetEnable')})")
+    # The create call accepts apGroupIds and then binds the SSID to the default group anyway
+    # (6.3.0.45, 2026-10-23: asked for Office, got Default). Bind explicitly afterwards.
+    if a.dry_run:
+        print(f"DRY RUN then PATCH /wireless-network/ssids/<new id>/ap-groups {{'apGroupIds': {body['apGroupIds']}}}")
+        return
+    new = o.ssid(a.new_name)
+    write(o, a, "PATCH", f"/wireless-network/ssids/{new['ssidId']}/ap-groups", {"apGroupIds": body["apGroupIds"]},
+          f"{a.new_name}: broadcast by AP group(s) {a.groups or 'as source'}")
 
 
 def cmd_ap_groups(o, a):

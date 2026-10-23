@@ -12,9 +12,9 @@ the revision of 2026-10-10 in [plan-wifi.md](plan-wifi.md):
 | SSID | Bands | Security | Guest (isolation) | Schedule | APs | For |
 |---|---|---|---|---|---|---|
 | `WhiteHouse` | 2.4 + 5 + 6 | WPA2/WPA3; password rotated after the moves, kids excluded | off | none | both | adults' phones, laptops, iPads |
-| `WhiteHouse_IoT_Lan` | 2.4 | WPA2 | off | none | both | every Echo (the master-bedroom Echo, the office-bath, Finn's and Ava's Spots — never on a scheduled SSID), ecobee, Haiku fan, the vault plug (on it today) |
+| `WhiteHouse_IoT_Lan` | 2.4 | WPA2 | off | none | both | every Echo (the master-bedroom Echo, the office-bath, Finn's and Ava's Spots — never on a scheduled SSID), ecobee, Haiku fan, Rachio (Robby's call 2026-10-23) |
 | `WhiteHouse_IoT` | 2.4 | WPA2 | **on** | none | **ceiling AP only** (AP group Default) | upstairs cloud-only devices: the backyard, carport and bedroom light switches, the Amazon plug |
-| `WhiteHouse_IoT_Office` | 2.4 | WPA2 | **on** | none | **closet AP only** (AP group Office) | basement cloud-only devices: the three Tapo P105s, HUUM, Rachio, the office light switch. Added 2026-10-22 so a closet radio restart cannot send them upstairs |
+| `WhiteHouse_IoT_Office` | 2.4 | WPA2 | **on** | none | **closet AP only** (AP group Office) | basement cloud-only devices: the three Tapo P105s, HUUM, the office light switch, the vault plug (moved here 2026-10-23; watch its signal on the closet AP). Added 2026-10-22 so a closet radio restart cannot send them upstairs |
 | `WhiteHouse_Ava` | 2.4 + 5 | WPA2/WPA3 | off | off 22:00 Sun–Thu / 23:00 Fri–Sat, on 05:30 | both | Ava's phone, Chromebook, iPad mini |
 | `WhiteHouse_Finn` | 2.4 + 5 | WPA2/WPA3 | off | off 21:30 Sun–Thu / 22:15 Fri–Sat, on 06:00 | both | Finn's phone, iPad, Chromebook, Roku (the PC is wired: DNS rule only) |
 | `WhiteHouse_Guest` | 2.4 + 5 | WPA2, simple password, not given to the kids | **on** | off 02:00, on 08:00 | both | visitors; MAC group `kids-devices` denied (catches the Roku and Chromebooks; phones and iPads randomise their MAC on a new SSID, so the password is the real control) |
