@@ -31,8 +31,8 @@ pair every writing command stops with a clear message. Every write takes --dry-r
                                                a new SSID with the source's bands, security, guest
                                                isolation and PSK settings, bound to the named AP
                                                groups (default: the source's). The controller never
-                                               returns a password, so the new one is taken from
-                                               OMADA_SSID_PASSWORD in the environment
+                                               returns a password, so the script prompts for the new
+                                               one (or reads OMADA_SSID_PASSWORD when not on a terminal)
     omada-ssid.py ap-groups                    every AP group: which APs are in it, which SSIDs it carries
     omada-ssid.py ap-group create <group>      a new, empty AP group
     omada-ssid.py ap-group move <group> --ap <mac>
@@ -326,8 +326,11 @@ def cmd_clone(o, a):
                 body[k] = d[k]
     if body.get("security") == 3:
         key = os.environ.get("OMADA_SSID_PASSWORD")
+        if not key and sys.stdin.isatty():
+            import getpass
+            key = getpass.getpass(f"password for the new SSID {a.new_name} (not echoed): ")
         if not key:
-            sys.exit("the new SSID needs a password: re-run with OMADA_SSID_PASSWORD=<password> in the environment")
+            sys.exit("the new SSID needs a password: run from a terminal to be prompted, or set OMADA_SSID_PASSWORD")
         body.setdefault("pskSetting", {})["securityKey"] = key
     if a.groups:
         body["apGroupIds"] = [o.ap_group(n.strip())["id"] for n in a.groups.split(",") if n.strip()]
