@@ -135,11 +135,18 @@ class Omada:
         return next(g["wlanId"] for g in groups if g.get("primary")) if groups else sys.exit("no WLAN group")
 
     def ssids(self):
-        wid = self.wlan_id()
-        out = []
-        for s in self.api("GET", f"/wireless-network/wlans/{wid}/ssids?page=1&pageSize=50")["result"]["data"]:
-            s["wlanId"] = wid
-            out.append(s)
+        # A "WLAN group" here is the same object as an AP group (same ids), and an SSID is listed
+        # under every group it is bound to -- so read all of them and keep one row per SSID, or an
+        # SSID bound only to a non-default group (WhiteHouse_IoT_Office, 2026-10-23) is invisible.
+        seen, out = set(), []
+        for g in self.api("GET", "/wireless-network/wlans")["result"]:
+            wid = g["wlanId"]
+            for s in self.api("GET", f"/wireless-network/wlans/{wid}/ssids?page=1&pageSize=50")["result"]["data"]:
+                if s["ssidId"] in seen:
+                    continue
+                seen.add(s["ssidId"])
+                s["wlanId"] = wid
+                out.append(s)
         return out
 
     def ssid(self, name):
