@@ -14,7 +14,7 @@
 #
 # Same file on every host (shared/, merged into scripts/ by deploy.sh). Order to run it
 # in, by blast radius: forge, then cinema, then bastion last -- see the "Host operating
-# systems" section of .claude/skills/homelab-upgrades/SKILL.md.
+# systems" runbook at .claude/skills/homelab-upgrades/host-os.md.
 #
 # Logs to /home/robby/logs/os-update.log, so the last run is readable after the reboot
 # and the health check has something to point at.

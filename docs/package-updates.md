@@ -3,7 +3,9 @@
 > **Status (2026-09-26): phase 1 built and deployed.** The skill exists at
 > [.claude/skills/homelab-upgrades/](../.claude/skills/homelab-upgrades/) — `SKILL.md` and seven
 > package runbooks; `deploy.sh` pushes it to forge and `forge/apply.sh` installs it into the agent's
-> state dir and validates it on every deploy. It has already driven one OpenClaw, one Caddy and one
+> state dir and validates it on every deploy. (Since 2026-10-22 it is `SKILL.md`, the `upgrading.md`
+> and `host-os.md` runbooks and sixteen package files, with the agent's half split off as the small
+> `package-versions` skill — the local model's context could not afford the whole thing.) It has already driven one OpenClaw, one Caddy and one
 > AdGuard upgrade by hand. Phases 2–4 are unbuilt and, with the skill in use, optional.
 >
 > This supersedes four earlier drafts of this document, all of which sorted packages by how far

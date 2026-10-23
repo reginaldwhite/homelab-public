@@ -73,12 +73,9 @@ curl -fsS https://plex.tv/api/downloads/5.json \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["computer"]["Linux"]["version"])'
 ```
 
-**From the OpenClaw agent on forge** the exec allowlist permits only the two `curl` lookups
-above, exactly as written (no `| sed`, no `| python3 -c`; read `tag_name` or `version` out of
-the JSON yourself, and `| head -c 2000` is allowed if the body is long). `docker inspect` and
-`ssh` are not available to the agent; the running-version half of the comparison comes from
-the laptop, or from the last digest that carried it. Say which half is missing rather than
-guessing.
+**From the OpenClaw agent on forge**, don't read this file: the `package-versions` skill is the
+same two lookups in a form that fits the local model's context, and the allowlist permits nothing
+else here anyway (no `docker inspect`, no `ssh`, no pipes into `sed` or `python3`).
 
 Two traps when comparing:
 
@@ -93,88 +90,15 @@ Two traps when comparing:
 **cinema is usually asleep**, so Plex's version often cannot be read. That is normal — report the
 last known value with its age, and do not wake the machine just to read a version.
 
-## Upgrading a Watch package
+## Doing the upgrade
 
-These move slowly and the hop is small, so this is ordinary work, not a project.
+Two files in this skill, read when you get that far — not before, because on forge they are a
+large part of the model's context:
 
-1. Read `packages/<name>.md` — the hazard, what to back up, and how to verify.
-2. Check the backup the runbook names is recent.
-3. Bump the tag in the compose file the package file points at. Change the one `image:` line.
-4. `./deploy.sh --check <host>` first, then `./deploy.sh <host>`.
-5. Work through `Verify after`. If it fails, follow `Rollback` — do not debug forward on a host
-   running DNS or the vault.
-
-## Planning a Drift upgrade
-
-A Drift package is usually many releases and months behind, so this needs a written plan before
-anything is edited. Produce, in this order:
-
-1. **How far behind, concretely** — releases and elapsed time, from version-shaped tags only.
-2. **Intermediate hops.** Do not cross many months in one bite. Pick a mid-point release, land it,
-   verify, continue. The plan names the hops.
-3. **The contracts to check first.** This is the part people skip. Other things in this repo call
-   these packages and parse their output; a major jump can change a CLI flag, an output shape or a
-   config schema, and the failure shows up somewhere else entirely. Each package file lists its
-   own under `Contracts`.
-4. **Backups, verified by age** — not assumed to exist.
-5. **Verification and rollback**, from the runbook.
-
-Release notes are the input to this plan. They are large: some of these projects publish more than
-100 KB per release, which does not fit in the local model's context on forge. Read them
-newest-first, one release at a time, stopping once the breaking changes and any security notes are
-in hand — and prefer the project's own upgrade or migration guide over the changelog once the
-backlog is more than a few releases deep. When the notes genuinely do not fit, say so and plan
-from the migration guide rather than summarising a fraction of them silently.
-
-## Host operating systems
-
-The three Ubuntu hosts are not in the table above, but they age the same way and nothing here
-manages them. `unattended-upgrades` installs **security** updates on every host and never
-reboots, so two things accumulate: ordinary package updates, and a pending kernel that only a
-reboot activates. `apt` on the host is the source of truth, never this file.
-
-Check, on each host:
-
-```bash
-apt list --upgradable 2>/dev/null | grep -c upgradable
-[[ -e /var/run/reboot-required ]] && cat /var/run/reboot-required.pkgs
-```
-
-Apply monthly, or when a reboot is pending, one host at a time, with the script every host
-carries (it re-runs itself under `sudo`, logs to `~/logs/os-update.log`, and asks before
-rebooting; `--dry-run` shows what it would do):
-
-```bash
-/home/robby/homelab-deployed/<host>/scripts/os-update.sh --dry-run
-/home/robby/homelab-deployed/<host>/scripts/os-update.sh
-```
-
-Order by blast radius: **forge** first (nothing depends on it and it reboots daily anyway), then
-**cinema** (Plex only), then **bastion** last and in a quiet window -- its reboot takes DNS and
-the vault away for about a minute, and every client pointed at AdGuard has no DNS until it is
-back. The script needs a password on every host, so this is done by a person, never by the
-agent. After bastion returns: `docker ps` shows its three containers up and
-`dig @192.168.0.10 vault.robbywhite.net` answers.
-
-**forge, after an NVIDIA driver update:** ollama takes the GPU through CDI, from a spec file
-that describes the installed driver. A new driver makes that file stale and ollama will not
-start until it is regenerated, so run this before `docker compose up` or any deploy:
-
-```bash
-sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml && nvidia-ctk cdi list
-```
-
-`os-update.sh` prints a reminder on forge when the upgrade touched an `nvidia-` package. Why CDI
-and not the legacy hook is in the comment above the `devices:` line in `forge/docker-compose.yaml`.
-
-**forge, the driver must load at boot by itself.** CDI injects devices but, unlike the old
-runtime hook, never loads kernel modules. Two host-side settings do that and must survive
-any driver or kernel work: `prime-select query` must say `nvidia` (the `intel` profile writes
-`/lib/modprobe.d/blacklist-nvidia.conf`, which is exactly what left the GPU driverless on
-2026-10-10), and `/etc/modules-load.d/nvidia.conf` lists `nvidia` and `nvidia_uvm`. After a
-reboot: `nvidia-smi -L` on the host, then `docker exec ollama nvidia-smi -L`; if the first
-fails, `sudo prime-select nvidia && sudo modprobe nvidia nvidia_uvm` and regenerate the CDI
-spec as above.
+- **`upgrading.md`** — the Watch procedure (small hop, ordinary work) and how to plan a Drift
+  upgrade (many releases behind, needs a written plan and intermediate hops).
+- **`host-os.md`** — the three Ubuntu hosts: `unattended-upgrades`, pending kernels, the order to
+  reboot them in, and what forge needs after an NVIDIA driver update.
 
 ## Per-package detail
 
