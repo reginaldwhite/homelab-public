@@ -605,6 +605,15 @@ it. This is account-wide and channel-only — `dmHistoryLimit` is untouched, so 
 and a follow-up in a channel still works while the session lives, because the agent remembers its
 own turns.
 
+Since 2026-10-23 the Slack app also subscribes to `message.channels`, so a plain message in a
+channel reaches the gateway — which is what makes a bare command work here, and why
+`#homelab-logs` and `#homelab-status` are `requireMention: true`: their hourly reports and any
+chatter in them would otherwise wake the agent on every line. Those reports post with a mention of
+the bot user, so triage keeps working. (Before that event existed, only `app_mention` was ever
+delivered: `requireMention: false` had never done anything, and a mention of the **app**
+(`<@B0AKHD9S1UH>`) rather than the **bot user** (`<@U0AJY4AETS7>`) silently delivered nothing at
+all, which is two autocomplete entries that look identical in the composer.)
+
 Two knobs are deliberately **not** set on it:
 
 - `tools: { allow: [...] }` — a skill body is read through the `fs` tool, so an exec-only allowlist

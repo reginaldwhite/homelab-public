@@ -142,14 +142,14 @@
       "channels": {
         "C0C3XSNE71T": {
           "enabled": true,
-          "requireMention": false,
+          "requireMention": true,
           "users": [
             "U01E91JBPPG"
           ]
         },
         "C0C3MAXLSRK": {
           "enabled": true,
-          "requireMention": false,
+          "requireMention": true,
           "users": [
             "U01E91JBPPG"
           ]
