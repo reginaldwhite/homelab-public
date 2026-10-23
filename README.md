@@ -587,6 +587,15 @@ than a minute after the last message starts a fresh session: a command carries n
 quick follow-up still lands in the same one. Its channel entry also pins `skills` to the four verb
 skills, so the upgrade runbook is not offered there at all.
 
+Resetting the session was not enough by itself. `channels.slack.historyLimit` is how many **earlier
+Slack messages** are pulled in as context (an integer, 0–20), and it is separate from the session's
+own transcript. Left unset, the first command in the new channel answered a question from a message
+sent six minutes earlier that had never triggered a turn at all, and arrived at 15,227 prompt tokens
+in a session that was brand new. It is **0** now: a channel turn starts from the message in front of
+it. This is account-wide and channel-only — `dmHistoryLimit` is untouched, so DMs keep their context,
+and a follow-up in a channel still works while the session lives, because the agent remembers its
+own turns.
+
 Two knobs are deliberately **not** set on it:
 
 - `tools: { allow: [...] }` — a skill body is read through the `fs` tool, so an exec-only allowlist

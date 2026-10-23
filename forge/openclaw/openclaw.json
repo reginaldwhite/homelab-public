@@ -137,6 +137,7 @@
         "nativeTransport": false
       },
       "replyToMode": "off",
+      "historyLimit": 0,
       "groupPolicy": "allowlist",
       "channels": {
         "C0C3XSNE71T": {
