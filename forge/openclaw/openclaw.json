@@ -83,6 +83,18 @@
       "main": {}
     }
   },
+  "session": {
+    "reset": {
+      "mode": "daily",
+      "atHour": 4
+    },
+    "resetByType": {
+      "thread": {
+        "mode": "idle",
+        "idleMinutes": 120
+      }
+    }
+  },
   "tools": {
     "exec": {
       "host": "gateway",

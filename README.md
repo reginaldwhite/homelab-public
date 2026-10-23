@@ -561,6 +561,29 @@ Because model ids must match exactly, `openclaw.json` registers the Apriel model
 `openclaw` and `open-webui` depend on `ollama` being healthy, not on `model-loader` completing,
 so a failed model pull doesn't keep the gateway down on boot.
 
+#### Sessions are cycled, because the prompt budget is about 12k of that 16384
+
+What the gateway sends is the instruction files (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`), the tool
+definitions, the skill the turn opens, and the session's own accumulated history — and it compacts
+silently when that exceeds the budget, dropping whatever it decides matters least. On 2026-10-22
+every turn was arriving at 13k–20k tokens, and one Slack thread session open since 2026-09-27 held
+10k of it by itself: more than the whole instruction set three times over.
+
+`session` in `openclaw.json` bounds that:
+
+| Setting | Why |
+|---|---|
+| `reset.mode: "daily"`, `atHour: 4` | everything rolls over overnight, where a reset cannot cut into a conversation |
+| `resetByType.thread.idleMinutes: 120` | thread sessions, the ones that grew, also clear after two quiet hours |
+
+`session.resetByChannel` takes the same shape per channel id, and a channel entry under
+`channels.slack.channels` can carry its own `skills`, `tools` and `systemPrompt` — which is how a
+narrow "command" channel stays cheap: `tools: { allow: ["exec"] }` keeps the 32-tool catalogue out
+of its prompt. `session.resetTriggers` is the manual version: a phrase that forces a reset.
+
+`openclaw config patch --stdin --dry-run` validates a change against the live config without
+writing it; the repo file is the source of truth, so make the change here and deploy.
+
 #### Deploying changes
 
 `./deploy.sh forge` pushes `forge/` to `/home/robby/homelab-deployed/forge/` and runs
