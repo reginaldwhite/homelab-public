@@ -314,9 +314,10 @@ def run_finish(run, now, end_state):
     log(f"huum: run {run['id']} ended: t80 {m['t_80_min']} min, target {m['t_target_min']} min, "
         f"overshoot {m['overshoot_c']}, tail {m['tail_slope']}, settle sd {m['settle_sd']}, "
         f"{'valid' if valid else 'INVALID: ' + '; '.join(reasons)}")
-    # A valid experiment run queues the next one itself, so a forgotten "next" cannot leave the
-    # following cold start unlabelled (it did, twice, in the first week).
-    if valid and mode and not DRY:
+    # An experiment run queues the next one itself, so a forgotten "next" cannot leave the
+    # following cold start unlabelled (it did, twice, in the first week). An invalid run
+    # re-queues its own cell, because `next` counts only valid runs.
+    if mode and not DRY:
         r = subprocess.run([os.path.join(HERE, "sauna.py"), "next"], capture_output=True, text=True, timeout=60)
         log(f"huum: queued the next run: {(r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else 'no output'}")
 
