@@ -81,7 +81,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 |---|---|---|---|---|---|
 | `88:29:bf:d2:a5:6a` | .114 | .160 ✅ | **Echo Spot, Finn's room** (`finn-echo-spot`) | — | upstairs? — not in the kids' DNS rule, by choice so far |
 | `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Spot, Ava's room** (`ava-echo-spot`) | -75 (5 GHz) | by room — not in Ava's DNS rule, by choice so far |
-| `e8:9f:6d:70:fb:f1` | .117 | .163 | **Unidentified Alexa Connect Kit appliance** — Amazon-made Espressif radio, `ack.ntp-fireos.com` time sync and almost nothing else, so an appliance with Alexa built in (the AmazonBasics microwave was the first ACK product). Not the coffee maker: that sits on the smart plug at .176. Confirm by unplugging candidates while pinging `.117`. Goes on `WhiteHouse_IoT` once found | -59 | upstairs |
+| `e8:9f:6d:70:fb:f1` | .117 | .163 | **Coffee maker, kitchen** (`coffee-maker`; Alexa built in on an Alexa Connect Kit module — Amazon-made Espressif radio, `ack.ntp-fireos.com` time sync and little else). Named "Coffee Maker" in Omada and moved to `WhiteHouse_IoT` by Robby 2026-10-24 | -59 | upstairs (ceiling AP) |
 | `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Spot, office bathroom** (`office-bath-echo-spot`) | -70 | downstairs |
 | `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) | -53 | upstairs |
 | `44:61:32:63:5f:d5` | .134 | .180 ✅ | ecobee thermostat (`ecobee`) — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
@@ -97,9 +97,9 @@ broadcast by both APs. The basement set moves to `WhiteHouse_IoT_Office`; the re
 | MAC | IP | Fixed IP | Device | Signal | SSID / AP |
 |---|---|---|---|---|---|
 | `3c:78:95:e3:05:d8` | — | .173 ✅ | **Tapo P115, vault's power plug** (`vault-plug`) — back in service 2026-10-11 with its own schedule (on Sun 01:55, off 05:00) after Wake-on-LAN proved unable to wake the board from a multi-day sleep; see docs/vault-power.md | — | `WhiteHouse_IoT`, downstairs (utility closet) |
-| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`) | -46 | upstairs (strongest 2.4 GHz client the upstairs AP has) |
-| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport light** (`carport-light-switch`) | -57 | upstairs, or downstairs if the closet AP hears it better |
-| `d4:91:0f:13:77:99` | .116 | .176 ✅ | **Amazon Smart Plug, 1st gen** (`amazon-plug`; hostname `AmazonPlug09AS`) — **powers the kitchen coffee maker** (found 2026-10-24: re-joining "the coffee maker" in the Alexa app moved this plug). On `WhiteHouse_IoT` since 2026-10-24 | -62 | upstairs (ceiling AP) |
+| `20:23:51:8b:ae:24` | .109 | .174 ✅ | **Kasa HS200, backyard light** (`backyard-light-switch`; "backyard light" in Kasa) — on `WhiteHouse_IoT` since 2026-10-24 | -50 | upstairs (ceiling AP) |
+| `20:23:51:24:c7:4b` | .111 | .175 ✅ | **Kasa HS200, carport driveway light** (`carport-light-switch`; "carport driveway light" in Kasa) — on `WhiteHouse_IoT` since 2026-10-24 | -59 | upstairs (ceiling AP) |
+| `d4:91:0f:13:77:99` | .116 | .176 ✅ | **Amazon Smart Plug, 1st gen** (`amazon-plug`; hostname `AmazonPlug09AS`) — **outlet still unknown**; it was the device that moved when "the coffee maker" was re-joined in the Alexa app on 2026-10-24, but the coffee maker turned out to have its own radio (.117). On `WhiteHouse_IoT` since 2026-10-24 | -59 | upstairs (ceiling AP) |
 | `ac:0b:fb:7c:67:7a` | .133 | .178 ✅ | **Amazon Basics light switch, bedroom** (`bedroom-light-switch`) — the one that stayed up with the office breaker off | -67 | upstairs |
 | `a4:d7:3c:40:f6:c6` | .125 | .184 ✅ | Epson printer (`epson-printer`) | wired — on no controller | — |
 
