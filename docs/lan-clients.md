@@ -81,7 +81,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 |---|---|---|---|---|---|
 | `88:29:bf:d2:a5:6a` | .114 | .160 ✅ | **Echo Spot, Finn's room** (`finn-echo-spot`) | — | upstairs? — not in the kids' DNS rule, by choice so far |
 | `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Spot, Ava's room** (`ava-echo-spot`) | -75 (5 GHz) | by room — not in Ava's DNS rule, by choice so far |
-| `e8:9f:6d:70:fb:f1` | .117 | .163 | **Amazon-made device on an Espressif radio** (Omada: "Amazon") — Fire OS NTP and an Amazon IoT endpoint under a different account prefix than the Amazon Basics switches: a newer Amazon Smart Plug or an Echo accessory (Flex, Glow). **Not placed** on 2026-10-10; find it in the Alexa app by this MAC | -58 | by location |
+| `e8:9f:6d:70:fb:f1` | .117 | .163 | **Coffee maker, kitchen** (Alexa Connect Kit module: Amazon-made Espressif radio, `ack.ntp-fireos.com` time sync and almost nothing else) — Robby's identification 2026-10-24, to confirm by unplugging it and watching `.117` stop answering ping. Goes on `WhiteHouse_IoT` (upstairs, ceiling AP) | -59 | upstairs |
 | `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Spot, office bathroom** (`office-bath-echo-spot`) | -70 | downstairs |
 | `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) | -53 | upstairs |
 | `44:61:32:63:5f:d5` | .134 | .180 ✅ | ecobee thermostat (`ecobee`) — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
