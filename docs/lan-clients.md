@@ -58,10 +58,11 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `34:f6:8d:3d:86:ab` on `WhiteHouse`, `86:a0:f8:02:8a:16` on `WhiteHouse_Office` | .119 / .138 | .134 ✅ | **Robby's iPad** (`robby-ipad`; one private address per SSID, both under the one name) | Robby |
 | `c8:60:00:2b:90:6f` | .150 ✅ | — | **Playroom PC** (`finn-pc`), wired only | Finn — in his night-time DNS rule under this name, and in `ALWAYS_OFF` since 2026-10-12, so it is blocked at all hours until that entry goes |
 | `bc:d2:2c:87:d4:b5` (Intel radio) and `fc:01:7c:7e:75:3a` (Foxconn) | .151 ✅ / .157 ✅ | — | **Finn's Chromebook** (`finn-chromebook`) — Robby identified the Foxconn address on 2026-10-10 (first seen 10-09); the Intel one was the original identification from 09-27. Both are under the one AdGuard name so the night-time rule covers whichever is the real one; when the Chromebook is next on, the active address tells us which to keep | Finn |
-| `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku | Finn |
+| `d4:ab:cd:57:dd:cc` | .152 ✅ | — | Finn's Roku ("Playroom" in Omada — so the Roku is the playroom device at -75 on 5 GHz, not the PC) | Finn |
 | `1c:0d:7d:17:08:fa` | .153 ✅ | — | **the office iPad** (`finn-ipad`) — the iPad Finn uses; kept under his name because it is in his night-time DNS rule | Finn |
 | `f6:99:f3:7b:b5:f7` | .154 ✅ | — | Finn's phone | Finn |
 | `32:b2:62:ef:e8:29` | .155 ✅ | — | Ava's phone | Ava |
+| `ca:03:14:6d:c8:ef` on `WhiteHouse_Ava` | .120 | — | **Ava's phone, the address it uses on her own SSID** (private MAC per SSID; seen 2026-10-24 on `WhiteHouse_Ava`, ceiling AP, -76). AdGuard calls it `192-168-0-120`, so her night-time DNS rule does not know it: add this MAC to her AdGuard client and give it a static lease | Ava |
 | `d4:54:8b:b8:67:17` | .122 | .158 ✅ | **Ava's Chromebook** (`ava-chromebook`; Intel radio) — Robby's call on 2026-10-10: it left the network at 11:14 the day she did. In her night-time DNS rule since the same day | Ava |
 | ? | ? | .156 | Ava's iPad mini | Ava — MAC still to read from the mini |
 
@@ -79,11 +80,11 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 
 | MAC | IP | Fixed IP | Device | Signal | AP |
 |---|---|---|---|---|---|
-| `88:29:bf:d2:a5:6a` | .114 | .160 ✅ | **Echo Spot, Finn's room** (`finn-echo-spot`) | — | upstairs? — not in the kids' DNS rule, by choice so far |
-| `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Spot, Ava's room** (`ava-echo-spot`) | -75 (5 GHz) | by room — not in Ava's DNS rule, by choice so far |
+| `88:29:bf:d2:a5:6a` | .114 | .160 ✅ | **Echo Dot, Finn's room** (`finn-echo-spot`; shows as `amazon-aae4ce0515ce0421` in Omada until named) — basement; still on `WhiteHouse` 2026-10-24, to move to `WhiteHouse_IoT_Lan` | -74 | closet AP once moved |
+| `4c:60:ad:99:cd:3e` | .115 | .161 ✅ | **Echo Dot, Ava's room** (`ava-echo-spot`; `amazon-c4cddbcc6a224fa9` in Omada until named) — basement; still on `WhiteHouse` 2026-10-24, to move to `WhiteHouse_IoT_Lan` | -74 | closet AP once moved |
 | `e8:9f:6d:70:fb:f1` | .117 | .163 | **Unidentified Alexa Connect Kit appliance** — Amazon-made Espressif radio, `ack.ntp-fireos.com` time sync and little else, so something with Alexa built in (the AmazonBasics microwave was the first ACK product). It is **not** the coffee maker (that is on the plug at .176); the "Coffee Maker" name it carries in Omada since 2026-10-24 is wrong. It was re-joined to `WhiteHouse_IoT` at 20:52 on 2026-10-24 through the Alexa app under some other device name, which is the clue. Confirm by unplugging candidates while pinging `.117` | -59 | upstairs (ceiling AP) |
-| `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Spot, office bathroom** (`office-bath-echo-spot`) | -70 | downstairs |
-| `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) | -53 | upstairs |
+| `58:a8:e8:70:4e:85` | .131 | .162 ✅ | **Echo Dot, office bathroom** (`office-bath-echo-spot`; "Office Echo Dot" in Omada) — on the closet AP at -61 but still on `WhiteHouse` 2026-10-24, to move to `WhiteHouse_IoT_Lan` | -61 | closet |
+| `34:d2:70:80:e7:fa` | .126 | .164 ✅ | **Echo, master bedroom** (`master-bedroom-echo`) — still on `WhiteHouse` 2026-10-24, to move to `WhiteHouse_IoT_Lan` | -72 | upstairs |
 | `44:61:32:63:5f:d5` | .134 | .180 ✅ | ecobee thermostat (`ecobee`) — its room sensors talk to the thermostat by 915 MHz radio, not WiFi, so they never appear here | -50 | upstairs |
 | `20:f8:5e:37:50:3f` | .112 | .181 ✅ | Haiku ceiling fan, master bedroom (`bedroom-fan`; SenseME) | -68 | upstairs |
 
