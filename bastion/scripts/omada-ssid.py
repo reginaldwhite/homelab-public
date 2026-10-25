@@ -9,9 +9,14 @@ pair every writing command stops with a clear message. Every write takes --dry-r
     omada-ssid.py show <ssid>                  the controller's full record (password never printed)
     omada-ssid.py profiles                     time-range profiles and MAC groups, with ids
 
-    omada-ssid.py set <ssid> [--bands 2.4,5,6] [--guest on|off] [--broadcast on|off]
-                                               change bands / guest isolation / broadcast; everything
-                                               else is re-sent exactly as the controller has it
+    omada-ssid.py set <ssid> [--bands 2.4,5,6] [--guest on|off] [--broadcast on|off] [--wpa wpa2|wpa2-wpa3]
+                                               change bands / guest isolation / broadcast / WPA mode;
+                                               everything else is re-sent exactly as the controller has
+                                               it. --wpa wpa2 is WPA2-PSK only with PMF off, what old
+                                               IoT radios need (an Amazon Basics switch reported
+                                               "incorrect password" against WPA2/WPA3 mixed, 2026-10-24);
+                                               wpa2-wpa3 is the controller's default mixed mode. The
+                                               update must carry the password, so the script prompts
     omada-ssid.py schedule <ssid> <time-range>|off [--mode on|off]
                                                radio ON during the time range's periods (default), or
                                                OFF during them (--mode off)
@@ -280,14 +285,26 @@ def cmd_set(o, a):
         body["guestNetEnable"] = a.guest == "on"; changes.append(f"guest {d.get('guestNetEnable')} -> {body['guestNetEnable']}")
     if a.broadcast:
         body["broadcast"] = a.broadcast == "on"; changes.append(f"broadcast {d.get('broadcast')} -> {body['broadcast']}")
+    if a.wpa:
+        psk = dict(body.get("pskSetting") or {})
+        was = {1: "wpa", 2: "wpa2", 3: "wpa-wpa2", 4: "wpa2-wpa3"}.get(psk.get("versionPsk"), psk.get("versionPsk"))
+        psk["versionPsk"] = {"wpa2": 2, "wpa2-wpa3": 4}[a.wpa]
+        psk["encryptionPsk"] = 3
+        body["pskSetting"] = psk
+        # PMF: off for plain WPA2 (old radios), capable for the mixed mode, as the controller defaults.
+        body["pmfMode"] = 3 if a.wpa == "wpa2" else 2
+        changes.append(f"wpa {was} -> {a.wpa} (pmf {'off' if a.wpa == 'wpa2' else 'capable'})")
     if not changes:
-        sys.exit("nothing to change (use --bands / --guest / --broadcast)")
+        sys.exit("nothing to change (use --bands / --guest / --broadcast / --wpa)")
     if body.get("security") == 3 and not (body.get("pskSetting") or {}).get("securityKey"):
         # The controller may withhold the key in its own record; it can be supplied from an env var.
         key = os.environ.get("OMADA_SSID_PASSWORD")
+        if not key and sys.stdin.isatty():
+            import getpass
+            key = getpass.getpass(f"the update must carry {a.ssid}'s password; enter it (not echoed): ")
         if not key:
             sys.exit("the controller did not return this SSID's password and the update must carry it: "
-                     "re-run with OMADA_SSID_PASSWORD=<password> in the environment")
+                     "run from a terminal to be prompted, or set OMADA_SSID_PASSWORD")
         body.setdefault("pskSetting", {})["securityKey"] = key
     write(o, a, "PATCH", f"/wireless-network/wlans/{d['wlanId']}/ssids/{d['ssidId']}/update-basic-config", body,
           f"{a.ssid}: " + "; ".join(changes))
@@ -473,7 +490,8 @@ def main():
     s = sub.add_parser("show"); s.add_argument("ssid"); s.set_defaults(fn=cmd_show, write=False)
     sub.add_parser("profiles").set_defaults(fn=cmd_profiles, write=False)
     s = sub.add_parser("set"); s.add_argument("ssid"); s.add_argument("--bands"); s.add_argument("--guest", choices=["on", "off"])
-    s.add_argument("--broadcast", choices=["on", "off"]); s.set_defaults(fn=cmd_set, write=True)
+    s.add_argument("--broadcast", choices=["on", "off"]); s.add_argument("--wpa", choices=["wpa2", "wpa2-wpa3"])
+    s.set_defaults(fn=cmd_set, write=True)
     s = sub.add_parser("schedule"); s.add_argument("ssid"); s.add_argument("time_range")
     s.add_argument("--mode", choices=["on", "off"], default="on", help="radio on during the range (default) or off during it")
     s.set_defaults(fn=cmd_schedule, write=True)
