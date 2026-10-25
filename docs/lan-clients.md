@@ -62,7 +62,7 @@ the upstairs EAP772 from the 2026-10-10 map, which decided the AP column.
 | `1c:0d:7d:17:08:fa` | .153 ✅ | — | **the office iPad** (`finn-ipad`) — the iPad Finn uses; kept under his name because it is in his night-time DNS rule | Finn |
 | `f6:99:f3:7b:b5:f7` | .154 ✅ | — | Finn's phone | Finn |
 | `32:b2:62:ef:e8:29` | .155 ✅ | — | Ava's phone | Ava |
-| `ca:03:14:6d:c8:ef` on `WhiteHouse_Ava` | .120 | — | **Ava's phone, the address it uses on her own SSID** (private MAC per SSID; seen 2026-10-24 on `WhiteHouse_Ava`, ceiling AP, -76). AdGuard calls it `192-168-0-120`, so her night-time DNS rule does not know it: add this MAC to her AdGuard client and give it a static lease | Ava |
+| `ca:03:14:6d:c8:ef` on `WhiteHouse_Ava` | .120 | — | **Ava's phone, the address it uses on her own SSID** (private MAC per SSID; seen 2026-10-24 on `WhiteHouse_Ava`, ceiling AP, -76). Added to her AdGuard client `ava-phone` on 2026-10-25, so the DNS rule covers it; no static lease yet (it holds .120 dynamically) | Ava |
 | `d4:54:8b:b8:67:17` | .122 | .158 ✅ | **Ava's Chromebook** (`ava-chromebook`; Intel radio) — Robby's call on 2026-10-10: it left the network at 11:14 the day she did. In her night-time DNS rule since the same day | Ava |
 | ? | ? | .156 | Ava's iPad mini | Ava — MAC still to read from the mini |
 
