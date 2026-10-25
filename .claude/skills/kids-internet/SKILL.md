@@ -6,7 +6,7 @@ description: Check, pause or restore the children's internet (Ava, Finn) outside
 # Children's internet windows
 
 Each child's devices lose internet outside a window that bastion enforces in AdGuard on a
-schedule. Ava (15): Sun–Thu 05:30–22:00, Fri–Sat 05:30–23:00. Finn (13): Sun–Thu
+schedule. Ava (15): every night 05:30–23:30 (since 2026-10-25). Finn (13): Sun–Thu
 06:00–21:30, Fri–Sat 06:00–22:15. The schedule lives on bastion; this skill only reads it or
 overrides it for now.
 

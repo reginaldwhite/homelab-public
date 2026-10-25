@@ -48,8 +48,8 @@ from zoneinfo import ZoneInfo
 # Saturday; the start applies every morning. AdGuard persistent-client names carry the child.
 CHILDREN = {
     "ava": {                                  # 15
-        "school": ("05:30", "22:00"),
-        "weekend": ("05:30", "23:00"),
+        "school": ("05:30", "23:30"),          # 23:30 every night since 2026-10-25 (was 22:00 / 23:00)
+        "weekend": ("05:30", "23:30"),
         "devices": ["ava-phone", "ava-chromebook",
                     # still to identify and add: the iPad mini (ava-ipad-mini, .156)
                     ],

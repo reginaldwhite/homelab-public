@@ -18,8 +18,8 @@ app, or a device in your hand.
 - **Scope: all internet**, not just entertainment. Off-hours, a child's device can reach the LAN
   and nothing else.
 - **Two windows, one per child** (revised 2026-09-28 from a single 07:00–20:00 window):
-  Ava (15) Sun–Thu 05:30–22:00, Fri–Sat 05:30–23:00; Finn (13) Sun–Thu 06:00–21:30,
-  Fri–Sat 06:00–22:15. One place holds them (below); changing it there changes every layer.
+  Ava (15) every night 05:30–23:30 (from 2026-10-25; was Sun–Thu 22:00, Fri–Sat 23:00);
+  Finn (13) Sun–Thu 06:00–21:30, Fri–Sat 06:00–22:15. One place holds them (below); changing it there changes every layer.
 - **Plex is off with the rest, probably.** The children's block carries `important`, so it
   outranks the `@@||plex.direct^` allow rule (which lost its own `$important` for this). But
   AdGuard answers DNS *rewrites* before it evaluates rules, so `*.plex.direct` names still
@@ -60,7 +60,7 @@ children onto their own SSID and the main password out of their hands, which is 
 
 ```python
 CHILDREN = {          # local time, America/Chicago; AdGuard persistent-client names
-    "ava":  {"school": ("05:30", "22:00"), "weekend": ("05:30", "23:00"),
+    "ava":  {"school": ("05:30", "23:30"), "weekend": ("05:30", "23:30"),
               "devices": ["ava-phone"]},                     # + ava-ipad-mini once pinned
     "finn": {"school": ("06:00", "21:30"), "weekend": ("06:00", "22:15"),
               "devices": ["finn-pc", "finn-chromebook", "finn-roku", "finn-ipad", "finn-phone"]},
