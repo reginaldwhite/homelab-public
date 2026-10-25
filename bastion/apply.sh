@@ -117,6 +117,10 @@ if [[ $VALIDATE -eq 1 ]]; then
     fi
     [[ -n "$have_vw" && "$have_vw" != "$want_vw" ]] \
         && say "vaultwarden: $have_vw -> $want_vw (vw-data is backed up first)"
+    # AdGuard's client list and static leases as a file (scripts/adguard-clients.py): the file
+    # must parse, and when a .env is beside this copy the diff against the controller is shown.
+    python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$HERE/adguard/clients.json"
+    if [[ -f "$OBS_ENV" ]]; then "$HERE/scripts/adguard-clients.py" diff | sed 's/^/    /' || true; fi
     crontab -l 2>/dev/null | diff -u --label installed --label repo - "$HERE/crontab" \
         | sed 's/^/    /' || true
     exit 0
@@ -161,6 +165,11 @@ say "caddy config reloaded"
 
 docker compose ps --format '    {{.Name}}\t{{.Image}}\t{{.Status}}'
 [[ "$have_vw" != "$want_vw" ]] && docker logs vaultwarden 2>&1 | grep -m1 -i 'version' || true
+
+# AdGuard clients and static leases from adguard/clients.json (the file is the truth; entries
+# only the controller has are kept and listed, never removed here).
+for _ in $(seq 1 15); do curl -fsS -o /dev/null http://127.0.0.1:8888/ 2>/dev/null && break; sleep 2; done
+"$HERE/scripts/adguard-clients.py" apply | sed 's/^/    /'
 
 # --- observability ----------------------------------------------------------------------
 if [[ -d "$OBS_DIR" ]]; then

@@ -1,0 +1,1337 @@
+{
+ "_comment": "AdGuard clients and static leases, applied by scripts/adguard-clients.py on deploy. Edit here, then ./deploy.sh bastion. `export --write` refreshes it from the controller.",
+ "clients": [
+  {
+   "name": "ac-lite",
+   "ids": [
+    "80:2a:a8:78:18:6a"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "amazon-plug",
+   "ids": [
+    "d4:91:0f:13:77:99"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "backyard-light-switch",
+   "ids": [
+    "20:23:51:8b:ae:24"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "bedroom-fan",
+   "ids": [
+    "20:f8:5e:37:50:3f"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "bedroom-light-switch",
+   "ids": [
+    "ac:0b:fb:7c:67:7a"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "carport-light-switch",
+   "ids": [
+    "20:23:51:24:c7:4b"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "ecobee",
+   "ids": [
+    "44:61:32:63:5f:d5"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "epson-printer",
+   "ids": [
+    "a4:d7:3c:40:f6:c6"
+   ],
+   "tags": [
+    "device_printer"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "huum",
+   "ids": [
+    "d4:8a:fc:c1:06:31"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "living-room-appletv",
+   "ids": [
+    "c4:f7:c1:23:dc:e7"
+   ],
+   "tags": [
+    "device_tv"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "living-room-denon",
+   "ids": [
+    "8c:a9:6f:17:45:75"
+   ],
+   "tags": [
+    "device_audio"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "ava-chromebook",
+   "ids": [
+    "d4:54:8b:b8:67:17"
+   ],
+   "tags": [
+    "device_laptop",
+    "user_child"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "ava-echo-spot",
+   "ids": [
+    "4c:60:ad:99:cd:3e"
+   ],
+   "tags": [
+    "device_audio"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "ava-phone",
+   "ids": [
+    "32:b2:62:ef:e8:29",
+    "ca:03:14:6d:c8:ef"
+   ],
+   "tags": [
+    "user_child"
+   ],
+   "use_global_settings": false,
+   "filtering_enabled": true,
+   "parental_enabled": true,
+   "safebrowsing_enabled": true,
+   "safe_search": {
+    "enabled": true,
+    "bing": true,
+    "duckduckgo": true,
+    "ecosia": true,
+    "google": true,
+    "pixabay": true,
+    "yandex": true,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "master-bedroom-echo",
+   "ids": [
+    "34:d2:70:80:e7:fa"
+   ],
+   "tags": [
+    "device_audio"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "office-appletv",
+   "ids": [
+    "50:32:37:0e:f0:d1",
+    "50:32:37:0e:81:d9"
+   ],
+   "tags": [
+    "device_tv"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "office-bath-echo-spot",
+   "ids": [
+    "58:a8:e8:70:4e:85"
+   ],
+   "tags": [
+    "device_audio"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "office-computer-plug",
+   "ids": [
+    "60:83:e7:74:84:07"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "office-hisense-tv",
+   "ids": [
+    "2c:fe:e2:98:84:4a"
+   ],
+   "tags": [
+    "device_tv"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "office-light-switch",
+   "ids": [
+    "ac:0b:fb:11:2f:68"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "office-stereo-plug",
+   "ids": [
+    "60:83:e7:42:1b:99"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "rachio",
+   "ids": [
+    "0c:2a:69:0f:57:89"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "robby-ipad",
+   "ids": [
+    "34:f6:8d:3d:86:ab",
+    "86:a0:f8:02:8a:16"
+   ],
+   "tags": [
+    "device_tablet",
+    "user_admin"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "robby-iphone",
+   "ids": [
+    "ee:96:db:cc:e4:46",
+    "fe:39:48:a3:13:8f"
+   ],
+   "tags": [
+    "device_phone",
+    "user_admin"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "robby-macbook",
+   "ids": [
+    "5a:c8:92:98:1f:e6",
+    "72:b6:f7:79:f4:5a"
+   ],
+   "tags": [
+    "device_laptop",
+    "user_admin"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "robby-work-macbook",
+   "ids": [
+    "0e:cb:3b:51:53:d2",
+    "9a:e1:bb:5b:12:e7"
+   ],
+   "tags": [
+    "device_laptop",
+    "user_admin"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "towel-warmer-plug",
+   "ids": [
+    "60:83:e7:f3:6b:4e"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "vault-plug",
+   "ids": [
+    "3c:78:95:e3:05:d8"
+   ],
+   "tags": [
+    "device_other"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "finn-chromebook",
+   "ids": [
+    "bc:d2:2c:87:d4:b5",
+    "fc:01:7c:7e:75:3a"
+   ],
+   "tags": [
+    "device_laptop",
+    "user_child"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "finn-echo-spot",
+   "ids": [
+    "88:29:bf:d2:a5:6a"
+   ],
+   "tags": [
+    "device_audio"
+   ],
+   "use_global_settings": true,
+   "filtering_enabled": false,
+   "parental_enabled": false,
+   "safebrowsing_enabled": false,
+   "safe_search": {
+    "enabled": false,
+    "bing": false,
+    "duckduckgo": false,
+    "ecosia": false,
+    "google": false,
+    "pixabay": false,
+    "yandex": false,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "finn-ipad",
+   "ids": [
+    "1c:0d:7d:17:08:fa"
+   ],
+   "tags": [
+    "user_child"
+   ],
+   "use_global_settings": false,
+   "filtering_enabled": true,
+   "parental_enabled": true,
+   "safebrowsing_enabled": true,
+   "safe_search": {
+    "enabled": true,
+    "bing": true,
+    "duckduckgo": true,
+    "ecosia": true,
+    "google": true,
+    "pixabay": true,
+    "yandex": true,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "finn-pc",
+   "ids": [
+    "c8:60:00:2b:90:6f"
+   ],
+   "tags": [
+    "user_child"
+   ],
+   "use_global_settings": false,
+   "filtering_enabled": true,
+   "parental_enabled": true,
+   "safebrowsing_enabled": true,
+   "safe_search": {
+    "enabled": true,
+    "bing": true,
+    "duckduckgo": true,
+    "ecosia": true,
+    "google": true,
+    "pixabay": true,
+    "yandex": true,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "finn-phone",
+   "ids": [
+    "f6:99:f3:7b:b5:f7"
+   ],
+   "tags": [
+    "user_child"
+   ],
+   "use_global_settings": false,
+   "filtering_enabled": true,
+   "parental_enabled": true,
+   "safebrowsing_enabled": true,
+   "safe_search": {
+    "enabled": true,
+    "bing": true,
+    "duckduckgo": true,
+    "ecosia": true,
+    "google": true,
+    "pixabay": true,
+    "yandex": true,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  },
+  {
+   "name": "finn-roku",
+   "ids": [
+    "d4:ab:cd:57:dd:cc"
+   ],
+   "tags": [
+    "user_child"
+   ],
+   "use_global_settings": false,
+   "filtering_enabled": true,
+   "parental_enabled": true,
+   "safebrowsing_enabled": true,
+   "safe_search": {
+    "enabled": true,
+    "bing": true,
+    "duckduckgo": true,
+    "ecosia": true,
+    "google": true,
+    "pixabay": true,
+    "yandex": true,
+    "youtube": false
+   },
+   "use_global_blocked_services": true,
+   "blocked_services": [],
+   "blocked_services_schedule": {
+    "time_zone": "UTC"
+   },
+   "upstreams": [],
+   "ignore_querylog": false,
+   "ignore_statistics": false,
+   "upstreams_cache_enabled": false,
+   "upstreams_cache_size": 0
+  }
+ ],
+ "static_leases": [
+  {
+   "mac": "a8:29:48:16:dd:07",
+   "ip": "192.168.0.2",
+   "hostname": "eap772-a8-29-48-16-dd-07"
+  },
+  {
+   "mac": "80:2a:a8:78:18:6a",
+   "ip": "192.168.0.3",
+   "hostname": "ac-lite"
+  },
+  {
+   "mac": "a8:29:48:81:29:0b",
+   "ip": "192.168.0.4",
+   "hostname": "eap770-closet"
+  },
+  {
+   "mac": "8c:a9:6f:17:45:75",
+   "ip": "192.168.0.20",
+   "hostname": "living-room-denon"
+  },
+  {
+   "mac": "fe:39:48:a3:13:8f",
+   "ip": "192.168.0.130",
+   "hostname": "robby-iphone"
+  },
+  {
+   "mac": "5a:c8:92:98:1f:e6",
+   "ip": "192.168.0.131",
+   "hostname": "robby-macbook"
+  },
+  {
+   "mac": "0e:cb:3b:51:53:d2",
+   "ip": "192.168.0.132",
+   "hostname": "robby-work-macbook"
+  },
+  {
+   "mac": "34:f6:8d:3d:86:ab",
+   "ip": "192.168.0.134",
+   "hostname": "robby-ipad"
+  },
+  {
+   "mac": "c4:f7:c1:23:dc:e7",
+   "ip": "192.168.0.140",
+   "hostname": "living-room-appletv"
+  },
+  {
+   "mac": "50:32:37:0e:81:d9",
+   "ip": "192.168.0.141",
+   "hostname": "office-appletv"
+  },
+  {
+   "mac": "2c:fe:e2:98:84:4a",
+   "ip": "192.168.0.142",
+   "hostname": "office-hisense-tv"
+  },
+  {
+   "mac": "c8:60:00:2b:90:6f",
+   "ip": "192.168.0.150",
+   "hostname": "finn-pc"
+  },
+  {
+   "mac": "bc:d2:2c:87:d4:b5",
+   "ip": "192.168.0.151",
+   "hostname": "finn-chromebook"
+  },
+  {
+   "mac": "d4:ab:cd:57:dd:cc",
+   "ip": "192.168.0.152",
+   "hostname": "finn-roku"
+  },
+  {
+   "mac": "1c:0d:7d:17:08:fa",
+   "ip": "192.168.0.153",
+   "hostname": "finn-ipad"
+  },
+  {
+   "mac": "f6:99:f3:7b:b5:f7",
+   "ip": "192.168.0.154",
+   "hostname": "finn-phone"
+  },
+  {
+   "mac": "32:b2:62:ef:e8:29",
+   "ip": "192.168.0.155",
+   "hostname": "ava-phone"
+  },
+  {
+   "mac": "ca:03:14:6d:c8:ef",
+   "ip": "192.168.0.156",
+   "hostname": "ava-phone-ava-ssid"
+  },
+  {
+   "mac": "fc:01:7c:7e:75:3a",
+   "ip": "192.168.0.157",
+   "hostname": "finn-chromebook-b"
+  },
+  {
+   "mac": "d4:54:8b:b8:67:17",
+   "ip": "192.168.0.158",
+   "hostname": "ava-chromebook"
+  },
+  {
+   "mac": "88:29:bf:d2:a5:6a",
+   "ip": "192.168.0.160",
+   "hostname": "finn-echo-spot"
+  },
+  {
+   "mac": "4c:60:ad:99:cd:3e",
+   "ip": "192.168.0.161",
+   "hostname": "ava-echo-spot"
+  },
+  {
+   "mac": "58:a8:e8:70:4e:85",
+   "ip": "192.168.0.162",
+   "hostname": "office-bath-echo-spot"
+  },
+  {
+   "mac": "34:d2:70:80:e7:fa",
+   "ip": "192.168.0.164",
+   "hostname": "master-bedroom-echo"
+  },
+  {
+   "mac": "60:83:e7:74:84:07",
+   "ip": "192.168.0.170",
+   "hostname": "office-computer-plug"
+  },
+  {
+   "mac": "60:83:e7:42:1b:99",
+   "ip": "192.168.0.171",
+   "hostname": "office-stereo-plug"
+  },
+  {
+   "mac": "60:83:e7:f3:6b:4e",
+   "ip": "192.168.0.172",
+   "hostname": "towel-warmer-plug"
+  },
+  {
+   "mac": "3c:78:95:e3:05:d8",
+   "ip": "192.168.0.173",
+   "hostname": "vault-plug"
+  },
+  {
+   "mac": "20:23:51:8b:ae:24",
+   "ip": "192.168.0.174",
+   "hostname": "backyard-light-switch"
+  },
+  {
+   "mac": "20:23:51:24:c7:4b",
+   "ip": "192.168.0.175",
+   "hostname": "carport-light-switch"
+  },
+  {
+   "mac": "d4:91:0f:13:77:99",
+   "ip": "192.168.0.176",
+   "hostname": "amazon-plug"
+  },
+  {
+   "mac": "ac:0b:fb:11:2f:68",
+   "ip": "192.168.0.177",
+   "hostname": "office-light-switch"
+  },
+  {
+   "mac": "ac:0b:fb:7c:67:7a",
+   "ip": "192.168.0.178",
+   "hostname": "bedroom-light-switch"
+  },
+  {
+   "mac": "44:61:32:63:5f:d5",
+   "ip": "192.168.0.180",
+   "hostname": "ecobee"
+  },
+  {
+   "mac": "20:f8:5e:37:50:3f",
+   "ip": "192.168.0.181",
+   "hostname": "bedroom-fan"
+  },
+  {
+   "mac": "d4:8a:fc:c1:06:31",
+   "ip": "192.168.0.182",
+   "hostname": "huum"
+  },
+  {
+   "mac": "0c:2a:69:0f:57:89",
+   "ip": "192.168.0.183",
+   "hostname": "rachio"
+  },
+  {
+   "mac": "a4:d7:3c:40:f6:c6",
+   "ip": "192.168.0.184",
+   "hostname": "epson-printer"
+  },
+  {
+   "mac": "e0:cb:4e:9d:02:6a",
+   "ip": "192.168.0.212",
+   "hostname": "vault"
+  }
+ ]
+}

@@ -117,6 +117,13 @@ broadcast by both APs. The basement set moves to `WhiteHouse_IoT_Office`; the re
 
 ## How to change this file
 
+Since 2026-10-25 the AdGuard side of every row — the client name, the MACs under it, the static
+lease — is [bastion/adguard/clients.json](../bastion/adguard/clients.json), applied by
+`scripts/adguard-clients.py` on every deploy. Edit that file and this one in the same commit;
+`adguard-clients.py export --write` refreshes the file from the controller after a change made in
+the UI or by the agent.
+
+
 - A device gets identified: fill in *Device*, pick its SSID/AP row, give it the next free
   *Fixed IP* in its range, then set the static lease and the AdGuard client name (the agent
   does both through AdGuard's API; say "pin .120 as rachio").

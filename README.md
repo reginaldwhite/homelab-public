@@ -64,6 +64,13 @@ General services and scheduling hub. Docker compose: [bastion/vaultwarden/docker
 > `JOBHUNT_SLACK_WEBHOOK_URL`) live in bastion's `.env`; the database joins the nightly
 > `~/backups/` dump.
 >
+> **AdGuard's client list and static leases are in git (2026-10-25):**
+> [bastion/adguard/clients.json](bastion/adguard/clients.json), applied by
+> `scripts/adguard-clients.py apply` at the end of every bastion deploy (`--validate` shows the
+> diff). Entries that exist only on the controller are kept and listed, never deleted by a
+> deploy; `export --write` pulls the live list back into the file. `AdGuardHome.yaml` itself stays
+> outside git (admin hash, runtime state) and is mirrored to vault on Sundays as before.
+>
 > **Since 2026-09-27 AdGuard is the LAN's DHCP server** and the router's DHCP is off, so every
 > client is told to use `192.168.0.10` for DNS. The paragraph below describes the state before that
 > and why it mattered; the runbook records how it was done.
